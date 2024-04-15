@@ -1,22 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './agent.scss';
+import { Modal } from './modal/modal';
 
-const insertWidgetScriptBefore = (
-  srcFile: string,
-  insertBeforeElement: HTMLElement
-) => {
-  const selector = `script[src='${srcFile}']`;
+const InjectScript = React.memo(({ script }: { script: string }) => {
+  const divRef = useRef<HTMLDivElement | null>(null);
 
-  if (document.querySelectorAll(selector).length > 0) {
-    return;
-  }
+  useEffect(() => {
+    if (divRef.current === null) {
+      return;
+    }
 
-  const script = document.createElement('script');
-  script.src = srcFile;
-  script.defer = true;
+    const doc = document.createRange().createContextualFragment(script);
 
-  insertBeforeElement.parentNode?.insertBefore(script, insertBeforeElement);
-};
+    divRef.current.innerHTML = '';
+    divRef.current.appendChild(doc);
+  }, [script]);
+
+  return <div ref={divRef} />;
+});
 
 export const Agent = () => {
   const [thread, setThread] = useState<AssistantThread[]>([]);
@@ -31,9 +32,27 @@ export const Agent = () => {
 
   const [mustTopUp, setMustTopUp] = useState(false);
 
+  const [showModal, setShowModal] = useState(false);
+
+  const [textareaWidgetHtmlCode, setTextareaWidgetHtmlCode] = useState('');
+
+  const [widgetHtmlCode, setWidgetHtmlCode] = useState('');
+
   const messageRef = useRef<HTMLTextAreaElement>(null);
 
   const threadEndRef = useRef<HTMLDivElement>(null);
+
+  const loadWidget = () => {
+    setAgentData(null);
+
+    setMustTopUp(false);
+
+    setShowModal(false);
+
+    setThread([]);
+
+    setWidgetHtmlCode(textareaWidgetHtmlCode);
+  };
 
   const resetQuery = () => {
     setQuery('');
@@ -124,22 +143,47 @@ export const Agent = () => {
   }, [thread]);
 
   useEffect(() => {
-    insertWidgetScriptBefore(
-      'https://widgets.testing.nevermined.app/nvm-agent-widget-loader.js',
-      document.querySelector('.nvm-agent-widget')!
-    );
-
     window.addEventListener('message', handleAgentEvents, false);
   }, []);
 
   return (
     <div className="agent-container">
       <div className="widget-container">
-        <div
-          className="nvm-agent-widget"
-          nvm-did="did:nv:8c7b9617b1bd9bf33d4d53519001c416f8e8bdc227783c918f622519c4097073"
-          nvm-layout="horizontal"
-        />
+        {showModal && (
+          <Modal
+            onCloseClick={() => {
+              setShowModal(false);
+            }}
+          >
+            <div className="textarea-content">
+              <textarea
+                value={textareaWidgetHtmlCode}
+                onChange={(e) =>
+                  setTextareaWidgetHtmlCode(e.currentTarget.value)
+                }
+                tabIndex={0}
+                autoFocus
+              ></textarea>
+              <button
+                type="submit"
+                onClick={() => {
+                  loadWidget();
+                }}
+                disabled={!textareaWidgetHtmlCode}
+              >
+                Save
+              </button>
+            </div>
+          </Modal>
+        )}
+        <button
+          type="submit"
+          className="toggle"
+          onClick={() => setShowModal((prev) => !prev)}
+        >
+          Add a widget HTML code
+        </button>
+        <InjectScript script={widgetHtmlCode} />
       </div>
       <div className="chat-panel">
         <div className="thread-container">
