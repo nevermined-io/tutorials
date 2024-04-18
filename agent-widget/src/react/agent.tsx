@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './agent.scss';
 import { Modal } from './modal/modal';
+import { useParams } from 'react-router-dom';
+import { useSearchParams } from '../../node_modules/react-router-dom/dist/index';
 
 const InjectScript = React.memo(({ script }: { script: string }) => {
   const divRef = useRef<HTMLDivElement | null>(null);
@@ -20,6 +22,8 @@ const InjectScript = React.memo(({ script }: { script: string }) => {
 });
 
 export const Agent = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [thread, setThread] = useState<AssistantThread[]>([]);
 
   const [query, setQuery] = useState('');
@@ -51,7 +55,7 @@ export const Agent = () => {
 
     setThread([]);
 
-    setWidgetHtmlCode(textareaWidgetHtmlCode);
+    setSearchParams({ html: encodeURIComponent(textareaWidgetHtmlCode) });
   };
 
   const resetQuery = () => {
@@ -141,6 +145,17 @@ export const Agent = () => {
       block: 'nearest',
     });
   }, [thread]);
+
+  useEffect(() => {
+    const encodedHtml = searchParams.get('html');
+
+    if (encodedHtml) {
+      const decodedHtml = decodeURIComponent(encodedHtml)
+
+      setWidgetHtmlCode(decodedHtml);
+      setTextareaWidgetHtmlCode(decodedHtml);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     window.addEventListener('message', handleAgentEvents, false);
