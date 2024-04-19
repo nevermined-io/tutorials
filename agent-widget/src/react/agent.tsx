@@ -137,7 +137,7 @@ export const Agent = () => {
       <div className="widget-container">
         <div
           className="nvm-agent-widget"
-          nvm-did="did:nv:8797caa1baf332316e7d76d53c37619870672062df9727e94a6c714df821f5cf"
+          nvm-did="did:nv:a973eed275745f5a36cecf7124ed2ec53e26617f22513371be80748d4ad3fd25"
           nvm-layout="horizontal"
         />
       </div>
