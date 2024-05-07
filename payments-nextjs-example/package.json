@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@nevermined-io/payments": "0.1.5",
+    "@nevermined-io/payments": "0.2.1",
     "next": "14.1.0",
     "react": "^18",
     "react-dom": "^18"

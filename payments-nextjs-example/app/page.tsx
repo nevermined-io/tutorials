@@ -127,13 +127,13 @@ export default function Home() {
   }
 
   // TODO: uncomment when the methods are available
-  // async function orderSubscription(did: string) {
-  //   if (payments.isLoggedIn) {
-  //     console.log("ordering subscription");
-  //     const result = await payments.orderSubscription(did)
-  //     console.log(result)
-  //   }
-  // }
+  async function orderSubscription(did: string) {
+    if (payments.isLoggedIn) {
+      console.log("ordering subscription");
+      const result = await payments.orderSubscription(did)
+      console.log(result)
+    }
+  }
 
   // async function downloadFile(did: string) {
   //   if (payments.isLoggedIn) {
@@ -169,8 +169,8 @@ export default function Home() {
           <button disabled={!isUserLoggedIn} onClick={createFile}>Create Dataset</button>
           <button disabled={!isUserLoggedIn} onClick={() => getDDO('did:nv:f5dcc62d5308d3bf76befc9bf95f5c9f53406952ff00bd46acb851664bad89d9')}>GET DDO</button>
           <button disabled={!isUserLoggedIn} onClick={() => getBalance('did:nv:f5dcc62d5308d3bf76befc9bf95f5c9f53406952ff00bd46acb851664bad89d9')}>GET Balance</button>
-        {/*
           <button disabled={!isUserLoggedIn} onClick={() => orderSubscription('did:nv:b2ea886bc3b1a2319fa02b99edf444b681778505145124f6bf301b95826dd894')}>Order</button>
+        {/*  
           <button disabled={!isUserLoggedIn} onClick={() => downloadFile('did:nv:d65e2726b37510d231a86183d0de5d9281830381b579315c64e1eea7ee3e416f')}>Download file</button>  
         */}
         </div>
