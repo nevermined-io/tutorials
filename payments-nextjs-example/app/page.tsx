@@ -58,7 +58,7 @@ export default function Home() {
     if (payments.isLoggedIn) {
       console.log("creating webservice");
       const result = await payments.createService({
-        subscriptionDid: "did:nv:6b1bcfd7b41b688b1cddd3dfdd847fbaa0c90014cad33026fa4f768503260de6", 
+        subscriptionDid: "did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460", 
         name: "test webservice",
         description: "test",
         price: 10000000n,
@@ -81,7 +81,7 @@ export default function Home() {
     if (payments.isLoggedIn) {
       console.log("creating dataset");
       const result = await payments.createFile({
-        subscriptionDid: "did:nv:6b1bcfd7b41b688b1cddd3dfdd847fbaa0c90014cad33026fa4f768503260de6", 
+        subscriptionDid: "did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460", 
         name: "test dataset",
         description: "test",
         price: 10000000n,
@@ -121,7 +121,7 @@ export default function Home() {
   async function getBalance(did: string) {
     if (payments.isLoggedIn) {
       console.log("getting balance");
-      const result = await payments.getSubscriptionBalance(did)
+      const result = await payments.getSubscriptionBalance(did, '0xA3222ba5a382ccEECdA8984ffcc0d1c9fE9Af783')
       console.log(result)
     }
   }
@@ -167,9 +167,9 @@ export default function Home() {
           <button disabled={!isUserLoggedIn} onClick={createSubscription}>Create Subscription</button>
           <button disabled={!isUserLoggedIn} onClick={createService}>Create Webservice</button>
           <button disabled={!isUserLoggedIn} onClick={createFile}>Create Dataset</button>
-          <button disabled={!isUserLoggedIn} onClick={() => getDDO('did:nv:f5dcc62d5308d3bf76befc9bf95f5c9f53406952ff00bd46acb851664bad89d9')}>GET DDO</button>
-          <button disabled={!isUserLoggedIn} onClick={() => getBalance('did:nv:f5dcc62d5308d3bf76befc9bf95f5c9f53406952ff00bd46acb851664bad89d9')}>GET Balance</button>
-          <button disabled={!isUserLoggedIn} onClick={() => orderSubscription('did:nv:b2ea886bc3b1a2319fa02b99edf444b681778505145124f6bf301b95826dd894')}>Order</button>
+          <button disabled={!isUserLoggedIn} onClick={() => getDDO('did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460')}>GET DDO</button>
+          <button disabled={!isUserLoggedIn} onClick={() => getBalance('did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460')}>GET Balance</button>
+          <button disabled={!isUserLoggedIn} onClick={() => orderSubscription('did:nv:debe46f1c0f3e36c853a9f093717c46eaa94df9b302731b9d06e7e07e5fd0c8b')}>Order</button>
         {/*  
           <button disabled={!isUserLoggedIn} onClick={() => downloadFile('did:nv:d65e2726b37510d231a86183d0de5d9281830381b579315c64e1eea7ee3e416f')}>Download file</button>  
         */}
