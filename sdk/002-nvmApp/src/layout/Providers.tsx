@@ -21,10 +21,6 @@ const Providers = ({
         transport: http(),
       })
     },
-
-    // transports: {
-    //   [arbitrumSepolia.id]: http(),
-    // },
   })
   
   const queryClient = new QueryClient()

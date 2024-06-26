@@ -1,4 +1,5 @@
-import { NVMAppEnvironments, NvmAccount, NvmApp } from "@nevermined-io/sdk"
+import { deleteMarketplaceToken, fetchMarketplaceApiTokenFromLocalStorage, setMarketplaceApiTokenOnLocalStorage } from "@/utils/marketplace-api-token"
+import { NVMAppEnvironments, NvmApp } from "@nevermined-io/sdk"
 import { NextPage } from "next"
 import { useEffect, useState } from "react"
 import {
@@ -8,7 +9,7 @@ import {
 } from 'wagmi'
 
 const MainPage: NextPage = () => {
-    const { address, isConnected } = useAccount()
+    const { address } = useAccount()
     const account = useAccount()
 
     const { connect, connectors } = useConnect()
@@ -16,8 +17,7 @@ const MainPage: NextPage = () => {
 
     const [nvmApp, setNvmApp] = useState<NvmApp>({} as NvmApp)
     const [isNvmAppLoading, setIsNvmAppLoading] = useState(true)
-    const [marketplaceAuthToken, setMarketplaceAuthToken] = useState<string>('')
-
+    const [isConnected, setIsConnected] = useState(false)
 
 
     useEffect(() => {
@@ -36,13 +36,30 @@ const MainPage: NextPage = () => {
         if (nvmApp && account.address) {
             void (async () => {
             console.log('Connecting to NvmApp')
-              const connectionResult = await nvmApp?.connect(account.address)
-              setMarketplaceAuthToken(connectionResult.marketplaceAuthToken)
-              console.log(nvmApp.isWeb3Connected())
+              try{  
+                const token = fetchMarketplaceApiTokenFromLocalStorage()
+
+                const connectionResult = token ? await nvmApp?.connect(account.address, "welcome to nevermined", { ...nvmApp?.config, marketplaceAuthToken: token }) : await nvmApp?.connect(account.address, "welcome to nevermined")
+                setMarketplaceApiTokenOnLocalStorage({ token: connectionResult.marketplaceAuthToken })
+                console.log(connectionResult)
+                console.log(nvmApp.isWeb3Connected())
+                setIsConnected(nvmApp.isWeb3Connected())
+              }
+              catch(e){
+                    console.log(e)
+                }
             })()
         }
     }, [isNvmAppLoading, account.status])
 
+    const fullDisconnect = async () => {
+        if (nvmApp) {
+            disconnect()
+            await nvmApp.disconnect()
+            deleteMarketplaceToken()
+            setIsConnected(nvmApp.isWeb3Connected())
+        }
+    }
 
 
     if (isNvmAppLoading) return <div>Loading...</div>;
@@ -54,7 +71,7 @@ const MainPage: NextPage = () => {
                 {isConnected ? (
                     <div>
                         Connected to {address}
-                        <button onClick={() => disconnect()}>Disconnect</button>
+                        <button onClick={() => fullDisconnect()}>Disconnect</button>
                     </div>
                 ) : (
                     <button onClick={() => connect({connector : connectors[0]})}>Connect Wallet</button>

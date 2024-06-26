@@ -23,11 +23,7 @@ yarn install
 
 Copy .env.local.example to .env.local.
 
-### 4. Get artifacts of nevermined 
-
-```yarn artifacts:arbitrum-sepolia```
-
-### 5. Run the App
+### 4. Run the App
 
 - Development: ```yarn dev```
 - Production: ```yarn build && yarn start```

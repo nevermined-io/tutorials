@@ -2130,10 +2130,10 @@
     "@motionone/dom" "^10.16.4"
     tslib "^2.3.1"
 
-"@nevermined-io/sdk@3.0.15-rc3":
-  version "3.0.15-rc3"
-  resolved "https://registry.yarnpkg.com/@nevermined-io/sdk/-/sdk-3.0.15-rc3.tgz#250b935856a4c761fb05cc59271b036d284b16a6"
-  integrity sha512-WjKlYKvrBWmpij990r/HxFipMY/aGxrv6LwteoK0bDD4ohoj1PaNOEXTPK1Ln+xnBTbyyFQy3g6Zs4jRr5r6+A==
+"@nevermined-io/sdk@3.0.15":
+  version "3.0.15"
+  resolved "https://registry.yarnpkg.com/@nevermined-io/sdk/-/sdk-3.0.15.tgz#a6c281fb66367c7c76e7c1ae98ab39087a036f02"
+  integrity sha512-k3QTSQzUOddTv79tlkWGy2UouzopJAcpKDaR6ZHd0Gz65lNp3M+eaEmRZ7E075dBkJcddsgc9y/FW+aQmEmwsw==
   dependencies:
     "@alchemy/aa-core" "3.12.1"
     "@apollo/client" "^3.7.16"
