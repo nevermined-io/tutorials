@@ -16,9 +16,7 @@ const nextConfig = {
     'react-hook-form',
     'react-syntax-highlighter',
     'swagger-client',
-    'swagger-ui-react',
-    'streamlit-component-lib',
-  ],
+    ],
   images: {
     unoptimized: true,
     deviceSizes: [375, 768, 1280, 1440, 1920],
@@ -26,7 +24,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'static.goerli.nevermined.one',
+        hostname: 'static.testing.nevermined.app',
       },
     ],
   },
@@ -65,7 +63,7 @@ const nextConfig = {
             ],
           },
         },
-      },
+      }
     )
 
     config.resolve.fallback = {

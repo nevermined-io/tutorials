@@ -1,13 +1,13 @@
 import { deleteMarketplaceToken, fetchMarketplaceApiTokenFromLocalStorage, setMarketplaceApiTokenOnLocalStorage } from "@/utils/marketplace-api-token"
-import { DDO, NVMAppEnvironments, NvmApp } from "@nevermined-io/sdk"
+import { AssetPrice, CreateProgressStep, DDO, MetaData, NETWORK_FEE_DENOMINATOR, NVMAppEnvironments, NvmApp, SubscribablePromise } from "@nevermined-io/sdk"
 import { NextPage } from "next"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
     useAccount,
     useConnect,
     useDisconnect,
 } from 'wagmi'
-import { assetTypeFilter, isListedFilter } from "./queries"
+import { assetTypeFilter, isListedFilter } from "../utils/queries"
 
 const MainPage: NextPage = () => {
     const { address } = useAccount()
@@ -23,6 +23,7 @@ const MainPage: NextPage = () => {
     const [plans, setPlans] = useState<DDO[]>()
 
     const [menu, setMenu] = useState(1)
+    const publishingProgressEvent = useRef<(step: CreateProgressStep) => void>()
 
 
     useEffect(() => {
@@ -44,7 +45,7 @@ const MainPage: NextPage = () => {
               try{  
                 const token = fetchMarketplaceApiTokenFromLocalStorage()
 
-                const connectionResult = token ? await nvmApp?.connect(account.address, "welcome to nevermined", { ...nvmApp?.config, marketplaceAuthToken: token }) : await nvmApp?.connect(account.address, "welcome to nevermined")
+                const connectionResult = token ? await nvmApp?.connect(account.address, "Welcome to nevermined", { ...nvmApp?.config, marketplaceAuthToken: token }) : await nvmApp?.connect(account.address, "Welcome to nevermined")
                 setMarketplaceApiTokenOnLocalStorage({ token: connectionResult.marketplaceAuthToken })
                 setIsConnected(nvmApp.isWeb3Connected())
               }
@@ -80,11 +81,10 @@ const MainPage: NextPage = () => {
                 created: 'desc',
             }
         }).then((assets) => {
-            console.log('assets', assets) 
             setAssets(assets.results.map((asset) => asset))
         })
     }
-    }, [nvmApp.search])
+    }, [nvmApp.search, menu])
 
     useEffect(() => {
         if(nvmApp.search){
@@ -100,11 +100,74 @@ const MainPage: NextPage = () => {
                 created: 'desc',
             }
         }).then((assets) => {
-            console.log('assets', assets) 
             setPlans(assets.results.map((asset) => asset))
         })
     }
-    }, [nvmApp.search])
+    }, [nvmApp.search, menu])
+
+
+    const executeWithProgressEvent = async <T,>(
+        subscribableAction: () => SubscribablePromise<any, T>,
+        onEvent?: (next: any) => void,
+      ) => {
+        let subscription: { unsubscribe: () => boolean } | undefined
+      
+        try {
+          const subscribablePromise = subscribableAction()
+          subscription = onEvent ? subscribablePromise.subscribe(onEvent) : undefined
+          return await subscribablePromise
+        } finally {
+          subscription?.unsubscribe()
+        }
+      }
+
+    const [asset, setAsset] = useState<any>()
+    const [isPublishing, setIsPublishing] = useState(false)
+
+    const createSubscription = useCallback( async () => {
+        if (!address) return
+        try {
+        const assetRewardsMap = new Map([[address, BigInt(asset.price)]])
+        const feeReceiver = await nvmApp.sdk.keeper.nvmConfig.getFeeReceiver()
+        const assetPrice = new AssetPrice(assetRewardsMap).adjustToIncludeNetworkFees(
+          feeReceiver,
+          NETWORK_FEE_DENOMINATOR,
+        )
+        // Assuming token address USDC on sepolia
+        assetPrice.setTokenAddress('0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d')
+  
+        const metadata = {
+            main: {
+                name: asset.name,
+                dateCreated: new Date().toISOString().replace(/\.\d{3}/, ''),
+                datePublished: new Date().toISOString().replace(/\.\d{3}/, ''),
+                author: address,
+                license: 'No License Specified',
+                type: 'subscription',
+
+            },
+            additionalInformation: {
+                description: asset.description,
+                customData: {
+                    subscriptionLimitType: 'credits',
+                }
+            }
+        } as MetaData
+
+        setIsPublishing(true)
+        await executeWithProgressEvent(
+            () => nvmApp.createCreditsSubscription(metadata, assetPrice, asset.credits),
+            publishingProgressEvent.current,
+          )
+        setIsPublishing(false)
+        
+        }
+        catch(e){
+            console.log(e)
+        }
+    }
+    ,[asset, address, nvmApp])
+
 
 
 
@@ -132,7 +195,7 @@ const MainPage: NextPage = () => {
                 Latest 10 assets registered: 
                 <table><tr><th>Did</th><th>Name</th><th>Date created</th></tr> 
                 {
-                  assets?.map((asset) => <tr><td key={asset.id}>{asset.id}</td><td>{asset.findServiceByType('metadata').attributes.main.name}</td><td>{asset.findServiceByType('metadata').attributes.main.dateCreated}</td></tr>)  
+                  assets?.map((asset) => <tr key={asset.id}><td>{asset.id}</td><td>{asset.findServiceByType('metadata').attributes.main.name}</td><td>{asset.findServiceByType('metadata').attributes.main.dateCreated}</td></tr>)  
                 }
                 </table>
 
@@ -142,32 +205,45 @@ const MainPage: NextPage = () => {
                 {menu === 2 &&
                 <>
                 <h2>Publish Plan</h2>
-                <form>
+                {/* <form> */}
                 <label htmlFor="name">Name:</label>
-                <input type="text" id="name" name="name" />
+                <input type="text" id="name" name="name" required onChange={(e) => setAsset({...asset, name: e.target.value})}/>
                 <label htmlFor="description">Description:</label>
-                <input type="text" id="description" name="description" />
+                <input type="text" id="description" name="description" required onChange={(e) => setAsset({...asset, description: e.target.value})} />
                 <label htmlFor="price">Price:</label>
-                <input type="number" id="price" name="price" />
-                <label htmlFor="tokenAddress">Token Address:</label>
-                <input type="text" id="tokenAddress" name="tokenAddress" />
+                <input type="number" id="price" name="price" required onChange={(e) => setAsset({...asset, price: e.target.value})}/>
+                {/* <label htmlFor="tokenAddress">Token Address:</label>
+                <input type="text" id="tokenAddress" name="tokenAddress" /> */}
                 <label htmlFor="amountOfCredits">Amount of Credits:</label>
-                <input type="number" id="amountOfCredits" name="amountOfCredits" />
+                <input type="number" id="amountOfCredits" name="amountOfCredits"  required onChange={(e) => setAsset({...asset, credits: e.target.value})}/>
 
-                {/* <button disabled={!isConnected} onClick={() => nvmApp.createCreditsSubscription()}>Publish Plan</button> */}
-                </form>
+                <button disabled={!isConnected || !asset || !asset.name || !asset.price || !asset.credits || !asset.description || isPublishing} onClick={() => createSubscription()}>Publish Plan</button>
+                {isPublishing && <p>Publishing...</p>}
+                {/* </form> */}
                 </>
                 }
                 {menu === 3 &&
                 <>
                                 Latest 10 subscriptions: 
-                                <table><tr><th>Did</th><th>Name</th><th>Date created</th><th>Order</th></tr> 
+                                <table>
+                                    <tr>
+                                        <th>Did</th>
+                                        <th>Name</th>
+                                        <th>Date created</th>
+                                        <th>Price</th>
+                                        <th>Credits</th>
+                                        <th>Order</th>
+                                    </tr> 
                                 {
                                   plans?.map((asset) => 
-                                  <tr>
-                                    <td key={asset.id}>{asset.id}</td>
+                                  <tr key={asset.id}>
+                                    <td>{asset.id}</td>
                                     <td>{asset.findServiceByType('metadata').attributes.main.name}</td>
                                     <td>{asset.findServiceByType('metadata').attributes.main.dateCreated}</td>
+                                    {/* <td>{asset.findServiceByType('nft-sales').attributes.main.price}</td> */}
+                                    {/* Converted price */}
+                                    <td>{asset.findServiceByType('nft-sales').attributes.additionalInformation.priceHighestDenomination}</td>
+                                    <td>{asset.findServiceByType('nft-sales').attributes.main.nftAttributes?.amount?.toString() || 0}</td>
                                     <td><button disabled={!isConnected} onClick={() => nvmApp.orderSubscription(asset.id, asset.findServiceByType('nft-sales').attributes.main.nftAttributes?.amount || 0n)}>Order</button></td>
                                  </tr>)  
                                 }
