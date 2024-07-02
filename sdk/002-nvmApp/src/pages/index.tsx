@@ -1,4 +1,5 @@
 import { deleteMarketplaceToken, fetchMarketplaceApiTokenFromLocalStorage, setMarketplaceApiTokenOnLocalStorage } from "@/utils/marketplace-api-token"
+import { assetTypeFilter, isListedFilter } from "@/utils/queries"
 import { AssetPrice, CreateProgressStep, DDO, MetaData, NETWORK_FEE_DENOMINATOR, NVMAppEnvironments, NvmApp, SubscribablePromise } from "@nevermined-io/sdk"
 import { NextPage } from "next"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -7,7 +8,6 @@ import {
     useConnect,
     useDisconnect,
 } from 'wagmi'
-import { assetTypeFilter, isListedFilter } from "../utils/queries"
 
 const MainPage: NextPage = () => {
     const { address } = useAccount()
