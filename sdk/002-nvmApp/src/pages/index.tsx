@@ -1,5 +1,19 @@
 import { deleteMarketplaceToken, fetchMarketplaceApiTokenFromLocalStorage, setMarketplaceApiTokenOnLocalStorage } from "@/utils/marketplace-api-token"
 import { assetTypeFilter, isListedFilter } from "@/utils/queries"
+import TabContext from '@mui/lab/TabContext'
+import TabList from '@mui/lab/TabList'
+import TabPanel from '@mui/lab/TabPanel'
+import { ButtonGroup, Grid, Stack, TextField } from "@mui/material"
+import Box from '@mui/material/Box'
+import Button from "@mui/material/Button"
+import Paper from "@mui/material/Paper"
+import Tab from '@mui/material/Tab'
+import Table from "@mui/material/Table"
+import TableBody from "@mui/material/TableBody"
+import TableCell from "@mui/material/TableCell"
+import TableContainer from "@mui/material/TableContainer"
+import TableHead from "@mui/material/TableHead"
+import TableRow from "@mui/material/TableRow"
 import { AssetPrice, CreateProgressStep, DDO, MetaData, NETWORK_FEE_DENOMINATOR, NVMAppEnvironments, NvmApp, SubscribablePromise } from "@nevermined-io/sdk"
 import { NextPage } from "next"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -22,7 +36,11 @@ const MainPage: NextPage = () => {
     const [assets, setAssets] = useState<DDO[]>()
     const [plans, setPlans] = useState<DDO[]>()
 
-    const [menu, setMenu] = useState(1)
+    const [value, setValue] = useState('1')
+
+    const handleChange = (event: React.SyntheticEvent, newValue: string) => {
+      setValue(newValue)
+    }
     const publishingProgressEvent = useRef<(step: CreateProgressStep) => void>()
 
 
@@ -84,7 +102,7 @@ const MainPage: NextPage = () => {
             setAssets(assets.results.map((asset) => asset))
         })
     }
-    }, [nvmApp.search, menu])
+    }, [nvmApp.search, value])
 
     useEffect(() => {
         if(nvmApp.search){
@@ -103,7 +121,7 @@ const MainPage: NextPage = () => {
             setPlans(assets.results.map((asset) => asset))
         })
     }
-    }, [nvmApp.search, menu])
+    }, [nvmApp.search, value])
 
 
     const executeWithProgressEvent = async <T,>(
@@ -176,82 +194,102 @@ const MainPage: NextPage = () => {
     return (
         <>
             <header>
-                <h1>Nvm App</h1>
+                <Grid container 
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                <Grid item>
+                     <h2>Nvm App </h2>               
+                </Grid>
+                <Grid item>
                 {isConnected  ? (
                     <div>
-                        Connected to {address}
-                        <button onClick={() => fullDisconnect()}>Disconnect</button>
+                        <ButtonGroup variant="outlined">
+                            <Button variant="outlined">{address}</Button>
+                            <Button variant="contained" onClick={() => fullDisconnect()}>Disconnect</Button>
+                        </ButtonGroup>
                     </div>
                 ) : (
-                    <button onClick={() => connect({connector : connectors[0]})}>Connect Wallet</button>
+                    <Button variant="contained" onClick={() => connect({connector : connectors[0]})}>Connect Wallet</Button>
                 )}
-                <button onClick={() => setMenu(1)}>Assets</button>
-                <button onClick={() => setMenu(2)}>Publish Plan</button>
-                <button onClick={() => setMenu(3)}>Subscriptions</button>
+                </Grid>
+                </Grid>
+
             </header>
             <main>
-                {menu === 1 &&
-                <>
-                Latest 10 assets registered: 
-                <table><tr><th>Did</th><th>Name</th><th>Date created</th></tr> 
-                {
-                  assets?.map((asset) => <tr key={asset.id}><td>{asset.id}</td><td>{asset.findServiceByType('metadata').attributes.main.name}</td><td>{asset.findServiceByType('metadata').attributes.main.dateCreated}</td></tr>)  
-                }
-                </table>
-
-
-                </>
-                }
-                {menu === 2 &&
-                <>
+                <Box sx={{ borderColor: 'divider' }}>
+                    <TabContext value={value}>
+                        <TabList onChange={handleChange} aria-label="lab API tabs example">
+                                <Tab label='Assets' value="1"/>
+                                <Tab label='Publish Plan' value="2"/>
+                                <Tab label='Subscriptions' value="3"/>
+                        </TabList>
+                            <TabPanel value="1">
+                                <h2>Latest 10 assets registered</h2>
+                                <TableContainer component={Paper}>
+                                    <Table sx={{ minWidth: 650 }} aria-label="simple table">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell variant="head">Did</TableCell>
+                                                <TableCell variant="head">Name</TableCell>
+                                                <TableCell variant="head" >Date created</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                        {assets?.map((asset) => 
+                                            <TableRow hover key={asset.id}>
+                                                <TableCell variant="body">{asset.id}</TableCell>
+                                                <TableCell variant="body">{asset.findServiceByType('metadata').attributes.main.name}</TableCell>
+                                                <TableCell variant="body">{asset.findServiceByType('metadata').attributes.main.dateCreated}</TableCell>
+                                            </TableRow>)  
+                                        }
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </TabPanel>
+                            <TabPanel value="2">
                 <h2>Publish Plan</h2>
-                {/* <form> */}
-                <label htmlFor="name">Name:</label>
-                <input type="text" id="name" name="name" required onChange={(e) => setAsset({...asset, name: e.target.value})}/>
-                <label htmlFor="description">Description:</label>
-                <input type="text" id="description" name="description" required onChange={(e) => setAsset({...asset, description: e.target.value})} />
-                <label htmlFor="price">Price:</label>
-                <input type="number" id="price" name="price" required onChange={(e) => setAsset({...asset, price: e.target.value})}/>
-                {/* <label htmlFor="tokenAddress">Token Address:</label>
-                <input type="text" id="tokenAddress" name="tokenAddress" /> */}
-                <label htmlFor="amountOfCredits">Amount of Credits:</label>
-                <input type="number" id="amountOfCredits" name="amountOfCredits"  required onChange={(e) => setAsset({...asset, credits: e.target.value})}/>
-
-                <button disabled={!isConnected || !asset || !asset.name || !asset.price || !asset.credits || !asset.description || isPublishing} onClick={() => createSubscription()}>Publish Plan</button>
+                    <Stack spacing={{ sm: 2 }} direction="column">
+                        <TextField type="text" label="Name" required onChange={(e) => setAsset({...asset, name: e.target.value})}/>
+                        <TextField type="text" label="Description" required onChange={(e) => setAsset({...asset, description: e.target.value})}/>
+                        <TextField type="number" label="Price" required onChange={(e) => setAsset({...asset, price: e.target.value})}/>
+                        <TextField type="number" label="Amount of Credits" required onChange={(e) => setAsset({...asset, credits: e.target.value})}/>
+                        <Button disabled={!isConnected || !asset || !asset.name || !asset.price || !asset.credits || !asset.description || isPublishing} onClick={() => createSubscription()}>Publish Plan</Button>
+                    </Stack>
                 {isPublishing && <p>Publishing...</p>}
-                {/* </form> */}
-                </>
-                }
-                {menu === 3 &&
-                <>
-                                Latest 10 subscriptions: 
-                                <table>
-                                    <tr>
-                                        <th>Did</th>
-                                        <th>Name</th>
-                                        <th>Date created</th>
-                                        <th>Price</th>
-                                        <th>Credits</th>
-                                        <th>Order</th>
-                                    </tr> 
-                                {
-                                  plans?.map((asset) => 
-                                  <tr key={asset.id}>
-                                    <td>{asset.id}</td>
-                                    <td>{asset.findServiceByType('metadata').attributes.main.name}</td>
-                                    <td>{asset.findServiceByType('metadata').attributes.main.dateCreated}</td>
-                                    {/* <td>{asset.findServiceByType('nft-sales').attributes.main.price}</td> */}
-                                    {/* Converted price */}
-                                    <td>{asset.findServiceByType('nft-sales').attributes.additionalInformation.priceHighestDenomination}</td>
-                                    <td>{asset.findServiceByType('nft-sales').attributes.main.nftAttributes?.amount?.toString() || 0}</td>
-                                    <td><button disabled={!isConnected} onClick={() => nvmApp.orderSubscription(asset.id, asset.findServiceByType('nft-sales').attributes.main.nftAttributes?.amount || 0n)}>Order</button></td>
-                                 </tr>)  
-                                }
-                                </table> 
-                </>
-                
-                }
-                
+                </TabPanel>
+                <TabPanel value="3">
+                                <h2>Latest 10 subscriptions</h2>
+                             <TableContainer component={Paper}>
+                                    <Table sx={{ minWidth: 650 }} aria-label="simple table">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell variant="head">Did</TableCell>
+                                                <TableCell variant="head">Name</TableCell>
+                                                <TableCell variant="head" >Date created</TableCell>
+                                                <TableCell variant="head" >Price</TableCell>
+                                                <TableCell variant="head" >Credits</TableCell>
+                                                <TableCell variant="head" >Order</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                        {plans?.map((plan) => 
+                                            <TableRow hover key={plan.id}>
+                                                <TableCell variant="body">{plan.id}</TableCell>
+                                                <TableCell variant="body">{plan.findServiceByType('metadata').attributes.main.name}</TableCell>
+                                                <TableCell variant="body">{plan.findServiceByType('metadata').attributes.main.dateCreated}</TableCell>
+                                                <TableCell variant="body">{plan.findServiceByType('nft-sales')?.attributes.additionalInformation.priceHighestDenomination }</TableCell>
+                                                <TableCell variant="body">{plan.findServiceByType('nft-sales').attributes.main.nftAttributes?.amount?.toString() || 0}</TableCell>
+                                                <TableCell variant="body"><Button disabled={!isConnected} onClick={() => nvmApp.orderSubscription(plan.id, plan.findServiceByType('nft-sales').attributes.main.nftAttributes?.amount || 0n)}>Order</Button></TableCell>
+                                            </TableRow>)  
+                                        }
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                        </TabPanel>
+                    </TabContext>
+                </Box>
             </main>
         </>
     )
