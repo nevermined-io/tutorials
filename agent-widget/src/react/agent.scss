@@ -18,16 +18,16 @@ body {
   text-align: center;
   height: 100%;
   width: 100%;
-  max-width: 900px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border: 1px solid #cecece;
+  background: linear-gradient(173.2deg, #CFD2F3 2.03%, #FFFFFF 57.88%, #CFD2F3 120.86%);
 }
 
 .widget-container {
   display: flex;
   justify-content: center;
+  margin-top: 30px;
 }
 
 .chat-panel {
@@ -90,6 +90,7 @@ ul {
   width: 100%;
   max-width: 448px;
   position: relative;
+  background: #fff;
 
   &--disabled {
     cursor: not-allowed;
