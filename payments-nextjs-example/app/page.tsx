@@ -36,15 +36,14 @@ export default function Home() {
   }, [payments.isLoggedIn])
 
 
-  async function createSubscription() {
+  async function createTimeSubscription() {
     if (payments.isLoggedIn) {
       console.log("creating subscription");
-      const result = await payments.createSubscription({
+      const result = await payments.createTimeSubscription({
         name: "test subscription",
         description: "test",
         price: 10000000n,
         tokenAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
-        amountOfCredits: undefined,
         duration: 30,
         tags: ["test"]
       }
@@ -61,12 +60,9 @@ export default function Home() {
         subscriptionDid: "did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460", 
         name: "test webservice",
         description: "test",
-        price: 10000000n,
-        tokenAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
         serviceChargeType: "fixed",
         authType: "none",
         amountOfCredits: 0,
-        duration: 30,
         endpoints: [{ post: "https://chatgpt-plugin.nevermined.app/ask" }],
         openEndpoints: ["https://chatgpt-plugin.nevermined.app/openapi.json"],
         openApiUrl: "https://chatgpt-plugin.nevermined.app/openapi.json",
@@ -84,10 +80,7 @@ export default function Home() {
         subscriptionDid: "did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460", 
         name: "test dataset",
         description: "test",
-        price: 10000000n,
-        tokenAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
         amountOfCredits: 0,
-        duration: 30,
         tags: ["test"], 
         assetType: 'model',
         files: [
@@ -164,7 +157,7 @@ export default function Home() {
         {isUserLoggedIn && <button onClick={onLogout}>{"Log out"}</button>}
 
         <div>
-          <button disabled={!isUserLoggedIn} onClick={createSubscription}>Create Subscription</button>
+          <button disabled={!isUserLoggedIn} onClick={createTimeSubscription}>Create Time Subscription</button>
           <button disabled={!isUserLoggedIn} onClick={createService}>Create Webservice</button>
           <button disabled={!isUserLoggedIn} onClick={createFile}>Create Dataset</button>
           <button disabled={!isUserLoggedIn} onClick={() => getDDO('did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460')}>GET DDO</button>

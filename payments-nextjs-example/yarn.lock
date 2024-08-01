@@ -109,10 +109,10 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@nevermined-io/payments@0.3.0":
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/@nevermined-io/payments/-/payments-0.3.0.tgz#41c8079abfd875698bc08c138ee99b7cfabbaa4a"
-  integrity sha512-5sNMUY5M3QcmehQrpeUuGqOf8g0rl6dvXZePVl80xGShdHINJUOqfUDJx4I+bwGWcG2uCbzBILYsAGhPiLD+8A==
+"@nevermined-io/payments@0.4.0":
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/@nevermined-io/payments/-/payments-0.4.0.tgz#2fb5347f22d289f18e3a041a419957b55d5c6411"
+  integrity sha512-BVH2qL05oOS9EXH7JmUSedK7nbNvodUmvZ5PoVxQz45s9TqJlaJMnP+NhV4/4O4WZryJ9y6NVT0w7u4WsiS6Vw==
 
 "@next/env@14.1.0":
   version "14.1.0"
