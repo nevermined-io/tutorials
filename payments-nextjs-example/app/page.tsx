@@ -128,13 +128,13 @@ export default function Home() {
     }
   }
 
-  // async function downloadFile(did: string) {
-  //   if (payments.isLoggedIn) {
-  //     console.log("downloading file");
-  //     const result = await payments.downloadFiles(did)
-  //     console.log(result)
-  //   }
-  // }
+  async function downloadFile(did: string) {
+    if (payments.isLoggedIn) {
+      console.log("downloading file");
+      const result = await payments.downloadFiles(did)
+      console.log(result)
+    }
+  }
 
   const onSubscritionGoToDetails = (did: string) => {
     payments.getSubscriptionDetails(did)
@@ -162,10 +162,8 @@ export default function Home() {
           <button disabled={!isUserLoggedIn} onClick={createFile}>Create Dataset</button>
           <button disabled={!isUserLoggedIn} onClick={() => getDDO('did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460')}>GET DDO</button>
           <button disabled={!isUserLoggedIn} onClick={() => getBalance('did:nv:60a3b9f9854c711fbb077e7266d2bf3794051600db4ce4ec9a38eb6cfd321460')}>GET Balance</button>
-          <button disabled={!isUserLoggedIn} onClick={() => orderSubscription('did:nv:debe46f1c0f3e36c853a9f093717c46eaa94df9b302731b9d06e7e07e5fd0c8b')}>Order</button>
-        {/*  
-          <button disabled={!isUserLoggedIn} onClick={() => downloadFile('did:nv:d65e2726b37510d231a86183d0de5d9281830381b579315c64e1eea7ee3e416f')}>Download file</button>  
-        */}
+          <button disabled={!isUserLoggedIn} onClick={() => orderSubscription('did:nv:b508b82ccb0572feb52ed0f0af11b3c56358500e937b4900e36500e8e3588315')}>Order</button>
+          <button disabled={!isUserLoggedIn} onClick={() => downloadFile('did:nv:64e669c1a433ec68e242494a9471176c977c38bef2e8b09c109530263b0df65f')}>Download file</button>  
         </div>
         {isUserLoggedIn && serviceDid &&  <button disabled={!isUserLoggedIn} onClick={() => getServiceToken(serviceDid)}>Get Service Token</button>}
         {isUserLoggedIn && <div>User is logged in with app ID {payments.appId} and version {payments.version}</div>}

@@ -109,10 +109,12 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@nevermined-io/payments@0.4.0":
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/@nevermined-io/payments/-/payments-0.4.0.tgz#2fb5347f22d289f18e3a041a419957b55d5c6411"
-  integrity sha512-BVH2qL05oOS9EXH7JmUSedK7nbNvodUmvZ5PoVxQz45s9TqJlaJMnP+NhV4/4O4WZryJ9y6NVT0w7u4WsiS6Vw==
+"@nevermined-io/payments@0.4.2":
+  version "0.4.2"
+  resolved "https://registry.yarnpkg.com/@nevermined-io/payments/-/payments-0.4.2.tgz#36045d6f3391cbd5658b2ccad2d42a39a5b14e8b"
+  integrity sha512-sg66Igpw0zaE0LbhsUFUzTFEKApKnvCDJ0Q2nBbuyigdfu515feOS1lPkQfzowzKau5QJdpEHVjl9U1eeBTiyw==
+  dependencies:
+    js-file-download "^0.4.12"
 
 "@next/env@14.1.0":
   version "14.1.0"
@@ -1660,6 +1662,11 @@ jiti@^1.21.0:
   version "1.21.0"
   resolved "https://registry.yarnpkg.com/jiti/-/jiti-1.21.0.tgz#7c97f8fe045724e136a397f7340475244156105d"
   integrity sha512-gFqAIbuKyyso/3G2qhiO2OM6shY6EPP/R0+mkDbyspxKazh8BXDC5FiFsUjlczgdNz/vfra0da2y+aHrusLG/Q==
+
+js-file-download@^0.4.12:
+  version "0.4.12"
+  resolved "https://registry.yarnpkg.com/js-file-download/-/js-file-download-0.4.12.tgz#10c70ef362559a5b23cdbdc3bd6f399c3d91d821"
+  integrity sha512-rML+NkoD08p5Dllpjo0ffy4jRHeY6Zsapvr/W86N7E0yuzAO6qa5X9+xog6zQNlH102J7IXljNY2FtS6Lj3ucg==
 
 "js-tokens@^3.0.0 || ^4.0.0":
   version "4.0.0"
