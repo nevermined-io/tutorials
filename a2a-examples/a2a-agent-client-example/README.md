@@ -1,3 +1,5 @@
+[![banner](https://raw.githubusercontent.com/nevermined-io/assets/main/images/logo/banner_logo.png)](https://nevermined.io)
+
 # A2A Payments Agent Example
 
 This example demonstrates how to use the Nevermined payments library with the Agent2Agent (A2A) protocol, including bearer token authentication, asynchronous task management, and push notification support.
