@@ -1,5 +1,11 @@
 [![banner](https://raw.githubusercontent.com/nevermined-io/assets/main/images/logo/banner_logo.png)](https://nevermined.io)
 
+## Full step-by-step tutorial
+
+For the complete, in-depth guide to protecting an MCP server with Nevermined Payments, read:
+
+- [docs/protecting-mcp-with-nevermined-payments.md](docs/protecting-mcp-with-nevermined-payments.md)
+
 ## Weather MCP (High-Level and Low-Level servers)
 
 Minimal MCP server exposing a `weather.today(city)` tool, a `weather://today/{city}` resource and a `weather.ensureCity` prompt. Includes both a High-Level server (SDK `McpServer` + Streamable HTTP) and a Low-Level server (manual JSON‑RPC routing) to demonstrate Nevermined Payments integration.
