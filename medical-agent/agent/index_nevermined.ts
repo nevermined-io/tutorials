@@ -143,7 +143,7 @@ async function ensureAuthorized(
     requestedUrl,
     httpVerb
   );
-  if (!result.balance.isSubscriber) {
+  if (!result.balance.isSubscriber || result.balance.balance < 1n) {
     const error: any = new Error("Payment Required");
     error.statusCode = 402;
     throw error;
@@ -164,6 +164,8 @@ async function ensureAuthorized(
 app.post("/ask", async (req: Request, res: Response) => {
   try {
     const { agentRequestId, requestAccessToken } = await ensureAuthorized(req);
+    console.log("agentRequestId", agentRequestId);
+    console.log("requestAccessToken", requestAccessToken);
     const input = String(req.body?.input ?? "").trim();
     if (!input) return res.status(400).json({ error: "Missing input" });
 
