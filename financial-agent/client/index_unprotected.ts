@@ -4,13 +4,18 @@
  */
 import "dotenv/config";
 
+/**
+ * Run the unprotected demo client.
+ * Sends predefined financial questions to the agent and reuses sessionId to preserve context.
+ * @returns {Promise<void>} Resolves when the run finishes
+ */
 async function main(): Promise<void> {
   const baseUrl = process.env.AGENT_URL || "http://localhost:3001";
 
   const questions: string[] = [
-    "I have a sore throat and mild fever. What could it be and what should I do?",
-    "I also noticed nasal congestion and fatigue. Does that change your assessment?",
-    "When should I see a doctor, and are there any red flags I should watch for?",
+    "What is your market outlook for Bitcoin over the next month?",
+    "How are major stock indices performing today and what trends are notable?",
+    "What risks should I consider before increasing exposure to tech stocks?",
   ];
 
   let sessionId: string | undefined;
@@ -26,6 +31,13 @@ async function main(): Promise<void> {
   }
 }
 
+/**
+ * Perform a POST /ask to the free agent.
+ * @param {string} baseUrl - Base URL of the agent service
+ * @param {string} input - User question text
+ * @param {string} [sessionId] - Optional existing session id to keep context
+ * @returns {Promise<{ output: string; sessionId: string }>} Response with model output and session id
+ */
 async function askAgent(
   baseUrl: string,
   input: string,
@@ -34,7 +46,7 @@ async function askAgent(
   const res = await fetch(`${baseUrl}/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input, sessionId }),
+    body: JSON.stringify({ input_query: input, sessionId }),
   });
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");

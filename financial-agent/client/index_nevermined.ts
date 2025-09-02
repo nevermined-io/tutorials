@@ -6,18 +6,18 @@ import "dotenv/config";
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
 
 /**
- * Simple demo client that makes three HTTP requests to the agent.
- * It stores the sessionId returned by the first response and reuses it
- * for subsequent requests so the agent can leverage conversation history.
+ * Run the protected demo client.
+ * Sends predefined financial questions to the agent with Authorization and reuses sessionId to preserve context.
+ * @returns {Promise<void>} Resolves when the run finishes
  */
 async function main(): Promise<void> {
   const baseUrl = process.env.AGENT_URL || "http://localhost:3000";
 
   // Predefined questions for the demo client. The client is intentionally dumb.
   const questions: string[] = [
-    "I have a sore throat and mild fever. What could it be and what should I do?",
-    "I also noticed nasal congestion and fatigue. Does that change your assessment?",
-    "When should I see a doctor, and are there any red flags I should watch for?",
+    "What is your market outlook for Bitcoin over the next month?",
+    "How are major stock indices performing today and what trends are notable?",
+    "What risks should I consider before increasing exposure to tech stocks?",
   ];
 
   let sessionId: string | undefined;
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   const planId = process.env.NVM_PLAN_ID as string;
   const agentId = process.env.NVM_AGENT_ID as string;
   const nvmApiKey = process.env.SUBSCRIBER_NVM_API_KEY as string;
-  const nvmEnv = (process.env.NVM_ENV || "staging_sandbox") as EnvironmentName;
+  const nvmEnv = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
   if (!planId || !agentId) {
     throw new Error("NVM_PLAN_ID and NVM_AGENT_ID are required in client env");
   }
@@ -52,11 +52,12 @@ async function main(): Promise<void> {
 }
 
 /**
- * Perform a POST /ask to the agent.
- * @param baseUrl Base URL of the agent service
- * @param input User question text
- * @param sessionId Optional existing session id
- * @returns The JSON response containing output and sessionId
+ * Perform a POST /ask to the protected agent.
+ * @param {string} baseUrl - Base URL of the agent service
+ * @param {string} input - User question text
+ * @param {string} [sessionId] - Optional existing session id
+ * @param {string} [bearer] - Authorization token to access protected endpoint
+ * @returns {Promise<{ output: string; sessionId: string }>} The JSON response containing output and sessionId
  */
 async function askAgent(
   baseUrl: string,
@@ -85,10 +86,12 @@ async function askAgent(
 /**
  * Get a valid access token by checking plan balance/subscription first.
  * If not subscribed or no credits, purchase the plan and then fetch the token.
- * @param opts.planId Plan identifier
- * @param opts.agentId Agent identifier
- * @param opts.nvmApiKey Nevermined API Key (subscriber)
- * @param opts.nvmEnv Nevermined environment
+ * @param {Object} opts - Options object
+ * @param {string} opts.planId - Plan identifier
+ * @param {string} opts.agentId - Agent identifier
+ * @param {string} opts.nvmApiKey - Nevermined API Key (subscriber)
+ * @param {EnvironmentName} opts.nvmEnv - Nevermined environment
+ * @returns {Promise<string>} The access token string
  */
 async function getOrBuyAccessToken(opts: {
   planId: string;
