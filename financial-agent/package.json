@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev:agent": "tsx agent/indexl_nevermined.ts",
+    "dev:agent": "tsx agent/index_nevermined.ts",
     "dev:client": "tsx client/index_nevermined.ts",
     "dev:agent:unprotected": "tsx agent/index_unprotected.ts",
     "dev:client:unprotected": "tsx client/index_unprotected.ts",
