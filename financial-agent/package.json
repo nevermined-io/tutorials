@@ -1,12 +1,12 @@
 {
-  "name": "medical-agent",
+  "name": "financial-agent",
   "version": "1.0.0",
-  "description": "Simple medical advice agent with paid endpoint protection and a demo client, built with LangChain and OpenAI.",
+  "description": "Simple financial advice agent with paid endpoint protection and a demo client, built with LangChain and OpenAI.",
   "author": "Charly López",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev:agent": "tsx agent/index_nevermined.ts",
+    "dev:agent": "tsx agent/indexl_nevermined.ts",
     "dev:client": "tsx client/index_nevermined.ts",
     "dev:agent:unprotected": "tsx agent/index_unprotected.ts",
     "dev:client:unprotected": "tsx client/index_unprotected.ts",

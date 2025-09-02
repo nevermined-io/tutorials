@@ -1,8 +1,8 @@
 [![banner](https://raw.githubusercontent.com/nevermined-io/assets/main/images/logo/banner_logo.png)](https://nevermined.io)
 
-## Medical Agent Tutorial (LangChain + OpenAI + Nevermined)
+## Financial Agent Tutorial (LangChain + OpenAI + Nevermined)
 
-This tutorial shows how to evolve a simple medical-advice agent and client from an unprotected HTTP API to a Nevermined-protected, paid-access API. You will:
+This tutorial shows how to evolve a simple financial-advice agent and client from an unprotected HTTP API to a Nevermined-protected, paid-access API. You will:
 
 - Start with an unprotected agent and client
 - Add Nevermined authorization to the agent
@@ -79,9 +79,9 @@ The free client simply POSTs to `/ask` and prints the responses:
 ```ts
 const baseUrl = process.env.AGENT_URL || "http://localhost:3001";
 const questions = [
-  "I have a sore throat and mild fever. What could it be and what should I do?",
-  "I also noticed nasal congestion and fatigue. Does that change your assessment?",
-  "When should I see a doctor, and are there any red flags I should watch for?",
+  "What is your market outlook for Bitcoin over the next month?",
+  "How are major stock indices performing today and what trends are notable?",
+  "What risks should I consider before increasing exposure to tech stocks?",
 ];
 
 let sessionId: string | undefined;
@@ -119,6 +119,7 @@ PORT=3000
 NVM_ENV=sandbox
 BUILDER_NVM_API_KEY=your-builder-api-key   # server-side key
 NVM_AGENT_ID=your-agent-id                 # agent registered in Nevermined
+NVM_AGENT_HOST=http://localhost:3000       # public URL in production
 ```
 
 For the protected client:
@@ -162,7 +163,7 @@ const result = await payments.requests.startProcessingRequest(
 
 4) Enforce access policy. If the caller is not a subscriber and has no valid credits for the plan/agent, return HTTP 402 (Payment Required).
 ```ts
-if (!result.balance.isSubscriber) {
+if (!result.balance.isSubscriber || result.balance.balance < 1n) {
   const error: any = new Error("Payment Required");
   error.statusCode = 402;
   throw error;
@@ -184,7 +185,7 @@ async function ensureAuthorized(req: Request): Promise<{ agentRequestId: string;
   const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
   const httpVerb = req.method;
   const result = await payments.requests.startProcessingRequest(NVM_AGENT_ID, authHeader, requestedUrl, httpVerb);
-  if (!result.balance.isSubscriber) {
+  if (!result.balance.isSubscriber || result.balance.balance < 1n) {
     const error: any = new Error("Payment Required");
     error.statusCode = 402;
     throw error;
@@ -300,7 +301,7 @@ return creds.accessToken;
 
 ### 3.2 Call the agent with Authorization header
 
-Include the token in every request to protected endpoints:
+Include the token in every request to protected endpoints. The protected server expects `input_query` and an optional `sessionId`:
 ```ts
 const res = await fetch(`${baseUrl}/ask`, {
   method: "POST",
@@ -308,7 +309,7 @@ const res = await fetch(`${baseUrl}/ask`, {
     "Content-Type": "application/json",
     Authorization: `Bearer ${bearer}`,
   },
-  body: JSON.stringify({ input, sessionId }),
+  body: JSON.stringify({ input_query: input, sessionId }),
 });
 ```
 
@@ -412,7 +413,7 @@ async function ensureAuthorized(req: Request): Promise<{ agentRequestId: string;
   const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
   const httpVerb = req.method;
   const result = await payments.requests.startProcessingRequest(NVM_AGENT_ID, authHeader, requestedUrl, httpVerb);
-  if (!result.balance.isSubscriber) {
+  if (!result.balance.isSubscriber || result.balance.balance < 1n) {
     const error: any = new Error("Payment Required");
     error.statusCode = 402;
     throw error;
