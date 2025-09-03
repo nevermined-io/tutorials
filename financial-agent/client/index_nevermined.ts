@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   const planId = process.env.NVM_PLAN_ID as string;
   const agentId = process.env.NVM_AGENT_ID as string;
   const nvmApiKey = process.env.SUBSCRIBER_NVM_API_KEY as string;
-  const nvmEnv = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
+  const nvmEnv = (process.env.NVM_ENVIRONMENT || "sandbox") as EnvironmentName;
   if (!planId || !agentId) {
     throw new Error("NVM_PLAN_ID and NVM_AGENT_ID are required in client env");
   }
@@ -94,7 +94,7 @@ async function askAgent(
  * @param {string} opts.planId - Plan identifier
  * @param {string} opts.agentId - Agent identifier
  * @param {string} opts.nvmApiKey - Nevermined API Key (subscriber)
- * @param {EnvironmentName} opts.nvmEnv - Nevermined environment
+ * @param {EnvironmentName} opts.nvmEnv - Nevermined environmentment
  * @returns {Promise<string>} The access token string
  */
 async function getOrBuyAccessToken(opts: {

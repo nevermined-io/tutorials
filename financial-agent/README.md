@@ -116,7 +116,7 @@ For the protected agent (server):
 ```
 OPENAI_API_KEY=sk-...
 PORT=3000
-NVM_ENV=sandbox
+NVM_ENVIRONMENT=sandbox
 BUILDER_NVM_API_KEY=your-builder-api-key   # server-side key
 NVM_AGENT_ID=your-agent-id                 # agent registered in Nevermined
 NVM_AGENT_HOST=http://localhost:3000       # public URL in production
@@ -125,7 +125,7 @@ NVM_AGENT_HOST=http://localhost:3000       # public URL in production
 For the protected client:
 ```
 AGENT_URL=http://localhost:3000
-NVM_ENV=sandbox
+NVM_ENVIRONMENT=sandbox
 SUBSCRIBER_NVM_API_KEY=your-subscriber-api-key  # client/subscriber key
 NVM_PLAN_ID=your-plan-id                         # plan linked to the agent
 NVM_AGENT_ID=your-agent-id
@@ -140,8 +140,8 @@ Key additions in `agent/index_nevermined.ts`:
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
 
 const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENV = (process.env.NVM_ENV || "sandbox") as EnvironmentName; // or "live" for prod environment
-const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENV });
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT || "sandbox") as EnvironmentName; // or "live" for prod environment
+const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENVIRONMENT });
 ```
 
 2) Extract the `Authorization` header and the HTTP request context. We will pass these to Nevermined to verify that the token is valid for this `agent` and endpoint.
@@ -255,7 +255,7 @@ app.post("/ask", async (req: Request, res: Response) => {
 Run the protected server:
 ```
 PORT=3000 OPENAI_API_KEY=sk-... \
-BUILDER_NVM_API_KEY=... NVM_ENV=sandbox NVM_AGENT_ID=... \
+BUILDER_NVM_API_KEY=... NVM_ENVIRONMENT=sandbox NVM_AGENT_ID=... \
 npm run dev:agent
 ```
 Health check:
@@ -323,7 +323,7 @@ const baseUrl = process.env.AGENT_URL || "http://localhost:3000";
 const planId = process.env.NVM_PLAN_ID as string;
 const agentId = process.env.NVM_AGENT_ID as string;
 const nvmApiKey = process.env.SUBSCRIBER_NVM_API_KEY as string;
-const nvmEnv = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
+const nvmEnv = (process.env.NVM_ENVIRONMENT || "sandbox") as EnvironmentName;
 
 const bearer = await getOrBuyAccessToken({ planId, agentId, nvmApiKey, nvmEnv });
 
@@ -338,7 +338,7 @@ for (const input of questions) {
 Run it (in a separate terminal):
 ```
 AGENT_URL=http://localhost:3000 \
-SUBSCRIBER_NVM_API_KEY=... NVM_ENV=sandbox \
+SUBSCRIBER_NVM_API_KEY=... NVM_ENVIRONMENT=sandbox \
 NVM_PLAN_ID=... NVM_AGENT_ID=... \
 npm run dev:client
 ```
@@ -360,12 +360,12 @@ Protected flow:
 ```
 # Terminal A (agent)
 PORT=3000 OPENAI_API_KEY=sk-... \
-BUILDER_NVM_API_KEY=... NVM_ENV=sandbox NVM_AGENT_ID=... \
+BUILDER_NVM_API_KEY=... NVM_ENVIRONMENT=sandbox NVM_AGENT_ID=... \
 npm run dev:agent
 
 # Terminal B (client)
 AGENT_URL=http://localhost:3000 \
-SUBSCRIBER_NVM_API_KEY=... NVM_ENV=sandbox \
+SUBSCRIBER_NVM_API_KEY=... NVM_ENVIRONMENT=sandbox \
 NVM_PLAN_ID=... NVM_AGENT_ID=... \
 npm run dev:client
 ```
@@ -392,7 +392,7 @@ import { Payments, EnvironmentName } from "@nevermined-io/payments";
 - Add Nevermined configuration (after OpenAI checks):
 ```ts
 const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENV = (process.env.NVM_ENV || "sandbox") as EnvironmentName; // or "live"
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT || "sandbox") as EnvironmentName; // or "live"
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
 if (!NVM_API_KEY || !NVM_AGENT_ID) {
@@ -403,7 +403,7 @@ if (!NVM_API_KEY || !NVM_AGENT_ID) {
 
 - Create a singleton `payments` client (near other singletons like `model`):
 ```ts
-const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENV });
+const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENVIRONMENT });
 ```
 
 - Introduce an authorization helper (before route handlers):
@@ -448,7 +448,7 @@ Notes:
 ## Migration checklist (unprotected → protected)
 
 - Add `@nevermined-io/payments` import in the agent
-- Add env vars: `BUILDER_NVM_API_KEY`, `NVM_ENV`, `NVM_AGENT_ID`, `NVM_AGENT_HOST`
+- Add env vars: `BUILDER_NVM_API_KEY`, `NVM_ENVIRONMENT`, `NVM_AGENT_ID`, `NVM_AGENT_HOST`
 - Instantiate `payments = Payments.getInstance(...)`
 - Add `ensureAuthorized(req)` and call it at the start of protected handlers
 - On success, call `payments.requests.redeemCreditsFromRequest(agentRequestId, requestAccessToken, 1n)`
@@ -472,7 +472,7 @@ Notes:
 - Wrong `requestedUrl`
   - Ensure `NVM_AGENT_HOST` matches the externally reachable host used by clients
 - Sandbox vs live
-  - `NVM_ENV` must match keys and assets created in that environment
+  - `NVM_ENVIRONMENT` must match keys and assets created in that environment
 
 ---
 
@@ -484,14 +484,14 @@ Copy to `.env` and adjust values:
 # --- Server ---
 OPENAI_API_KEY=sk-your-openai-key
 PORT=3000
-NVM_ENV=sandbox # or live
+NVM_ENVIRONMENT=sandbox # or live
 BUILDER_NVM_API_KEY=your-builder-api-key
 NVM_AGENT_ID=your-agent-id
 NVM_AGENT_HOST=http://localhost:3000 # public URL in production
 
 # --- Client ---
 AGENT_URL=http://localhost:3000
-NVM_ENV=sandbox # or live
+NVM_ENVIRONMENT=sandbox # or live
 SUBSCRIBER_NVM_API_KEY=your-subscriber-api-key
 NVM_PLAN_ID=your-plan-id
 NVM_AGENT_ID=your-agent-id

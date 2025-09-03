@@ -113,7 +113,8 @@ if (!OPENAI_API_KEY) {
 
 // Nevermined required configuration
 const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENV = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT ||
+  "sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
 
@@ -130,7 +131,7 @@ if (!NVM_API_KEY || !NVM_AGENT_ID) {
  */
 const payments = Payments.getInstance({
   nvmApiKey: NVM_API_KEY,
-  environment: NVM_ENV,
+  environment: NVM_ENVIRONMENT,
 });
 
 const sessionStore = new SessionStore();
@@ -236,7 +237,7 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Agent listening on http://localhost:${PORT}`);
   console.log("NVM_API_KEY", process.env.BUILDER_NVM_API_KEY);
-  console.log("NVM_ENV", process.env.NVM_ENV);
+  console.log("NVM_ENVIRONMENT", process.env.NVM_ENVIRONMENT);
   console.log("NVM_AGENT_ID", process.env.NVM_AGENT_ID);
   console.log("NVM_PLAN_ID", process.env.NVM_PLAN_ID);
 });
