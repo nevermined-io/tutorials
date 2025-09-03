@@ -113,7 +113,7 @@ if (!OPENAI_API_KEY) {
 
 // Nevermined required configuration
 const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENV = (process.env.NVM_ENV || "staging_sandbox") as EnvironmentName;
+const NVM_ENV = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
 
