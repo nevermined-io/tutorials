@@ -33,7 +33,7 @@ agent/
 client/
   index_unprotected.ts   # Simple client hitting the free agent
   index_nevermined.ts    # Client that buys/uses plan to call protected agent
-.env                      # Environment variables (not committed)
+.env                      # Environment variables
 ```
 
 ---

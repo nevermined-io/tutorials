@@ -11,7 +11,11 @@ import { Payments, EnvironmentName } from "@nevermined-io/payments";
  * @returns {Promise<void>} Resolves when the run finishes
  */
 async function main(): Promise<void> {
-  const baseUrl = process.env.AGENT_URL || "http://localhost:3000";
+  const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
+  if (!PORT) {
+    throw new Error("PORT is required in client env");
+  }
+  const baseUrl = process.env.AGENT_URL || `http://localhost:${PORT}`;
 
   // Predefined questions for the demo client. The client is intentionally dumb.
   const questions: string[] = [

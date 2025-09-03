@@ -235,4 +235,8 @@ app.get("/health", (_req: Request, res: Response) => {
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Agent listening on http://localhost:${PORT}`);
+  console.log("NVM_API_KEY", process.env.BUILDER_NVM_API_KEY);
+  console.log("NVM_ENV", process.env.NVM_ENV);
+  console.log("NVM_AGENT_ID", process.env.NVM_AGENT_ID);
+  console.log("NVM_PLAN_ID", process.env.NVM_PLAN_ID);
 });
