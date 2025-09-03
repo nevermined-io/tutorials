@@ -116,6 +116,7 @@ const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
 const NVM_ENV = (process.env.NVM_ENV || "staging_sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
+const NVM_PLAN_ID = process.env.NVM_PLAN_ID ?? "";
 
 if (!NVM_API_KEY || !NVM_AGENT_ID) {
   // eslint-disable-next-line no-console
@@ -134,12 +135,33 @@ const payments = Payments.getInstance({
 });
 
 const sessionStore = new SessionStore();
-const model = new ChatOpenAI({
-  model: "gpt-4o-mini",
-  temperature: 0.3,
-  apiKey: OPENAI_API_KEY,
-});
-const runnable = createRunnable(model);
+
+/**
+ * Create a model with dynamic sessionId and custom properties for each request
+ * @param {string} sessionId - The session ID for this request
+ * @param {Record<string, string>} customProperties - Additional custom properties to include as headers
+ * @returns {ChatOpenAI} Configured ChatOpenAI model
+ */
+function createModelWithSessionId(
+  sessionId: string,
+  customProperties: Record<string, string> = {}
+): ChatOpenAI {
+  return new ChatOpenAI(
+    payments.observability.withHeliconeLangchain(
+      "gpt-4o-mini",
+      OPENAI_API_KEY,
+      {
+        agentid: NVM_AGENT_ID,
+        sessionid: sessionId,
+        planid: NVM_PLAN_ID,
+        plan_type: "credit_based",
+        operation: "gpt_completion",
+        credit_cost: 1,
+        ...customProperties, // Spread any additional custom properties
+      }
+    )
+  );
+}
 
 /**
  * Ensure the incoming request is authorized via Nevermined and return request data for redemption.
@@ -187,6 +209,10 @@ app.post("/ask", async (req: Request, res: Response) => {
 
     let { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) sessionId = crypto.randomUUID();
+
+    // Create model and runnable with the dynamic sessionId
+    const model = createModelWithSessionId(sessionId);
+    const runnable = createRunnable(model);
 
     const result = await runnable.invoke(
       { input },
