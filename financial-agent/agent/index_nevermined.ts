@@ -120,7 +120,6 @@ const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
 const NVM_ENV = (process.env.NVM_ENV || "staging_sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
-const NVM_PLAN_ID = process.env.NVM_PLAN_ID ?? "";
 
 if (!NVM_API_KEY || !NVM_AGENT_ID) {
   // eslint-disable-next-line no-console
