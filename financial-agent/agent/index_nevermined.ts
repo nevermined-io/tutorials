@@ -12,7 +12,11 @@ import {
 import { RunnableWithMessageHistory } from "@langchain/core/runnables";
 import { InMemoryChatMessageHistory } from "@langchain/core/chat_history";
 import crypto from "crypto";
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
+import {
+  Payments,
+  EnvironmentName,
+  StartAgentRequest,
+} from "@nevermined-io/payments";
 
 /**
  * In-memory session message store.
@@ -135,12 +139,26 @@ const payments = Payments.getInstance({
 });
 
 const sessionStore = new SessionStore();
-const model = new ChatOpenAI({
-  model: "gpt-4o-mini",
-  temperature: 0.3,
-  apiKey: OPENAI_API_KEY,
-});
-const runnable = createRunnable(model);
+
+/**
+ * Create a model with dynamic sessionId and custom properties for each request
+ * @param {string} sessionId - The session ID for this request
+ * @param {Record<string, string>} customProperties - Additional custom properties to include as headers
+ * @returns {ChatOpenAI} Configured ChatOpenAI model
+ */
+function createModelWithSessionId(
+  agentRequest: StartAgentRequest,
+  customProperties: Record<string, string> = {}
+): ChatOpenAI {
+  return new ChatOpenAI(
+    payments.observability.withHeliconeLangchain(
+      "gpt-4o-mini",
+      OPENAI_API_KEY,
+      agentRequest,
+      customProperties
+    )
+  );
+}
 
 /**
  * Ensure the incoming request is authorized via Nevermined and return request data for redemption.
@@ -150,7 +168,7 @@ const runnable = createRunnable(model);
  */
 async function ensureAuthorized(
   req: Request
-): Promise<{ agentRequestId: string; requestAccessToken: string }> {
+): Promise<{ agentRequest: StartAgentRequest; requestAccessToken: string }> {
   const authHeader = (req.headers["authorization"] || "") as string;
   const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
   const httpVerb = req.method;
@@ -166,7 +184,7 @@ async function ensureAuthorized(
     throw error;
   }
   const requestAccessToken = authHeader.replace(/^Bearer\s+/i, "");
-  return { agentRequestId: result.agentRequestId, requestAccessToken };
+  return { agentRequest: result, requestAccessToken };
 }
 
 /**
@@ -180,14 +198,18 @@ async function ensureAuthorized(
  */
 app.post("/ask", async (req: Request, res: Response) => {
   try {
-    const { agentRequestId, requestAccessToken } = await ensureAuthorized(req);
-    console.log("agentRequestId", agentRequestId);
+    const { agentRequest, requestAccessToken } = await ensureAuthorized(req);
+    console.log("agentRequestId", agentRequest.agentRequestId);
     console.log("requestAccessToken", requestAccessToken);
     const input = String(req.body?.input_query ?? "").trim();
     if (!input) return res.status(400).json({ error: "Missing input" });
 
     let { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) sessionId = crypto.randomUUID();
+
+    // Create model and runnable with the dynamic sessionId
+    const model = createModelWithSessionId(agentRequest);
+    const runnable = createRunnable(model);
 
     const result = await runnable.invoke(
       { input },
@@ -203,7 +225,7 @@ app.post("/ask", async (req: Request, res: Response) => {
     let redemptionResult: any;
     try {
       redemptionResult = await payments.requests.redeemCreditsFromRequest(
-        agentRequestId,
+        agentRequest.agentRequestId,
         requestAccessToken,
         1n
       );
