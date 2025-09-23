@@ -1,50 +1,42 @@
 /**
- * @fileoverview HTTP server for a financial-advice agent using LangChain and OpenAI.
- * Exposes a `/ask` endpoint with per-session conversational memory.
+ * @fileoverview HTTP server for a financial-advice agent using OpenAI.
+ * Exposes a `/ask` endpoint with per-session conversational memory and Nevermined protection.
  */
 import "dotenv/config";
 import express, { Request, Response } from "express";
-import { ChatOpenAI } from "@langchain/openai";
-import {
-  ChatPromptTemplate,
-  MessagesPlaceholder,
-} from "@langchain/core/prompts";
-import { RunnableWithMessageHistory } from "@langchain/core/runnables";
-import { InMemoryChatMessageHistory } from "@langchain/core/chat_history";
+import OpenAI from "openai";
 import crypto from "crypto";
-import {
-  Payments,
-  EnvironmentName,
-  StartAgentRequest,
-} from "@nevermined-io/payments";
+import { Payments, EnvironmentName, StartAgentRequest } from "@nevermined-io/payments";
 
-/**
- * In-memory session message store.
- */
-class SessionStore {
-  private sessions: Map<string, InMemoryChatMessageHistory> = new Map();
+const app = express();
+app.use(express.json());
 
-  /**
-   * Get or create the message history for a session id.
-   * @param {string} sessionId - Session identifier
-   * @returns {InMemoryChatMessageHistory} The chat message history for the session
-   */
-  getHistory(sessionId: string): InMemoryChatMessageHistory {
-    let history = this.sessions.get(sessionId);
-    if (!history) {
-      history = new InMemoryChatMessageHistory();
-      this.sessions.set(sessionId, history);
-    }
-    return history;
-  }
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
+const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
+const NVM_ENV = (process.env.NVM_ENV || "staging_sandbox") as EnvironmentName;
+const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
+const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
+
+if (!OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY is required to run the agent.");
+  process.exit(1);
 }
 
-/**
- * Build the financial advisor prompt template.
- * @returns {ChatPromptTemplate} The composed chat prompt template
- */
-function buildFinancialPrompt(): ChatPromptTemplate {
-  const systemText = `You are FinGuide, a professional financial advisor and market analyst specializing in cryptocurrency and traditional markets.
+if (!NVM_API_KEY || !NVM_AGENT_ID) {
+  console.error("Nevermined environment is required: set NVM_API_KEY and NVM_AGENT_ID in .env");
+  process.exit(1);
+}
+
+// Initialize Nevermined Payments SDK for access control and observability
+const payments = Payments.getInstance({
+  nvmApiKey: NVM_API_KEY,
+  environment: NVM_ENV,
+});
+
+// Define the AI assistant's role and behavior
+function getSystemPrompt(): string {
+  return `You are FinGuide, a professional financial advisor and market analyst specializing in cryptocurrency and traditional markets.
 Your role is to provide:
 
 1. Real-time market data: current prices of cryptocurrencies, stock market performance, and key market indicators.
@@ -77,151 +69,91 @@ Important constraints:
 - You provide financial information and general advice, not personalized financial planning.
 - Recommend consulting with a qualified financial advisor for personalized decisions.
 - Avoid collecting personally identifiable information.
-- Ask clarifying questions when the user intent or constraints (budget, risk tolerance, time horizon) are unclear.
-`;
-  return ChatPromptTemplate.fromMessages([
-    ["system", systemText],
-    new MessagesPlaceholder("history"),
-    ["human", "{input}"],
-  ]);
+- Ask clarifying questions when the user intent or constraints (budget, risk tolerance, time horizon) are unclear.`;
 }
 
-/**
- * Create LangChain pipeline with per-session memory.
- * @param {ChatOpenAI} model - Chat model instance
- * @returns {RunnableWithMessageHistory<any, any>} Runnable with history
- */
-function createRunnable(model: ChatOpenAI) {
-  const prompt = buildFinancialPrompt();
-  const chain = prompt.pipe(model);
-  const runnable = new RunnableWithMessageHistory({
-    runnable: chain,
-    getMessageHistory: async (sessionId: string) =>
-      sessionStore.getHistory(sessionId),
-    inputMessagesKey: "input",
-    historyMessagesKey: "history",
-  });
-  return runnable;
-}
+// Store conversation history for each session
+const sessions = new Map<string, any[]>();
 
-const app = express();
-app.use(express.json());
-
-const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
-if (!OPENAI_API_KEY) {
-  // eslint-disable-next-line no-console
-  console.error("OPENAI_API_KEY is required to run the agent.");
-  process.exit(1);
-}
-
-// Nevermined required configuration
-const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENV = (process.env.NVM_ENV || "staging_sandbox") as EnvironmentName;
-const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
-const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
-const NVM_PLAN_ID = process.env.NVM_PLAN_ID ?? "";
-
-if (!NVM_API_KEY || !NVM_AGENT_ID) {
-  // eslint-disable-next-line no-console
-  console.error(
-    "Nevermined environment is required: set NVM_API_KEY and NVM_AGENT_ID in .env"
-  );
-  process.exit(1);
-}
-
-/**
- * Build a singleton Payments client for Nevermined.
- */
-const payments = Payments.getInstance({
-  nvmApiKey: NVM_API_KEY,
-  environment: NVM_ENV,
-});
-
-const sessionStore = new SessionStore();
-
-/**
- * Create a model with dynamic sessionId and custom properties for each request
- * @param {string} sessionId - The session ID for this request
- * @param {Record<string, string>} customProperties - Additional custom properties to include as headers
- * @returns {ChatOpenAI} Configured ChatOpenAI model
- */
-function createModelWithSessionId(
-  agentRequest: StartAgentRequest,
-  customProperties: Record<string, string> = {}
-): ChatOpenAI {
-  return new ChatOpenAI(
-    payments.observability.withHeliconeLangchain(
-      "gpt-4o-mini",
-      OPENAI_API_KEY,
-      agentRequest,
-      customProperties
-    )
-  );
-}
-
-/**
- * Ensure the incoming request is authorized via Nevermined and return request data for redemption.
- * @param {Request} req - Express request object
- * @returns {{ agentRequestId: string, requestAccessToken: string }} identifiers to redeem credits later
- * @throws Error with statusCode 402 when not authorized
- */
-async function ensureAuthorized(
-  req: Request
-): Promise<{ agentRequest: StartAgentRequest; requestAccessToken: string }> {
-  const authHeader = (req.headers["authorization"] || "") as string;
-  const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
-  const httpVerb = req.method;
-  const result = await payments.requests.startProcessingRequest(
-    NVM_AGENT_ID,
-    authHeader,
-    requestedUrl,
-    httpVerb
-  );
-  if (!result.balance.isSubscriber || result.balance.balance < 1n) {
-    const error: any = new Error("Payment Required");
-    error.statusCode = 402;
-    throw error;
-  }
-  const requestAccessToken = authHeader.replace(/^Bearer\s+/i, "");
-  return { agentRequest: result, requestAccessToken };
-}
-
-/**
- * POST /ask
- * Body: { input: string, sessionId?: string }
- * Returns: { output: string, sessionId: string }
- */
-/**
- * Handle medical question requests.
- * Creates a session when one is not provided and reuses memory across calls.
- */
+// Handle financial advice requests with Nevermined payment protection and observability
 app.post("/ask", async (req: Request, res: Response) => {
   try {
-    const { agentRequest, requestAccessToken } = await ensureAuthorized(req);
-    console.log("agentRequestId", agentRequest.agentRequestId);
-    console.log("requestAccessToken", requestAccessToken);
+    // Extract authorization details from request headers
+    const authHeader = (req.headers["authorization"] || "") as string;
+    const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
+    const httpVerb = req.method;
+
+    // Check if user is authorized and has sufficient balance
+    const agentRequest = await payments.requests.startProcessingRequest(
+      NVM_AGENT_ID,
+      authHeader,
+      requestedUrl,
+      httpVerb
+    );
+
+    // Reject request if user doesn't have credits or subscription
+    if (!agentRequest.balance.isSubscriber || agentRequest.balance.balance < 1n) {
+      return res.status(402).json({ error: "Payment Required" });
+    }
+
+    // Extract access token for credit redemption
+    const requestAccessToken = authHeader.replace(/^Bearer\s+/i, "");
+
+    // Extract and validate the user's input
     const input = String(req.body?.input_query ?? "").trim();
     if (!input) return res.status(400).json({ error: "Missing input" });
 
+    // Get or create a session ID for conversation continuity
     let { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) sessionId = crypto.randomUUID();
 
-    // Create model and runnable with the dynamic sessionId
-    const model = createModelWithSessionId(agentRequest);
-    const runnable = createRunnable(model);
+    // Retrieve existing conversation history or start fresh
+    let messages = sessions.get(sessionId) || [];
 
-    const result = await runnable.invoke(
-      { input },
-      { configurable: { sessionId } }
-    );
-    const text =
-      result?.content ??
-      (Array.isArray(result)
-        ? result.map((m: any) => m.content).join("\n")
-        : String(result));
+    // Add system prompt if this is a new conversation
+    if (messages.length === 0) {
+      messages.push({
+        role: "system",
+        content: getSystemPrompt()
+      });
+    }
 
-    // After successful processing, redeem 1 credit for this request
+    // Add the user's question to the conversation
+    messages.push({ role: "user", content: input });
+
+    // Set up observability metadata for tracking this operation
+    const customProperties = {
+      agentid: NVM_AGENT_ID,
+      sessionid: sessionId,
+      credit_amount: "1",
+      credit_usd_rate: "0.001",
+      credit_price_usd: "0.001",
+      operation: "financial_advice",
+    };
+
+    // Create OpenAI client with Helicone observability integration
+    const openai = new OpenAI(payments.observability.withHeliconeOpenAI(
+      OPENAI_API_KEY,
+      agentRequest,
+      customProperties
+    ));
+
+    // Call OpenAI API to generate response
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: messages,
+      temperature: 0.3,
+      max_tokens: 1000,
+    });
+
+    // Extract the AI's response
+    const response = completion.choices[0]?.message?.content || "No response generated";
+
+    // Save the AI's response to conversation history
+    messages.push({ role: "assistant", content: response });
+    sessions.set(sessionId, messages);
+
+    // Redeem credits after successful API call
     let redemptionResult: any;
     try {
       redemptionResult = await payments.requests.redeemCreditsFromRequest(
@@ -230,9 +162,7 @@ app.post("/ask", async (req: Request, res: Response) => {
         1n
       );
       redemptionResult.creditsRedeemed = 1;
-      console.log("redemptionResult", redemptionResult);
     } catch (redeemErr) {
-      // eslint-disable-next-line no-console
       console.error("Failed to redeem credits:", redeemErr);
       redemptionResult = {
         creditsRedeemed: 0,
@@ -240,9 +170,9 @@ app.post("/ask", async (req: Request, res: Response) => {
       };
     }
 
-    res.json({ output: text, sessionId, redemptionResult });
+    // Return response with session info and payment details
+    res.json({ output: response, sessionId, redemptionResult });
   } catch (error: any) {
-    // eslint-disable-next-line no-console
     console.error("Error handling /ask", error);
     const status = error?.statusCode === 402 ? 402 : 500;
     res.status(status).json({
@@ -251,11 +181,11 @@ app.post("/ask", async (req: Request, res: Response) => {
   }
 });
 
+// Health check endpoint
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
 app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Agent listening on http://localhost:${PORT}`);
+  console.log(`Financial Agent listening on http://localhost:${PORT}`);
 });

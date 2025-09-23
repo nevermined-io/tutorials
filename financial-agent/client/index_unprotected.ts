@@ -4,61 +4,81 @@
  */
 import "dotenv/config";
 
+// Configuration: Agent URL from environment or default
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
+
+// Define test questions to demonstrate conversation continuity
+const TEST_QUESTIONS = [
+  "What is your market outlook for Bitcoin over the next month?",
+  "How are major stock indices performing today and what trends are notable?",
+  "What risks should I consider before increasing exposure to tech stocks?",
+];
+
+// Send a question to the financial agent
+async function askAgent(input: string, sessionId?: string): Promise<{ output: string; sessionId: string }> {
+  // Prepare request payload
+  const requestBody = {
+    input_query: input,
+    sessionId: sessionId
+  };
+
+  // Make HTTP request to agent
+  const response = await fetch(`${AGENT_URL}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+  });
+
+  // Handle HTTP errors
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(`Agent request failed: ${response.status} ${response.statusText} ${errorText}`);
+  }
+
+  // Parse and return JSON response
+  return await response.json() as { output: string; sessionId: string };
+}
+
 /**
  * Run the unprotected demo client.
  * Sends predefined financial questions to the agent and reuses sessionId to preserve context.
  * @returns {Promise<void>} Resolves when the run finishes
  */
-async function main(): Promise<void> {
-  const baseUrl = process.env.AGENT_URL || "http://localhost:3001";
+async function runDemo(): Promise<void> {
+  console.log("🚀 Starting Financial Agent Demo (Unprotected)\n");
 
-  const questions: string[] = [
-    "What is your market outlook for Bitcoin over the next month?",
-    "How are major stock indices performing today and what trends are notable?",
-    "What risks should I consider before increasing exposure to tech stocks?",
-  ];
-
+  // Track session across multiple questions
   let sessionId: string | undefined;
 
-  for (let i = 0; i < questions.length; i += 1) {
-    const input = questions[i];
-    // eslint-disable-next-line no-console
-    console.log(`\n[FREE CLIENT] Sending question ${i + 1}: ${input}`);
-    const response = await askAgent(baseUrl, input, sessionId);
-    sessionId = response.sessionId;
-    // eslint-disable-next-line no-console
-    console.log(`[FREE AGENT] (sessionId=${sessionId})\n${response.output}`);
+  // Send each test question and maintain conversation context
+  for (let i = 0; i < TEST_QUESTIONS.length; i++) {
+    const question = TEST_QUESTIONS[i];
+
+    console.log(`📝 Question ${i + 1}: ${question}`);
+
+    try {
+      // Send question to agent (reusing sessionId for context)
+      const result = await askAgent(question, sessionId);
+
+      // Update sessionId for next question
+      sessionId = result.sessionId;
+
+      // Display agent response
+      console.log(`🤖 FinGuide (Session: ${sessionId}):`);
+      console.log(result.output);
+      console.log("\n" + "=".repeat(80) + "\n");
+
+    } catch (error) {
+      console.error(`❌ Error processing question ${i + 1}:`, error);
+      break;
+    }
   }
+
+  console.log("✅ Demo completed!");
 }
 
-/**
- * Perform a POST /ask to the free agent.
- * @param {string} baseUrl - Base URL of the agent service
- * @param {string} input - User question text
- * @param {string} [sessionId] - Optional existing session id to keep context
- * @returns {Promise<{ output: string; sessionId: string }>} Response with model output and session id
- */
-async function askAgent(
-  baseUrl: string,
-  input: string,
-  sessionId?: string
-): Promise<{ output: string; sessionId: string }> {
-  const res = await fetch(`${baseUrl}/ask`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input_query: input, sessionId }),
-  });
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(
-      `Free agent request failed: ${res.status} ${res.statusText} ${errorText}`
-    );
-  }
-  return (await res.json()) as { output: string; sessionId: string };
-}
-
-main().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error("[FREE CLIENT] Error:", err);
+// Run the demo and handle any errors
+runDemo().catch((error) => {
+  console.error("💥 Demo failed:", error);
   process.exit(1);
 });
