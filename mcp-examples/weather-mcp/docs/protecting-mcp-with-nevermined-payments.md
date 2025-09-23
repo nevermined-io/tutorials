@@ -55,7 +55,7 @@ Environment variables (server side):
 ```bash
 export NVM_API_KEY=...            # Builder/agent owner API key
 export NVM_AGENT_ID=did:nv:...    # Agent ID registered in Nevermined
-export NVM_ENV=sandbox            # or live
+export NVM_ENVIRONMENT=sandbox            # or live
 ```
 
 For testing as a **subscriber**:
@@ -114,7 +114,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const nvmApiKey = process.env.NVM_API_KEY!;
-const environment = (process.env.NVM_ENV || "sandbox") as any;
+const environment = (process.env.NVM_ENVIRONMENT || "sandbox") as any;
 
 const payments = Payments.getInstance({ nvmApiKey, environment });
 
@@ -165,7 +165,7 @@ import { weatherToolHandler } from "./handlers";
 // Assume payments instance is configured as in payments-setup.ts
 const payments = Payments.getInstance({
   nvmApiKey: process.env.NVM_API_KEY!,
-  environment: (process.env.NVM_ENV || "sandbox") as any,
+  environment: (process.env.NVM_ENVIRONMENT || "sandbox") as any,
 });
 payments.mcp.configure({
   agentId: process.env.NVM_AGENT_ID!,
@@ -347,7 +347,7 @@ import { Payments } from "@nevermined-io/payments";
 async function getAccessToken() {
     const payments = Payments.getInstance({
         nvmApiKey: process.env.NVM_API_KEY!,
-        environment: (process.env.NVM_ENV || "sandbox") as any,
+        environment: (process.env.NVM_ENVIRONMENT || "sandbox") as any,
     });
 
     const { accessToken } = await payments.agents.getAgentAccessToken(

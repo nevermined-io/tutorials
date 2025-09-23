@@ -72,7 +72,7 @@ Server env:
 ```bash
 export NVM_SERVER_API_KEY=...     # Server key (builder/agent owner)
 export NVM_AGENT_ID=weather-agent # Logical agent id used in validation (or your real ID)
-export NVM_ENV=staging_sandbox    # optional
+export NVM_ENVIRONMENT=staging_sandbox    # optional
 yarn dev
 ```
 
@@ -147,7 +147,7 @@ Server environment:
 ```bash
 export NVM_API_KEY=...            # Builder/agent owner API key
 export NVM_AGENT_ID=did:nv:...    # Your agent id registered in Nevermined
-export NVM_ENV=staging_sandbox    # or production
+export NVM_ENVIRONMENT=staging_sandbox    # or production
 ```
 
 Client (subscriber) will use its own `NVM_API_KEY` to obtain an access token and send it as `Authorization: Bearer ...`.
@@ -158,7 +158,7 @@ Client (subscriber) will use its own `NVM_API_KEY` to obtain an access token and
 import { Payments } from '@nevermined-io/payments'
 
 const nvmApiKey = process.env.NVM_API_KEY!
-const environment = process.env.NVM_ENV || 'staging_sandbox'
+const environment = process.env.NVM_ENVIRONMENT || 'staging_sandbox'
 const payments = Payments.getInstance({ nvmApiKey, environment })
 
 // Configure paywall defaults once

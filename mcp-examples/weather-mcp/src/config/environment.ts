@@ -13,7 +13,7 @@ export interface EnvironmentConfig {
 export function loadEnvironmentConfig(): EnvironmentConfig {
   const nvmApiKey = process.env.BUILDER_NVM_API_KEY;
   const nvmAgentId = process.env.NVM_AGENT_ID;
-  const nvmEnvironment = process.env.NVM_ENV || "staging_sandbox";
+  const nvmEnvironment = process.env.NVM_ENVIRONMENT || "staging_sandbox";
 
   if (!nvmApiKey) {
     throw new Error(
