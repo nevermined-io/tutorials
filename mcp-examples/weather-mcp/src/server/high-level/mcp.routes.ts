@@ -7,7 +7,8 @@ import { SessionManager } from "./session-manager.js";
 
 // Methods from MCP protocol whose responses can leak server capabilities.
 // We gate them requiring Authorization header presence before delegating.
-const GATED_METHODS = new Set(["tools/list", "resources/list", "prompts/list"]);
+//const GATED_METHODS = new Set(["tools/list", "resources/list", "prompts/list"]);
+const GATED_METHODS = new Set([""]);
 
 function extractAuthHeader(req: Request): string | undefined {
   // Express normalizes header names to lowercase
@@ -18,10 +19,7 @@ function extractAuthHeader(req: Request): string | undefined {
 function shouldGateRequest(body: any): boolean {
   if (!body || typeof body !== "object") return false;
   const method = (body as any).method;
-  return (
-    typeof method === "string" &&
-    (GATED_METHODS.has(method) || method === "initialize")
-  );
+  return typeof method === "string" && GATED_METHODS.has(method);
 }
 
 function createPostHandler(

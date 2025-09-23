@@ -4,6 +4,8 @@
 
 "@a2a-js/sdk@^0.2.5":
   version "0.2.5"
+  resolved "https://registry.npmjs.org/@a2a-js/sdk/-/sdk-0.2.5.tgz"
+  integrity sha512-VTDuRS5V0ATbJ/LkaQlisMnTAeYKXAK6scMguVBstf+KIBQ7HIuKhiXLv+G/hvejkV+THoXzoNifInAkU81P1g==
   dependencies:
     "@types/cors" "^2.8.17"
     "@types/express" "^4.17.23"
@@ -18,9 +20,9 @@
   integrity sha512-Jw0mxgIaYX6R8ODrdkLLPwBqHTtYHJSmzzd+QeytSugzQ0Vg4c5rDky5VgkoowbZQahCbsv1rT1KW72MPIkevw==
 
 "@helicone/helpers@^1.6.0":
-  version "1.7.0"
-  resolved "https://registry.npmjs.org/@helicone/helpers/-/helpers-1.7.0.tgz"
-  integrity sha512-SqK0fnJbK1S1wSaw+wQj31UOYeogc8TkbTY8AEolfYHBzfVK5WRVnvm7q0d8RvVyB64OAgAxyIBWYhBcGgxztQ==
+  version "1.8.0"
+  resolved "https://registry.npmjs.org/@helicone/helpers/-/helpers-1.8.0.tgz"
+  integrity sha512-0UtLKGs/pXlFqE2t1LcFK7cJhCiRXy5PJbsCaJ7nP9jSX8Ydd4mMDd+wlH5gqKAcwYyfYFro6SV+tqlD1JE4Sg==
 
 "@modelcontextprotocol/sdk@^1.17.2":
   version "1.17.2"
@@ -40,10 +42,10 @@
     zod "^3.23.8"
     zod-to-json-schema "^3.24.1"
 
-"@nevermined-io/payments@^1.0.0-rc10":
-  version "1.0.0-rc11"
-  resolved "https://registry.npmjs.org/@nevermined-io/payments/-/payments-1.0.0-rc11.tgz"
-  integrity sha512-VO365z0N+1Mru1r1NNJj85acvmJ82TTcJ6Ei/xdql2b9ot5DC5WeOwAArYuEIjUzMQRIsh7+mxWOOlnXeB4yTw==
+"@nevermined-io/payments@^1.0.0-rc15":
+  version "1.0.0-rc15"
+  resolved "https://registry.npmjs.org/@nevermined-io/payments/-/payments-1.0.0-rc15.tgz"
+  integrity sha512-NoTTNEMs1v0KHOx3evfe5DWKGvY90VxZROk0FVutYdgolt5w7JgkN6psvizBn0wgdaGqMta2Clv4DlPYfQV34Q==
   dependencies:
     "@a2a-js/sdk" "^0.2.5"
     "@helicone/helpers" "^1.6.0"
@@ -196,7 +198,9 @@ asynckit@^0.4.0:
   integrity sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==
 
 axios@^1.7.7:
-  version "1.11.0"
+  version "1.12.2"
+  resolved "https://registry.npmjs.org/axios/-/axios-1.12.2.tgz"
+  integrity sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==
   dependencies:
     follow-redirects "^1.15.6"
     form-data "^4.0.4"
@@ -755,9 +759,13 @@ isexe@^2.0.0:
 
 jose@^5.2.4:
   version "5.10.0"
+  resolved "https://registry.npmjs.org/jose/-/jose-5.10.0.tgz"
+  integrity sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==
 
 js-file-download@^0.4.12:
   version "0.4.12"
+  resolved "https://registry.npmjs.org/js-file-download/-/js-file-download-0.4.12.tgz"
+  integrity sha512-rML+NkoD08p5Dllpjo0ffy4jRHeY6Zsapvr/W86N7E0yuzAO6qa5X9+xog6zQNlH102J7IXljNY2FtS6Lj3ucg==
 
 json-schema-traverse@^0.4.1:
   version "0.4.1"
@@ -882,9 +890,9 @@ once@^1.4.0:
     wrappy "1"
 
 openai@^5.10.2:
-  version "5.16.0"
-  resolved "https://registry.npmjs.org/openai/-/openai-5.16.0.tgz"
-  integrity sha512-hoEH8ZNvg1HXjU9mp88L/ZH8O082Z8r6FHCXGiWAzVRrEv443aI57qhch4snu07yQydj+AUAWLenAiBXhu89Tw==
+  version "5.21.0"
+  resolved "https://registry.npmjs.org/openai/-/openai-5.21.0.tgz"
+  integrity sha512-E9LuV51vgvwbahPJaZu2x4V6SWMq9g3X6Bj2/wnFiNfV7lmAxYVxPxcQNZqCWbAVMaEoers9HzIxpOp6Vvgn8w==
 
 parseurl@^1.3.3, parseurl@~1.3.3:
   version "1.3.3"
@@ -1204,6 +1212,8 @@ utils-merge@1.0.1:
 
 uuid@^10.0.0:
   version "10.0.0"
+  resolved "https://registry.npmjs.org/uuid/-/uuid-10.0.0.tgz"
+  integrity sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==
 
 uuid@^11.1.0:
   version "11.1.0"
@@ -1238,6 +1248,6 @@ zod@^3.23.8, zod@^3.24.1:
   integrity sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==
 
 zod@^4.0.17:
-  version "4.1.3"
-  resolved "https://registry.npmjs.org/zod/-/zod-4.1.3.tgz"
-  integrity sha512-1neef4bMce1hNTrxvHVKxWjKfGDn0oAli3Wy1Uwb7TRO1+wEwoZUZNP1NXIEESybOBiFnBOhI6a4m6tCLE8dog==
+  version "4.1.9"
+  resolved "https://registry.npmjs.org/zod/-/zod-4.1.9.tgz"
+  integrity sha512-HI32jTq0AUAC125z30E8bQNz0RQ+9Uc+4J7V97gLYjZVKRjeydPgGt6dvQzFrav7MYOUGFqqOGiHpA/fdbd0cQ==
