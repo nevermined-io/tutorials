@@ -12,11 +12,11 @@ const AGENT_ID = process.env.NVM_AGENT_ID as string;
 const SUBSCRIBER_API_KEY = process.env.SUBSCRIBER_NVM_API_KEY as string;
 const NVM_ENVIRONMENT = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
 
-// Define test questions to demonstrate conversation continuity
-const TEST_QUESTIONS = [
-  "What is your market outlook for Bitcoin over the next month?",
-  "How are major stock indices performing today and what trends are notable?",
-  "What risks should I consider before increasing exposure to tech stocks?",
+// Define demo conversation to show chatbot-style interaction
+const DEMO_CONVERSATION_QUESTIONS = [
+  "Hi there! I'm new to investing and keep hearing about diversification. Can you explain what that means in simple terms?",
+  "That makes sense! So if I want to start investing but only have $100 a month, what should I focus on first?",
+  "I've been thinking about cryptocurrency. What should a beginner like me know before investing in crypto?",
 ];
 
 // Validate required environment variables
@@ -30,7 +30,7 @@ function validateEnvironment(): void {
 }
 
 // Get or purchase access token for protected agent
-async function getAccessToken(): Promise<string> {
+async function getorPurchaseAccessToken(): Promise<string> {
   console.log("🔐 Setting up Nevermined access...");
 
   // Initialize Nevermined Payments SDK
@@ -61,38 +61,61 @@ async function getAccessToken(): Promise<string> {
   return credentials.accessToken;
 }
 
+// Simple loading animation for terminal
+function startLoadingAnimation(): () => void {
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let i = 0;
+  const interval = setInterval(() => {
+    process.stdout.write(`\r${frames[i]} FinGuide is thinking...`);
+    i = (i + 1) % frames.length;
+  }, 100);
+
+  return () => {
+    clearInterval(interval);
+    process.stdout.write('\r');
+  };
+}
+
 // Send a question to the protected financial agent
 async function askAgent(input: string, accessToken: string, sessionId?: string): Promise<{ output: string; sessionId: string; redemptionResult?: any }> {
-  // Prepare request payload
-  const requestBody = {
-    input_query: input,
-    sessionId: sessionId
-  };
+  // Start loading animation
+  const stopLoading = startLoadingAnimation();
 
-  // Prepare headers with authorization
-  const headers = {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${accessToken}`
-  };
+  try {
+    // Prepare request payload
+    const requestBody = {
+      input_query: input,
+      sessionId: sessionId
+    };
 
-  // Make HTTP request to protected agent
-  const response = await fetch(`${AGENT_URL}/ask`, {
-    method: "POST",
-    headers: headers,
-    body: JSON.stringify(requestBody),
-  });
+    // Prepare headers with authorization
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`
+    };
 
-  // Handle HTTP errors (including payment required)
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    if (response.status === 402) {
-      throw new Error("Payment Required - insufficient credits or subscription");
+    // Make HTTP request to protected agent
+    const response = await fetch(`${AGENT_URL}/ask`, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(requestBody),
+    });
+
+    // Handle HTTP errors (including payment required)
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      if (response.status === 402) {
+        throw new Error("Payment Required - insufficient credits or subscription");
+      }
+      throw new Error(`Agent request failed: ${response.status} ${response.statusText} ${errorText}`);
     }
-    throw new Error(`Agent request failed: ${response.status} ${response.statusText} ${errorText}`);
-  }
 
-  // Parse and return JSON response
-  return await response.json() as { output: string; sessionId: string; redemptionResult?: any };
+    // Parse and return JSON response
+    return await response.json() as { output: string; sessionId: string; redemptionResult?: any };
+  } finally {
+    // Stop loading animation
+    stopLoading();
+  }
 }
 
 /**
@@ -107,14 +130,14 @@ async function runDemo(): Promise<void> {
   validateEnvironment();
 
   // Obtain access token for protected agent
-  const accessToken = await getAccessToken();
+  const accessToken = await getorPurchaseAccessToken();
 
   // Track session across multiple questions
   let sessionId: string | undefined;
 
-  // Send each test question and maintain conversation context
-  for (let i = 0; i < TEST_QUESTIONS.length; i++) {
-    const question = TEST_QUESTIONS[i];
+  // Send each demo question and maintain conversation context
+  for (let i = 0; i < DEMO_CONVERSATION_QUESTIONS.length; i++) {
+    const question = DEMO_CONVERSATION_QUESTIONS[i];
 
     console.log(`📝 Question ${i + 1}: ${question}`);
 
