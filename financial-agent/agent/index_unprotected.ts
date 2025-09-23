@@ -1,111 +1,121 @@
 /**
- * @fileoverview Free-access HTTP server for the medical-advice agent (no Nevermined protection).
+ * @fileoverview Free-access HTTP server for the financial-advice agent (no Nevermined protection).
  * Provides a `/ask` endpoint with per-session conversational memory.
  */
 import "dotenv/config";
 import express, { Request, Response } from "express";
-import { ChatOpenAI } from "@langchain/openai";
-import {
-  ChatPromptTemplate,
-  MessagesPlaceholder,
-} from "@langchain/core/prompts";
-import { RunnableWithMessageHistory } from "@langchain/core/runnables";
-import { InMemoryChatMessageHistory } from "@langchain/core/chat_history";
+import OpenAI from "openai";
 import crypto from "crypto";
-
-class SessionStore {
-  private sessions: Map<string, InMemoryChatMessageHistory> = new Map();
-  getHistory(sessionId: string): InMemoryChatMessageHistory {
-    let history = this.sessions.get(sessionId);
-    if (!history) {
-      history = new InMemoryChatMessageHistory();
-      this.sessions.set(sessionId, history);
-    }
-    return history;
-  }
-}
-
-function buildMedicalPrompt(): ChatPromptTemplate {
-  const systemText = `You are MedGuide, a board-certified medical expert assistant.
-Provide accurate, evidence-based, and empathetic medical guidance.
-Constraints and behavior:
-- You are not a substitute for a licensed physician or emergency services.
-- If symptoms are severe, sudden, or life-threatening, advise calling emergency services immediately.
-- Be concise but thorough. Use plain language, avoid jargon, and explain reasoning.
-- Always ask clarifying questions when the information is insufficient.
-- Provide differential considerations when appropriate and list red flags.
-- Include lifestyle guidance and self-care measures when relevant.
-- When medication is discussed, include typical adult dosage ranges where safe and general, and warn to consult a clinician for personalized dosing, interactions, or contraindications.
-- Suggest when to seek in-person evaluation and what tests a clinician might order.
-- Never provide definitive diagnoses. Use probabilistic language (e.g., likely, possible).
-- Respect privacy and avoid collecting personally identifiable information.
-- If the request is outside medical scope, politely decline or redirect.`;
-  return ChatPromptTemplate.fromMessages([
-    ["system", systemText],
-    new MessagesPlaceholder("history"),
-    ["human", "{input}"],
-  ]);
-}
-
-function createRunnable(model: ChatOpenAI) {
-  const prompt = buildMedicalPrompt();
-  const chain = prompt.pipe(model);
-  return new RunnableWithMessageHistory({
-    runnable: chain,
-    getMessageHistory: async (sessionId: string) =>
-      sessionStore.getHistory(sessionId),
-    inputMessagesKey: "input",
-    historyMessagesKey: "history",
-  });
-}
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
+
 if (!OPENAI_API_KEY) {
-  // eslint-disable-next-line no-console
-  console.error("OPENAI_API_KEY is required to run the free agent.");
+  console.error("OPENAI_API_KEY is required to run the agent.");
   process.exit(1);
 }
 
-const sessionStore = new SessionStore();
-const model = new ChatOpenAI({
-  model: "gpt-4o-mini",
-  temperature: 0.3,
-  apiKey: OPENAI_API_KEY,
-});
-const runnable = createRunnable(model);
+// Initialize OpenAI client with API key
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
+// Define the AI's role and behavior
+function getSystemPrompt(maxTokens: number): string {
+  return `You are FinGuide, a friendly financial education AI designed to help people learn about investing, personal finance, and market concepts.
+
+Your role is to provide:
+
+1. Financial education: Explain investing concepts, terminology, and strategies in simple, beginner-friendly language.
+2. General market insights: Discuss historical trends, market principles, and how different asset classes typically behave.
+3. Investment fundamentals: Teach about diversification, risk management, dollar-cost averaging, and long-term investing principles.
+4. Personal finance guidance: Help with budgeting basics, emergency funds, debt management, and retirement planning concepts.
+
+Response style:
+Write in a natural, conversational tone as if you're chatting with a friend over coffee. Be encouraging and educational rather
+than giving specific investment advice. Use analogies and everyday examples to explain complex concepts in a way that feels 
+relatable. Always focus on teaching principles rather than recommending specific investments. Be honest about not having access
+to real-time market data, and naturally encourage users to do their own research and consult professionals for personalized
+advice. Avoid using bullet points or formal lists - instead, weave information into flowing, natural sentences that feel
+like genuine conversation. Adjust your response length based on the complexity of the question - for simple questions,
+keep responses concise (50-100 words), but for complex topics that need thorough explanation, feel free to use 
+up to ${maxTokens} tokens to provide comprehensive educational value.
+
+Important disclaimers:
+Remember to naturally work into your conversations that you're an educational AI guide, not a licensed financial advisor. 
+You don't have access to real-time market data or current prices. All the information you share is for educational purposes only,
+not personalized financial advice. Always encourage users to consult with qualified financial professionals for actual 
+investment decisions. Naturally remind them that past performance never guarantees future results and all investments 
+carry risk, including potential loss of principal.
+
+When discussing investments:
+Focus on general principles and educational concepts while explaining both potential benefits and risks in a conversational way.
+Naturally emphasize the importance of diversification and long-term thinking. Gently remind users to only invest what they can
+afford to lose and suggest they research thoroughly while considering their personal financial situation. 
+Make these important points feel like natural parts of the conversation rather than formal warnings.`;
+}
+
+// Store conversation history for each session
+const sessions = new Map<string, any[]>();
+
+// Handle financial advice requests with session-based conversation memory
 app.post("/ask", async (req: Request, res: Response) => {
   try {
+    // Extract and validate the user's input
     const input = String(req.body?.input_query ?? "").trim();
     if (!input) return res.status(400).json({ error: "Missing input" });
+
+    // Get or create a session ID for conversation continuity
     let { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) sessionId = crypto.randomUUID();
-    const result = await runnable.invoke(
-      { input },
-      { configurable: { sessionId } }
-    );
-    const text =
-      result?.content ??
-      (Array.isArray(result)
-        ? result.map((m: any) => m.content).join("\n")
-        : String(result));
-    res.json({ output: text, sessionId });
+
+    // Define the maximum number of tokens for the completion response
+    const maxTokens = 250;
+
+    // Retrieve existing conversation history or start fresh
+    let messages = sessions.get(sessionId) || [];
+
+    // Add system prompt if this is a new conversation
+    if (messages.length === 0) {
+      messages.push({
+        role: "system",
+        content: getSystemPrompt(maxTokens)
+      });
+    }
+
+    // Add the user's question to the conversation
+    messages.push({ role: "user", content: input });
+
+    // Call OpenAI API to generate response
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: messages,
+      temperature: 0.3,
+      max_tokens: maxTokens,
+    });
+
+    // Extract the AI's response
+    const response = completion.choices[0]?.message?.content || "No response generated";
+
+    // Save the AI's response to conversation history
+    messages.push({ role: "assistant", content: response });
+    sessions.set(sessionId, messages);
+
+    // Return response to the client
+    res.json({ output: response, sessionId });
   } catch (error: any) {
-    // eslint-disable-next-line no-console
-    console.error("Free agent /ask error:", error);
+    console.error("Agent /ask error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
+// Health check endpoint
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+// Start the server
 app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Free Agent listening on http://localhost:${PORT}`);
+  console.log(`Financial Agent listening on http://localhost:${PORT}`);
 });
