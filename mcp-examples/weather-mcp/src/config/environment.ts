@@ -11,7 +11,7 @@ export interface EnvironmentConfig {
  * Load environment configuration with validation
  */
 export function loadEnvironmentConfig(): EnvironmentConfig {
-  const nvmApiKey = process.env.NVM_SERVER_API_KEY;
+  const nvmApiKey = process.env.BUILDER_NVM_API_KEY;
   const nvmAgentId = process.env.NVM_AGENT_ID;
   const nvmEnvironment = process.env.NVM_ENV || "staging_sandbox";
 

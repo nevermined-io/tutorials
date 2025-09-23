@@ -13,7 +13,7 @@ async function main() {
   const city = process.argv[2] || "Madrid";
   const planId = process.env.NVM_PLAN_ID || process.argv[3];
   const agentId = process.env.NVM_AGENT_ID || process.argv[4];
-  const nvmApiKey = process.env.NVM_API_KEY;
+  const nvmApiKey = process.env.CLIENT_NVM_API_KEY;
   const environment = (process.env.NVM_ENV || "staging_sandbox") as any;
 
   const payments = nvmApiKey
