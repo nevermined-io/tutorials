@@ -16,7 +16,11 @@ function main() {
   }
 }
 
-// Run if this is the main module
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (
+  import.meta.url === `file://${process.argv[1]}` ||
+  process.argv[1] === new URL(import.meta.url).pathname ||
+  process.argv[1]?.endsWith("main.js") ||
+  process.argv[1]?.endsWith("main.ts")
+) {
   main();
 }
