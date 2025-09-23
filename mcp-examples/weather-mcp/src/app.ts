@@ -56,7 +56,7 @@ export class WeatherMcpApp {
     );
 
     // Health check endpoint
-    this.app.get("/healthz", (_req, res) => {
+    this.app.get("/health", (_req, res) => {
       res.status(200).json({ ok: true });
     });
   }
