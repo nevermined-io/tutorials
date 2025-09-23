@@ -34,8 +34,8 @@ const payments = Payments.getInstance({
   environment: NVM_ENV,
 });
 
-// Define the AI assistant's role and behavior
-function getSystemPrompt(): string {
+// Define the AI's role and behavior
+function getSystemPrompt(maxTokens: number): string {
   return `You are FinGuide, a friendly financial education AI designed to help people learn about investing, personal finance, and market concepts.
 
 Your role is to provide:
@@ -46,13 +46,40 @@ Your role is to provide:
 4. Personal finance guidance: Help with budgeting basics, emergency funds, debt management, and retirement planning concepts.
 
 Response style:
-Write in a natural, conversational tone as if you're chatting with a friend over coffee. Be encouraging and educational rather than giving specific investment advice. Use analogies and everyday examples to explain complex concepts in a way that feels relatable. Always focus on teaching principles rather than recommending specific investments. Be honest about not having access to real-time market data, and naturally encourage users to do their own research and consult professionals for personalized advice. Avoid using bullet points or formal lists - instead, weave information into flowing, natural sentences that feel like genuine conversation. Keep your responses short and concise, around 150-200 words maximum.
+Write in a natural, conversational tone as if you're chatting with a friend over coffee. Be encouraging and educational rather
+than giving specific investment advice. Use analogies and everyday examples to explain complex concepts in a way that feels 
+relatable. Always focus on teaching principles rather than recommending specific investments. Be honest about not having access
+to real-time market data, and naturally encourage users to do their own research and consult professionals for personalized
+advice. Avoid using bullet points or formal lists - instead, weave information into flowing, natural sentences that feel
+like genuine conversation. Adjust your response length based on the complexity of the question - for simple questions,
+keep responses concise (50-100 words), but for complex topics that need thorough explanation, feel free to use 
+up to ${maxTokens} tokens to provide comprehensive educational value.
 
 Important disclaimers:
-Remember to naturally work into your conversations that you're an educational AI guide, not a licensed financial advisor. You don't have access to real-time market data or current prices. All the information you share is for educational purposes only, not personalized financial advice. Always encourage users to consult with qualified financial professionals for actual investment decisions. Naturally remind them that past performance never guarantees future results and all investments carry risk, including potential loss of principal.
+Remember to naturally work into your conversations that you're an educational AI guide, not a licensed financial advisor. 
+You don't have access to real-time market data or current prices. All the information you share is for educational purposes only,
+not personalized financial advice. Always encourage users to consult with qualified financial professionals for actual 
+investment decisions. Naturally remind them that past performance never guarantees future results and all investments 
+carry risk, including potential loss of principal.
 
 When discussing investments:
-Focus on general principles and educational concepts while explaining both potential benefits and risks in a conversational way. Naturally emphasize the importance of diversification and long-term thinking. Gently remind users to only invest what they can afford to lose and suggest they research thoroughly while considering their personal financial situation. Make these important points feel like natural parts of the conversation rather than formal warnings.`;
+Focus on general principles and educational concepts while explaining both potential benefits and risks in a conversational way.
+Naturally emphasize the importance of diversification and long-term thinking. Gently remind users to only invest what they can
+afford to lose and suggest they research thoroughly while considering their personal financial situation. 
+Make these important points feel like natural parts of the conversation rather than formal warnings.`;
+}
+
+// Calculate dynamic credit amount based on token usage
+function calculateCreditAmount(tokensUsed: number, maxTokens: number): number {
+  // Formula: 10 * (actual_tokens / max_tokens)
+  // This rewards shorter responses with lower costs
+  const tokenUtilization = Math.min(tokensUsed / maxTokens, 1); // Cap at 1
+  const baseCreditAmount = 10 * tokenUtilization;
+  const creditAmount = Math.max(Math.ceil(baseCreditAmount), 1); // Minimum 1 credit
+
+  console.log(`Token usage: ${tokensUsed}/${maxTokens} (${(tokenUtilization * 100).toFixed(1)}%) - Credits: ${creditAmount}`);
+
+  return creditAmount;
 }
 
 // Store conversation history for each session
@@ -90,6 +117,9 @@ app.post("/ask", async (req: Request, res: Response) => {
     let { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) sessionId = crypto.randomUUID();
 
+    // Define the maximum number of tokens for the completion response
+    const maxTokens = 250;
+
     // Retrieve existing conversation history or start fresh
     let messages = sessions.get(sessionId) || [];
 
@@ -97,7 +127,7 @@ app.post("/ask", async (req: Request, res: Response) => {
     if (messages.length === 0) {
       messages.push({
         role: "system",
-        content: getSystemPrompt()
+        content: getSystemPrompt(maxTokens)
       });
     }
 
@@ -123,30 +153,31 @@ app.post("/ask", async (req: Request, res: Response) => {
       model: "gpt-4o-mini",
       messages: messages,
       temperature: 0.3,
-      max_tokens: 250,
+      max_tokens: maxTokens,
     });
 
-    // Extract the AI's response
+    // Extract the AI's response and token usage
     const response = completion.choices[0]?.message?.content || "No response generated";
+    const tokensUsed = completion.usage?.completion_tokens || 0;
 
     // Save the AI's response to conversation history
     messages.push({ role: "assistant", content: response });
     sessions.set(sessionId, messages);
 
+    // Calculate dynamic credit amount based on token usage
+    const creditAmount = calculateCreditAmount(tokensUsed, maxTokens);
+
     // Initialize redemption result
     let redemptionResult: any;
-
-    // Define the amount of credits to redeem for this request
-    const credit_amount = 1;
 
     // Redeem credits after successful API call
     try {
       redemptionResult = await payments.requests.redeemCreditsFromRequest(
         agentRequest.agentRequestId,
         requestAccessToken,
-        BigInt(credit_amount)
+        BigInt(creditAmount)
       );
-      redemptionResult.creditsRedeemed = 1;
+      redemptionResult.creditsRedeemed = creditAmount;
     } catch (redeemErr) {
       console.error("Failed to redeem credits:", redeemErr);
       redemptionResult = {
