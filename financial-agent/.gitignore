@@ -4,3 +4,7 @@ dist/
 .DS_Store
 *.log
 .vscode
+
+.env.local
+.env.staging
+.env.production
