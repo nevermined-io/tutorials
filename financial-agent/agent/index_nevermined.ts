@@ -14,8 +14,7 @@ app.use(express.json());
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
 const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT ||
-  "sandbox") as EnvironmentName;
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT || "staging_sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
 

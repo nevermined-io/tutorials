@@ -10,7 +10,7 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:3000";
 const PLAN_ID = process.env.NVM_PLAN_ID as string;
 const AGENT_ID = process.env.NVM_AGENT_ID as string;
 const SUBSCRIBER_API_KEY = process.env.SUBSCRIBER_NVM_API_KEY as string;
-const NVM_ENVIRONMENT = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT || "staging_sandbox") as EnvironmentName;
 
 // Define demo conversation to show chatbot-style interaction
 const DEMO_CONVERSATION_QUESTIONS = [
