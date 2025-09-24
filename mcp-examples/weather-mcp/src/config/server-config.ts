@@ -21,12 +21,19 @@ export function createServerConfig(): ServerConfig {
   const allowedHosts = Array.from(
     new Set(
       baseAllowedHosts.flatMap((h) => {
-        if (h.includes("*")) {
-          return [h];
+        if (h === "*") {
+          // For wildcard, we need to disable DNS rebinding protection entirely
+          return [];
         }
         return [h, `${h}:${port}`];
       })
     )
+  );
+
+  console.log("[createServerConfig] allowedHosts", allowedHosts);
+  console.log(
+    "[createServerConfig] ALLOWED_HOSTS env var:",
+    process.env.ALLOWED_HOSTS
   );
 
   return {

@@ -17,9 +17,17 @@ export class SessionManager {
    * Create a new transport with session management
    */
   createTransport(): StreamableHTTPServerTransport {
+    // If allowedHosts is empty, disable DNS rebinding protection entirely
+    const enableDnsRebindingProtection = this.config.allowedHosts.length > 0;
+
+    console.log("[SessionManager] Creating transport with:", {
+      enableDnsRebindingProtection,
+      allowedHosts: this.config.allowedHosts,
+    });
+
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
-      enableDnsRebindingProtection: true,
+      enableDnsRebindingProtection,
       allowedHosts: this.config.allowedHosts,
       onsessioninitialized: (sessionId: string) => {
         this.transports.set(sessionId, transport);
