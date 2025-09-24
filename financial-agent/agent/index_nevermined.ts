@@ -172,7 +172,7 @@ async function ensureAuthorized(
   const authHeader = (req.headers["authorization"] || "") as string;
   const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
   const httpVerb = req.method;
-  const result = await payments.requests.startProcessingRequest(
+  const result = await payments.requests.startProcessingBatchRequest(
     NVM_AGENT_ID,
     authHeader,
     requestedUrl,
@@ -201,8 +201,9 @@ app.post("/ask", async (req: Request, res: Response) => {
     const { agentRequest, requestAccessToken } = await ensureAuthorized(req);
     console.log("agentRequestId", agentRequest.agentRequestId);
     console.log("requestAccessToken", requestAccessToken);
-    const input = String(req.body?.input_query ?? "").trim();
-    if (!input) return res.status(400).json({ error: "Missing input" });
+    const inputs = req.body?.input_query ?? [];
+    if (!inputs || !Array.isArray(inputs) || inputs.length === 0)
+      return res.status(400).json({ error: "Missing input" });
 
     let { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) sessionId = crypto.randomUUID();
@@ -211,25 +212,29 @@ app.post("/ask", async (req: Request, res: Response) => {
     const model = createModelWithSessionId(agentRequest);
     const runnable = createRunnable(model);
 
-    const result = await runnable.invoke(
-      { input },
-      { configurable: { sessionId } }
-    );
-    const text =
-      result?.content ??
-      (Array.isArray(result)
-        ? result.map((m: any) => m.content).join("\n")
-        : String(result));
-
+    let outputs = [];
+    for (const input of inputs) {
+      console.log("Sending question to the agent", input);
+      const result = await runnable.invoke(
+        { input },
+        { configurable: { sessionId } }
+      );
+      const text =
+        result?.content ??
+        (Array.isArray(result)
+          ? result.map((m: any) => m.content).join("\n")
+          : String(result));
+      outputs.push(text);
+    }
     // After successful processing, redeem 1 credit for this request
     let redemptionResult: any;
     try {
-      redemptionResult = await payments.requests.redeemCreditsFromRequest(
+      redemptionResult = await payments.requests.redeemCreditsFromBatchRequest(
         agentRequest.agentRequestId,
         requestAccessToken,
-        1n
+        BigInt(inputs.length)
       );
-      redemptionResult.creditsRedeemed = 1;
+      redemptionResult.creditsRedeemed = inputs.length;
       console.log("redemptionResult", redemptionResult);
     } catch (redeemErr) {
       // eslint-disable-next-line no-console
@@ -240,7 +245,7 @@ app.post("/ask", async (req: Request, res: Response) => {
       };
     }
 
-    res.json({ output: text, sessionId, redemptionResult });
+    res.json({ output: outputs, sessionId, redemptionResult });
   } catch (error: any) {
     // eslint-disable-next-line no-console
     console.error("Error handling /ask", error);

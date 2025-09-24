@@ -44,15 +44,11 @@ async function main(): Promise<void> {
     nvmEnv,
   });
 
-  for (let i = 0; i < questions.length; i += 1) {
-    const input = questions[i];
-    // eslint-disable-next-line no-console
-    console.log(`\n[CLIENT] Sending question ${i + 1}: ${input}`);
-    const response = await askAgent(baseUrl, input, sessionId, bearer);
-    sessionId = response.sessionId;
-    // eslint-disable-next-line no-console
-    console.log(`[AGENT] (sessionId=${sessionId})\n${response.output}`);
-  }
+  console.log("Sending batch of questions to the agent");
+  console.table(questions);
+  const responses = await askAgent(baseUrl, questions, sessionId, bearer);
+  console.log("Received responses from the agent");
+  console.log(responses.output);
 }
 
 /**
@@ -65,17 +61,17 @@ async function main(): Promise<void> {
  */
 async function askAgent(
   baseUrl: string,
-  input: string,
+  inputs: string[],
   sessionId?: string,
   bearer?: string
-): Promise<{ output: string; sessionId: string }> {
+): Promise<{ output: string[]; sessionId: string }> {
   const res = await fetch(`${baseUrl}/ask`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
     },
-    body: JSON.stringify({ input_query: input, sessionId }),
+    body: JSON.stringify({ input_query: inputs, sessionId }),
   });
   if (!res.ok) {
     const errorText = await res.text().catch(() => "");
@@ -83,7 +79,7 @@ async function askAgent(
       `Agent request failed: ${res.status} ${res.statusText} ${errorText}`
     );
   }
-  const data = (await res.json()) as { output: string; sessionId: string };
+  const data = (await res.json()) as { output: string[]; sessionId: string };
   return data;
 }
 
