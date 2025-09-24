@@ -10,18 +10,10 @@ import { SessionManager } from "./session-manager.js";
 //const GATED_METHODS = new Set(["tools/list", "resources/list", "prompts/list"]);
 const GATED_METHODS = new Set([""]);
 
-function extractAuthHeader(req: Request): string | undefined {
-  // Express normalizes header names to lowercase
-  const header = req.header("authorization") || req.header("Authorization");
-  return header || undefined;
-}
-
-function shouldGateRequest(body: any): boolean {
-  if (!body || typeof body !== "object") return false;
-  const method = (body as any).method;
-  return typeof method === "string" && GATED_METHODS.has(method);
-}
-
+/**
+ * Creates the POST handler for MCP requests
+ * Authentication is handled by middleware, so this focuses on session management
+ */
 function createPostHandler(
   sessionManager: SessionManager,
   createServerInstance: () => any
@@ -31,28 +23,14 @@ function createPostHandler(
       const sessionId = req.header("mcp-session-id") ?? undefined;
       let transport;
 
+      // Log request body for debugging
       try {
         const sample =
           typeof req.body === "string" ? req.body : JSON.stringify(req.body);
         console.log("[mcp POST] body snippet:", sample?.slice(0, 200));
       } catch {}
 
-      // Authorization gating for MCP initialize and list operations
-      if (shouldGateRequest(req.body)) {
-        const auth = extractAuthHeader(req);
-        if (!auth) {
-          res.status(200).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32003,
-              message: "Payment required: missing Authorization header",
-            },
-            id: req.body?.id ?? null,
-          });
-          return;
-        }
-      }
-
+      // Handle session management
       if (sessionId && sessionManager.hasSession(sessionId)) {
         transport = sessionManager.getTransport(sessionId);
       } else if (!sessionId && isInitializeRequest(req.body)) {
@@ -131,6 +109,73 @@ function createDeleteHandler(sessionManager: SessionManager) {
   };
 }
 
+/**
+ * Checks if a request method requires authentication
+ * @param method - The MCP method name
+ * @returns True if the method is in GATED_METHODS
+ */
+function requiresAuthentication(method: string): boolean {
+  return GATED_METHODS.has(method);
+}
+
+/**
+ * Handles authentication for gated MCP methods
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param method - The MCP method name
+ * @param authenticateMeta - Optional authentication function
+ * @returns Promise that resolves if authenticated, rejects if not
+ */
+async function handleAuthentication(
+  req: Request,
+  res: Response,
+  method: string,
+  authenticateMeta?: (extra: any, method: string) => Promise<any>
+): Promise<void> {
+  if (!authenticateMeta) {
+    return;
+  }
+
+  const extra = { requestInfo: { headers: req.headers as any } };
+
+  try {
+    await authenticateMeta(extra, method);
+  } catch (err: any) {
+    res.status(200).json({
+      jsonrpc: "2.0",
+      error: {
+        code: err?.code ?? -32003,
+        message: err?.message || "Payment required",
+      },
+      id: req.body?.id ?? null,
+    });
+    throw err;
+  }
+}
+
+/**
+ * Middleware for MCP authentication
+ * Only authenticates if the method is in GATED_METHODS
+ */
+function createAuthenticationMiddleware(
+  authenticateMeta?: (extra: any, method: string) => Promise<any>
+) {
+  return async (req: Request, res: Response, next: any) => {
+    try {
+      const method = req.body?.method;
+
+      if (typeof method === "string" && requiresAuthentication(method)) {
+        await handleAuthentication(req, res, method, authenticateMeta);
+      }
+
+      next();
+    } catch {
+      // If authentication failed, response was already sent
+      return;
+    }
+  };
+}
+
 export function setupHighLevelMcpRoutes(
   app: any,
   sessionManager: SessionManager,
@@ -139,32 +184,7 @@ export function setupHighLevelMcpRoutes(
 ) {
   app.post(
     "/mcp",
-    (req: Request, res: Response, next: any) => {
-      // If it's a meta operation, perform full authentication here for consistency with paywalled calls
-      try {
-        const body: any = req.body;
-        const method = body?.method;
-        const gated =
-          typeof method === "string" &&
-          (GATED_METHODS.has(method) || method === "initialize");
-        if (!gated || !authenticateMeta) return next();
-        const extra = { requestInfo: { headers: req.headers as any } };
-        authenticateMeta(extra, method)
-          .then(() => next())
-          .catch((err: any) => {
-            res.status(200).json({
-              jsonrpc: "2.0",
-              error: {
-                code: err?.code ?? -32003,
-                message: err?.message || "Payment required",
-              },
-              id: body?.id ?? null,
-            });
-          });
-      } catch {
-        next();
-      }
-    },
+    createAuthenticationMiddleware(authenticateMeta),
     createPostHandler(sessionManager, createServerInstance)
   );
   app.get("/mcp", createGetHandler(sessionManager));

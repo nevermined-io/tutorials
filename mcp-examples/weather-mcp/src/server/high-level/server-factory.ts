@@ -84,6 +84,7 @@ export function buildHighLevelServerFactory(
   const authenticateMeta = async (extra: any, method: string) => {
     const mcpAny = payments.mcp as any;
     if (mcpAny && typeof mcpAny.authenticateMeta === "function") {
+      console.log("[authenticateMeta] authenticateMeta", extra, method);
       return mcpAny.authenticateMeta(extra, method);
     }
     // Fallback: just ensure Authorization is present to avoid exposing meta without token
@@ -95,6 +96,7 @@ export function buildHighLevelServerFactory(
         (extra.requestInfo.headers as any).Authorization)
     );
     if (!hasAuth) {
+      console.log("[authenticateMeta] No hasAuth. auth header missing");
       throw Object.assign(new Error("Authorization required"), {
         code: -32003,
       });
