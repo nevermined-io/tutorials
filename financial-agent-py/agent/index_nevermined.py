@@ -7,10 +7,10 @@ import uuid
 import math
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 import openai
-from payments import Payments
+from payments_py import Payments, PaymentOptions
 
 # Load environment variables
 load_dotenv()
@@ -34,10 +34,10 @@ if not NVM_API_KEY or not NVM_AGENT_ID:
 app = FastAPI(title="FinGuide Protected", version="1.0.0")
 
 # Initialize Nevermined Payments SDK for access control and observability
-payments = Payments(
+payments = Payments.get_instance(PaymentOptions(
     nvm_api_key=NVM_API_KEY,
     environment=NVM_ENVIRONMENT,
-)
+))
 
 # Define the AI's role and behavior
 def get_system_prompt(max_tokens: int) -> str:
@@ -92,7 +92,7 @@ class AskResponse(BaseModel):
 
 # Handle financial advice requests with Nevermined payment protection and observability
 @app.post("/ask", response_model=AskResponse)
-async def ask_financial_advice(request: AskRequest, authorization: str = None):
+async def ask_financial_advice(request: AskRequest, authorization: Optional[str] = Header(None)):
     try:
         # Extract authorization details from request headers
         auth_header = authorization or ""
@@ -100,7 +100,7 @@ async def ask_financial_advice(request: AskRequest, authorization: str = None):
         http_verb = "POST"
 
         # Check if user is authorized and has sufficient balance
-        agent_request = await payments.requests.start_processing_request(
+        agent_request = payments.requests.start_processing_request(
             NVM_AGENT_ID,
             auth_header,
             requested_url,
@@ -108,7 +108,15 @@ async def ask_financial_advice(request: AskRequest, authorization: str = None):
         )
 
         # Reject request if user doesn't have credits or subscription
-        if not agent_request.balance.is_subscriber or agent_request.balance.balance < 1:
+        balance_info = agent_request.get("balance", {})
+        is_subscriber = balance_info.get("isSubscriber", False)
+        balance_raw = balance_info.get("balance", 0)
+        # Convert balance to int if it's a string
+        if isinstance(balance_raw, str):
+            balance_amount = int(balance_raw) if balance_raw.isdigit() else 0
+        else:
+            balance_amount = balance_raw
+        if not is_subscriber or balance_amount < 1:
             raise HTTPException(status_code=402, detail="Payment Required")
 
         # Extract access token for credit redemption
@@ -146,12 +154,16 @@ async def ask_financial_advice(request: AskRequest, authorization: str = None):
         }
 
         # Create OpenAI client with Helicone observability integration
+        openai_config = payments.observability.with_helicone_openai(
+            OPENAI_API_KEY,
+            agent_request,
+            custom_properties
+        )
+
         openai_client = openai.OpenAI(
-            **payments.observability.with_helicone_openai(
-                OPENAI_API_KEY,
-                agent_request,
-                custom_properties
-            )
+            api_key=openai_config.api_key,
+            base_url=openai_config.base_url,
+            default_headers=openai_config.default_headers
         )
 
         # Call OpenAI API to generate response
@@ -176,8 +188,8 @@ async def ask_financial_advice(request: AskRequest, authorization: str = None):
         # Redeem credits after successful API call
         redemption_result = None
         try:
-            redemption_response = await payments.requests.redeem_credits_from_request(
-                agent_request.agent_request_id,
+            redemption_response = payments.requests.redeem_credits_from_request(
+                agent_request.get("agentRequestId"),
                 request_access_token,
                 credit_amount
             )

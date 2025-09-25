@@ -8,7 +8,7 @@ import asyncio
 import httpx
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
-from payments import Payments
+from payments_py import Payments, PaymentOptions
 
 # Load environment variables
 load_dotenv()
@@ -60,23 +60,27 @@ async def get_access_token() -> str:
     print("🔐 Setting up Nevermined access...")
 
     # Initialize Nevermined Payments SDK
-    payments = Payments(
+    payments = Payments.get_instance(PaymentOptions(
         nvm_api_key=SUBSCRIBER_API_KEY,
         environment=NVM_ENVIRONMENT,
-    )
+    ))
 
     # Check current plan balance and subscription status
-    balance_info = await payments.plans.get_plan_balance(PLAN_ID)
-    has_credits = (balance_info.get("balance", 0) or 0) > 0
+    balance_info = payments.plans.get_plan_balance(PLAN_ID)
+    balance_value = balance_info.get("balance", 0)
+    # Convert balance to int if it's a string
+    if isinstance(balance_value, str):
+        balance_value = int(balance_value) if balance_value.isdigit() else 0
+    has_credits = balance_value > 0
     is_subscriber = balance_info.get("isSubscriber", False)
 
     # Purchase plan if not subscribed and no credits
     if not is_subscriber and not has_credits:
         print("💳 No subscription or credits found. Purchasing plan...")
-        await payments.plans.order_plan(PLAN_ID)
+        payments.plans.order_plan(PLAN_ID)
 
     # Get access token for the agent
-    credentials = await payments.agents.get_agent_access_token(PLAN_ID, AGENT_ID)
+    credentials = payments.agents.get_agent_access_token(PLAN_ID, AGENT_ID)
 
     if not credentials or not credentials.get("accessToken"):
         raise Exception("Failed to obtain access token")
