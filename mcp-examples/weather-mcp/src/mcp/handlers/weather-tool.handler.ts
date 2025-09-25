@@ -2,27 +2,96 @@
  * Weather tool handler
  */
 import { z } from "zod";
+import OpenAI from "openai";
+import { Payments } from "@nevermined-io/payments";
 import {
   getTodayWeather,
   sanitizeCity,
   TodayWeather,
 } from "../../services/weather.service.js";
-import type { CreditsContext } from "@nevermined-io/payments/mcp";
+import { loadEnvironmentConfig } from "../../config/environment.js";
+import type {
+  CreditsContext,
+  PaywallContext,
+} from "@nevermined-io/payments/mcp";
 
 /**
- * Safely extract city from the handler args within the CreditsContext.
+ * Generate a well-formatted weather forecast using OpenAI with Nevermined observability
+ * @param weather Raw weather data from the service
+ * @param context PaywallContext containing agentRequest and credits
+ * @returns Formatted weather forecast text
  */
-function getCityFromArgs(args: unknown): string | null {
-  if (
-    args &&
-    typeof args === "object" &&
-    args !== null &&
-    "city" in (args as any)
-  ) {
-    const possible = (args as any).city;
-    if (typeof possible === "string") return possible;
+async function generateWeatherForecast(
+  weather: TodayWeather,
+  context: PaywallContext
+): Promise<string> {
+  const envConfig = loadEnvironmentConfig();
+  const payments = Payments.getInstance({
+    nvmApiKey: envConfig.nvmApiKey,
+    environment: envConfig.nvmEnvironment as any,
+  });
+
+  // Set up observability metadata for tracking this operation
+  const customProperties = {
+    agentId: context.agentRequest.agentId,
+    sessionId: context.agentRequest.agentRequestId,
+    operation: "weather_forecast",
+  };
+
+  // Create OpenAI client with Helicone observability integration
+  const openai = new OpenAI(
+    payments.observability.withHeliconeOpenAI(
+      process.env.OPENAI_API_KEY!,
+      context.agentRequest,
+      customProperties
+    )
+  );
+
+  const systemPrompt = `You are a professional meteorologist. Create well-formatted, informative weather forecasts.
+
+Please provide:
+1. Current weather conditions with appropriate emojis
+2. Temperature analysis (comfort level, comparison to average)
+3. Precipitation information and what it means
+
+Make it informative but easy to understand, using natural language. Answer in English.`;
+
+  const userPrompt = `Weather Data:
+- City: ${weather.city}, ${weather.country ?? "Unknown"}
+- Timezone: ${weather.timezone}
+- High Temperature: ${weather.tmaxC ?? "N/A"}°C
+- Low Temperature: ${weather.tminC ?? "N/A"}°C
+- Precipitation: ${weather.precipitationMm ?? "N/A"}mm
+- Weather Conditions: ${weather.weatherText ?? "N/A"}`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    return (
+      completion.choices[0]?.message?.content || "Error generating forecast"
+    );
+  } catch (error) {
+    console.error("Error generating weather forecast with LLM:", error);
+    // Fallback to basic format if LLM fails
+    return (
+      `Weather forecast for ${weather.city}, ${
+        weather.country ?? ""
+      } (timezone: ${weather.timezone})\n` +
+      `Maximum temperature: ${weather.tmaxC ?? "N/A"}°C, Minimum temperature: ${
+        weather.tminC ?? "N/A"
+      }°C\n` +
+      `Precipitation: ${weather.precipitationMm ?? "N/A"}mm\n` +
+      `Conditions: ${weather.weatherText ?? "N/A"}`
+    );
   }
-  return null;
 }
 
 /**
@@ -44,21 +113,27 @@ export const weatherToolConfig = {
 /**
  * Base weather tool handler (before paywall protection)
  */
-export async function weatherToolHandler({ city }: { city: string }) {
+export async function weatherToolHandler(
+  args: unknown,
+  extra: any,
+  context?: PaywallContext
+) {
+  const { city } = args as { city: string };
+  if (!city) {
+    throw { code: -32003, message: "City is required" };
+  }
+  if (!context) {
+    throw { code: -32003, message: "Context is required" };
+  }
   const sanitized = sanitizeCity(city);
   const weather: TodayWeather = await getTodayWeather(sanitized);
 
-  const text =
-    `Weather for ${weather.city}, ${weather.country ?? ""} (tz: ${
-      weather.timezone
-    })\n` +
-    `High: ${weather.tmaxC ?? "n/a"}°C, Low: ${weather.tminC ?? "n/a"}°C, ` +
-    `Precipitation: ${weather.precipitationMm ?? "n/a"}mm, ` +
-    `Conditions: ${weather.weatherText ?? "n/a"}`;
+  // Generate enhanced weather forecast using LLM with Nevermined observability
+  const forecast = await generateWeatherForecast(weather, context);
 
   return {
     content: [
-      { type: "text" as const, text },
+      { type: "text" as const, text: forecast },
       {
         type: "resource_link" as const,
         uri: `weather://today/${encodeURIComponent(weather.city)}`,
@@ -69,15 +144,6 @@ export async function weatherToolHandler({ city }: { city: string }) {
     ],
   };
 }
-
-/**
- * Dynamic credits calculator for the weather tool.
- * Uses handler context to derive a deterministic small cost (1..10).
- * - If city is present in args, uses its length modulo 10 as base.
- * - Otherwise falls back to a random value between 1 and 10.
- * @param ctx Context provided by the payments library (args, result, request info).
- * @returns Credits to burn as bigint.
- */
 /**
  * Credits policy for the weather tool.
  * @param ctx CreditsContext provided by the payments library.

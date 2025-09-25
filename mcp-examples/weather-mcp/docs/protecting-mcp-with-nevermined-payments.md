@@ -216,6 +216,101 @@ const dynamicCreditsHandler = withPaywall(
 
 ---
 
+## **4.1) PaywallContext and Observability Integration**
+
+When using `withPaywall`, your protected handlers receive a `PaywallContext` object that contains valuable information for observability and monitoring. This context includes:
+
+- **`agentRequest`**: Contains the agent request details including `agentId`, `agentRequestId`, and other metadata
+- **`credits`**: The number of credits available for this request
+
+This context is particularly useful when integrating with observability tools like Helicone for tracking LLM usage. Here's how to use it:
+
+```typescript
+// handlers-with-observability.ts
+import OpenAI from "openai";
+import { Payments } from "@nevermined-io/payments";
+import type { PaywallContext } from "@nevermined-io/payments/mcp";
+
+async function generateWeatherForecast(
+  weather: WeatherData,
+  context: PaywallContext
+): Promise<string> {
+  const payments = Payments.getInstance({
+    nvmApiKey: process.env.NVM_API_KEY!,
+    environment: process.env.NVM_ENVIRONMENT as any,
+  });
+
+  // Set up observability metadata for tracking this operation
+  const customProperties = {
+    agentId: context.agentRequest.agentId,
+    sessionId: context.agentRequest.agentRequestId,
+    operation: "weather_forecast",
+  };
+
+  // Create OpenAI client with Helicone observability integration
+  const openai = new OpenAI(
+    payments.observability.withHeliconeOpenAI(
+      process.env.OPENAI_API_KEY!,
+      context.agentRequest,
+      customProperties
+    )
+  );
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "You are a professional meteorologist..." },
+      { role: "user", content: `Weather data: ${JSON.stringify(weather)}` }
+    ],
+    temperature: 0.7,
+    max_tokens: 500,
+  });
+
+  return completion.choices[0]?.message?.content || "Error generating forecast";
+}
+
+// Handler that uses the observability integration
+export async function weatherToolHandler(
+  args: unknown,
+  extra: any,
+  context?: PaywallContext
+) {
+  if (!context) {
+    throw { code: -32003, message: "Context is required" };
+  }
+
+  const { city } = args as { city: string };
+  const weather = await getWeatherData(city);
+  
+  // Generate enhanced forecast with observability
+  const forecast = await generateWeatherForecast(weather, context);
+
+  return {
+    content: [
+      { type: "text", text: forecast },
+      {
+        type: "resource_link",
+        uri: `weather://today/${encodeURIComponent(city)}`,
+        name: `weather today ${city}`,
+        mimeType: "application/json",
+        description: "Raw JSON for today's weather",
+      },
+    ],
+  };
+}
+```
+
+**Key benefits of using PaywallContext for observability:**
+
+- **Complete request tracking**: Every LLM call is logged with agent and session information
+- **Cost monitoring**: Track usage patterns and costs per agent/request
+- **Debugging**: Easily trace issues back to specific requests and agents
+- **Analytics**: Build dashboards showing usage by agent, operation type, etc.
+
+The `withHeliconeOpenAI` method automatically configures the OpenAI client with the necessary headers and metadata for comprehensive observability through Helicone's platform.
+
+---
+
 ## **5) Protecting Resources & Prompts**
 
 The same `withPaywall` pattern applies to resources and prompts. The `extra` object is passed to resource handlers as the third argument.

@@ -6,11 +6,7 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import OpenAI from "openai";
 import crypto from "crypto";
-import {
-  Payments,
-  EnvironmentName,
-  StartAgentRequest,
-} from "@nevermined-io/payments";
+import { Payments, EnvironmentName } from "@nevermined-io/payments";
 
 const app = express();
 app.use(express.json());
