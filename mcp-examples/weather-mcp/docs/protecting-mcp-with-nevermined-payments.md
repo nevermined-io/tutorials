@@ -12,15 +12,15 @@ As Large Language Models (LLMs) and AI agents become more sophisticated, their g
 
 Think of MCP as a universal language that allows any AI agent to ask a server, "What can you do?" and "How can I use your capabilities?". It turns a closed-off model into an agent that can interact with the world through a secure and discoverable interface. An MCP server essentially publishes a "menu" of its services, which can include:
 
-*   **Tools**: These are concrete actions the agent can request, like sending an email, querying a database, or fetching a weather forecast. The agent provides specific arguments (e.g., `city="Paris"`) and the server executes the action.
-*   **Resources**: These are stable pointers to data, identified by a URI. While a tool call might give a human-readable summary, a resource link (`weather://today/Paris`) provides the raw, structured data (like a JSON object) that an agent can parse and use for further tasks.
-*   **Prompts**: These are pre-defined templates that help guide an agent's behavior, ensuring it requests information in the correct format or follows a specific interaction pattern.
+- **Tools**: These are concrete actions the agent can request, like sending an email, querying a database, or fetching a weather forecast. The agent provides specific arguments (e.g., `city="Paris"`) and the server executes the action.
+- **Resources**: These are stable pointers to data, identified by a URI. While a tool call might give a human-readable summary, a resource link (`weather://today/Paris`) provides the raw, structured data (like a JSON object) that an agent can parse and use for further tasks.
+- **Prompts**: These are pre-defined templates that help guide an agent's behavior, ensuring it requests information in the correct format or follows a specific interaction pattern.
 
 ---
 
 ### **Why integrate MCP with Nevermined Payments?**
 
-While MCP provides a powerful standard for *what* an AI agent can do, it doesn't specify *who* is allowed to do it or *how* those services are paid for. This is where Nevermined Payments comes in. By integrating Nevermined, you can transform your open MCP server into a secure, monetizable platform.
+While MCP provides a powerful standard for _what_ an AI agent can do, it doesn't specify _who_ is allowed to do it or _how_ those services are paid for. This is where Nevermined Payments comes in. By integrating Nevermined, you can transform your open MCP server into a secure, monetizable platform.
 
 The core idea is to place a "paywall" in front of your MCP handlers. This paywall acts as a gatekeeper, intercepting every incoming request to a tool, resource, or prompt. Before executing your logic, it checks the user's `Authorization` header to verify they have a valid subscription and sufficient credits through the Nevermined protocol. If they don't, the request is blocked. If they do, the request proceeds, and after your handler successfully completes, the paywall automatically deducts the configured number of credits.
 
@@ -38,10 +38,10 @@ We will focus on the server-side integration, showing you how to instantiate the
 
 ## **0) Requirements**
 
-*   Node.js >= 18
-*   MCP SDK (`@modelcontextprotocol/sdk`)
-*   `@nevermined-io/payments` (Nevermined SDK)
-*   Express.js
+- Node.js >= 18
+- MCP SDK (`@modelcontextprotocol/sdk`)
+- `@nevermined-io/payments` (Nevermined SDK)
+- Express.js
 
 Install:
 
@@ -74,29 +74,35 @@ This first snippet sets up a minimal MCP server using the official SDK. It expos
 
 ```typescript
 // server.ts
-import { McpServer, Tool, ResourceTemplate } from "@modelcontextprotocol/sdk/server";
+import {
+  McpServer,
+  Tool,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server";
 import { z } from "zod";
 
 export function createMcpServer() {
-    const server = new McpServer({
-        name: "weather-mcp-ts",
-        version: "0.1.0",
-        protocolVersion: "2024-11-05",
-    });
+  const server = new McpServer({
+    name: "weather-mcp-ts",
+    version: "0.1.0",
+    protocolVersion: "2024-11-05",
+  });
 
-    server.registerTool(
-        "weather.today",
-        {
-            title: "Today's Weather",
-            inputSchema: z.object({ city: z.string() }),
-        },
-        async (args) => {
-            return {
-                content: [{ type: "text", text: `Weather for ${args.city}: Sunny, 25C.` }],
-            };
-        }
-    );
-    return server;
+  server.registerTool(
+    "weather.today",
+    {
+      title: "Today's Weather",
+      inputSchema: z.object({ city: z.string() }),
+    },
+    async (args) => {
+      return {
+        content: [
+          { type: "text", text: `Weather for ${args.city}: Sunny, 25C.` },
+        ],
+      };
+    }
+  );
+  return server;
 }
 ```
 
@@ -120,8 +126,8 @@ const payments = Payments.getInstance({ nvmApiKey, environment });
 
 // Configure MCP defaults once
 payments.mcp.configure({
-    agentId: process.env.NVM_AGENT_ID!,
-    serverName: "weather-mcp-ts",
+  agentId: process.env.NVM_AGENT_ID!,
+  serverName: "weather-mcp-ts",
 });
 ```
 
@@ -138,18 +144,18 @@ First, we define our core business logic in a handler. This function returns a s
 import { ToolHandler } from "@modelcontextprotocol/sdk/server";
 
 export const weatherToolHandler: ToolHandler = async (args) => {
-    const city = (args as any).city || "Madrid";
-    return {
-        content: [
-            { type: "text", text: `Weather for ${city}: Sunny, 25C.` },
-            {
-                type: "resource_link",
-                uri: `weather://today/${city}`,
-                name: `weather today ${city}`,
-                mimeType: "application/json",
-            },
-        ],
-    };
+  const city = (args as any).city || "Madrid";
+  return {
+    content: [
+      { type: "text", text: `Weather for ${city}: Sunny, 25C.` },
+      {
+        type: "resource_link",
+        uri: `weather://today/${city}`,
+        name: `weather today ${city}`,
+        mimeType: "application/json",
+      },
+    ],
+  };
 };
 ```
 
@@ -157,7 +163,11 @@ Now, we wrap this handler using `payments.mcp.withPaywall`. The key difference f
 
 ```typescript
 // server-factory.ts
-import { McpServer, Tool, ResourceTemplate } from "@modelcontextprotocol/sdk/server";
+import {
+  McpServer,
+  Tool,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server";
 import { z } from "zod";
 import { Payments } from "@nevermined-io/payments";
 import { weatherToolHandler } from "./handlers";
@@ -173,22 +183,22 @@ payments.mcp.configure({
 });
 
 const protectedWeatherHandler = payments.mcp.withPaywall(
-    weatherToolHandler,
-    { credits: 1n } // 1 credit per call (use BigInt or function that calculates credits based on context)
+  weatherToolHandler,
+  { credits: 1n } // 1 credit per call (use BigInt or function that calculates credits based on context)
 );
 
 export function createMcpServerWithPaywall() {
-    const server = new McpServer(/* ... */);
-    
-    server.registerTool(
-        "weather.today",
-        {
-            title: "Today's Weather",
-            inputSchema: z.object({ city: z.string() }),
-        },
-        protectedWeatherHandler // Use the wrapped handler
-    );
-    return server;
+  const server = new McpServer(/* ... */);
+
+  server.registerTool(
+    "weather.today",
+    {
+      title: "Today's Weather",
+      inputSchema: z.object({ city: z.string() }),
+    },
+    protectedWeatherHandler // Use the wrapped handler
+  );
+  return server;
 }
 ```
 
@@ -203,15 +213,12 @@ For more flexible pricing, you can provide a function for the `credits` option. 
 import { withPaywall } from "@nevermined-io/payments/dist/mcp";
 import { weatherToolHandler } from "./handlers";
 
-const dynamicCreditsHandler = withPaywall(
-    weatherToolHandler,
-    {
-        credits: (ctx) => {
-            const city = (ctx.args as any).city || "";
-            return city.length <= 5 ? 1n : 2n; // 1 credit for short names, 2 for long
-        },
-    }
-);
+const dynamicCreditsHandler = withPaywall(weatherToolHandler, {
+  credits: (ctx) => {
+    const city = (ctx.args as any).city || "";
+    return city.length <= 5 ? 1n : 2n; // 1 credit for short names, 2 for long
+  },
+});
 ```
 
 ---
@@ -247,9 +254,9 @@ async function generateWeatherForecast(
     operation: "weather_forecast",
   };
 
-  // Create OpenAI client with Helicone observability integration
+  // Create OpenAI client with Nevermined observability integration
   const openai = new OpenAI(
-    payments.observability.withHeliconeOpenAI(
+    payments.observability.withOpenAI(
       process.env.OPENAI_API_KEY!,
       context.agentRequest,
       customProperties
@@ -260,7 +267,7 @@ async function generateWeatherForecast(
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: "You are a professional meteorologist..." },
-      { role: "user", content: `Weather data: ${JSON.stringify(weather)}` }
+      { role: "user", content: `Weather data: ${JSON.stringify(weather)}` },
     ],
     temperature: 0.7,
     max_tokens: 500,
@@ -281,7 +288,7 @@ export async function weatherToolHandler(
 
   const { city } = args as { city: string };
   const weather = await getWeatherData(city);
-  
+
   // Generate enhanced forecast with observability
   const forecast = await generateWeatherForecast(weather, context);
 
@@ -321,12 +328,13 @@ import { ResourceHandler } from "@modelcontextprotocol/sdk/server";
 import { withPaywall } from "@nevermined-io/payments/dist/mcp";
 
 const myResourceHandler: ResourceHandler = async (uri, variables, extra) => {
-    // ... logic to return resource contents
-    return { contents: [] };
+  // ... logic to return resource contents
+  return { contents: [] };
 };
 
 const protectedResource = withPaywall(myResourceHandler, { credits: 1n });
 ```
+
 ---
 
 ## **Alternative Registration with `attach`**
@@ -335,9 +343,9 @@ While `withPaywall` is useful for protecting individual handlers, it can become 
 
 **Why use `attach`?**
 
--   **Conciseness**: It combines registration and protection into a single, clean method call, reducing boilerplate.
--   **Declarative Style**: You define your tools and their protection options in one place, making your server's capabilities easier to read and manage.
--   **Consistency**: It ensures that all registered handlers are wrapped with the same paywall logic, reducing the chance of errors.
+- **Conciseness**: It combines registration and protection into a single, clean method call, reducing boilerplate.
+- **Declarative Style**: You define your tools and their protection options in one place, making your server's capabilities easier to read and manage.
+- **Consistency**: It ensures that all registered handlers are wrapped with the same paywall logic, reducing the chance of errors.
 
 The `attach` method takes your `McpServer` instance and returns an object with `registerTool`, `registerResource`, and `registerPrompt` methods. These new methods have the same signature as the original ones, but they also accept an additional `options` parameter for the paywall (e.g., `credits`).
 
@@ -396,34 +404,36 @@ import { weatherToolHandler } from "./handlers";
 const payments = Payments.getInstance(/*...*/);
 payments.mcp.configure(/*...*/);
 
-const protectedHandler = payments.mcp.withPaywall(weatherToolHandler, { credits: 1n });
+const protectedHandler = payments.mcp.withPaywall(weatherToolHandler, {
+  credits: 1n,
+});
 
 const app = express();
 app.use(express.json());
 
 app.post("/mcp-low", async (req, res) => {
-    const { method, params, id } = req.body;
+  const { method, params, id } = req.body;
 
-    if (method === "tools/call" && params.name === "weather.today") {
-        try {
-            const result = await protectedHandler(params.arguments, {
-                requestInfo: { headers: req.headers },
-            });
-            res.json({ jsonrpc: "2.0", id, result });
-        } catch (e: any) {
-            res.status(500).json({
-                jsonrpc: "2.0",
-                id,
-                error: { code: e.code || -32000, message: e.message },
-            });
-        }
-    } else {
-        res.status(404).json({
-            jsonrpc: "2.0",
-            id,
-            error: { code: -32601, message: "Method not found" },
-        });
+  if (method === "tools/call" && params.name === "weather.today") {
+    try {
+      const result = await protectedHandler(params.arguments, {
+        requestInfo: { headers: req.headers },
+      });
+      res.json({ jsonrpc: "2.0", id, result });
+    } catch (e: any) {
+      res.status(500).json({
+        jsonrpc: "2.0",
+        id,
+        error: { code: e.code || -32000, message: e.message },
+      });
     }
+  } else {
+    res.status(404).json({
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32601, message: "Method not found" },
+    });
+  }
 });
 
 app.listen(3000);
@@ -440,16 +450,16 @@ app.listen(3000);
 import { Payments } from "@nevermined-io/payments";
 
 async function getAccessToken() {
-    const payments = Payments.getInstance({
-        nvmApiKey: process.env.NVM_API_KEY!,
-        environment: (process.env.NVM_ENVIRONMENT || "sandbox") as any,
-    });
+  const payments = Payments.getInstance({
+    nvmApiKey: process.env.NVM_API_KEY!,
+    environment: (process.env.NVM_ENVIRONMENT || "sandbox") as any,
+  });
 
-    const { accessToken } = await payments.agents.getAgentAccessToken(
-        process.env.NVM_PLAN_ID!,
-        process.env.NVM_AGENT_ID!
-    );
-    return accessToken;
+  const { accessToken } = await payments.agents.getAgentAccessToken(
+    process.env.NVM_PLAN_ID!,
+    process.env.NVM_AGENT_ID!
+  );
+  return accessToken;
 }
 ```
 
@@ -463,25 +473,25 @@ import { Client as McpClient } from "@modelcontextprotocol/sdk/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
 
 async function callWithSdk(accessToken: string) {
-    const transport = new StreamableHTTPClientTransport(
-        new URL("http://localhost:3000/mcp"),
-        {
-            requestInit: {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            },
-        }
-    );
+  const transport = new StreamableHTTPClientTransport(
+    new URL("http://localhost:3000/mcp"),
+    {
+      requestInit: {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    }
+  );
 
-    const client = new McpClient({ name: "my-client" });
-    await client.connect(transport);
+  const client = new McpClient({ name: "my-client" });
+  await client.connect(transport);
 
-    const result = await client.callTool({
-        name: "weather.today",
-        arguments: { city: "London" },
-    });
+  const result = await client.callTool({
+    name: "weather.today",
+    arguments: { city: "London" },
+  });
 
-    console.log(result);
-    await client.close();
+  console.log(result);
+  await client.close();
 }
 ```
 
@@ -489,8 +499,7 @@ async function callWithSdk(accessToken: string) {
 
 ## **Error handling**
 
-*   **No token / Invalid token** → `-32003` (“Authorization required” or “Payment required”)
-*   **Other server errors** → `-32002`
+- **No token / Invalid token** → `-32003` (“Authorization required” or “Payment required”)
+- **Other server errors** → `-32002`
 
 ---
-

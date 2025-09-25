@@ -171,7 +171,7 @@ app.post("/ask", async (req: Request, res: Response) => {
 
     // Create OpenAI client with Helicone observability integration
     const openai = new OpenAI(
-      payments.observability.withHeliconeOpenAI(
+      payments.observability.withOpenAI(
         OPENAI_API_KEY,
         agentRequest,
         customProperties
