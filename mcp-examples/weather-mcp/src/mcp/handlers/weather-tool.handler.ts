@@ -40,7 +40,7 @@ async function generateWeatherForecast(
 
   // Create OpenAI client with Helicone observability integration
   const openai = new OpenAI(
-    payments.observability.withHeliconeOpenAI(
+    payments.observability.withOpenAI(
       process.env.OPENAI_API_KEY!,
       context.agentRequest,
       customProperties
