@@ -205,7 +205,7 @@ app.post("/ask", async (req: Request, res: Response) => {
 
     // Redeem credits after successful API call
     try {
-      redemptionResult = await payments.requests.redeemMarginFromRequest(
+      redemptionResult = await payments.requests.redeemWithMarginFromRequest(
         agentRequest.agentRequestId,
         requestAccessToken,
         useMarginPercent
