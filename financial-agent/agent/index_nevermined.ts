@@ -201,14 +201,17 @@ app.post("/ask", async (req: Request, res: Response) => {
     // Initialize redemption result
     let redemptionResult: any;
 
+    let useMarginPercent = 0.2;
+
     // Redeem credits after successful API call
     try {
-      redemptionResult = await payments.requests.redeemCreditsFromRequest(
+      redemptionResult = await payments.requests.redeemWithMarginFromRequest(
         agentRequest.agentRequestId,
         requestAccessToken,
-        BigInt(creditAmount)
+        useMarginPercent
       );
-      redemptionResult.creditsRedeemed = creditAmount;
+      console.log("redemptionResult", redemptionResult);
+      redemptionResult.creditsRedeemed = redemptionResult.data?.amountOfCredits;
     } catch (redeemErr) {
       console.error("Failed to redeem credits:", redeemErr);
       redemptionResult = {
