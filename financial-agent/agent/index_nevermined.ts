@@ -18,6 +18,8 @@ const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT ||
   "staging_sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
+const USE_BATCH = process.env.USE_BATCH === "true";
+const USE_MARGIN = process.env.USE_MARGIN === "true";
 
 if (!OPENAI_API_KEY) {
   console.error("OPENAI_API_KEY is required to run the agent.");
@@ -91,7 +93,7 @@ Make these important points feel like natural parts of the conversation rather t
 }
 
 // Calculate dynamic credit amount based on token usage
-function calculateCreditAmount(tokensUsed: number, maxTokens: number): number {
+function calculateCreditAmount(tokensUsed: number, maxTokens: number): bigint {
   // Formula: 10 * (actual_tokens / max_tokens)
   // This rewards shorter responses with lower costs
   const tokenUtilization = Math.min(tokensUsed / maxTokens, 1); // Cap at 1
@@ -104,7 +106,7 @@ function calculateCreditAmount(tokensUsed: number, maxTokens: number): number {
     ).toFixed(1)}%) - Credits: ${creditAmount}`
   );
 
-  return creditAmount;
+  return BigInt(creditAmount);
 }
 
 // Store conversation history for each session
@@ -119,12 +121,21 @@ app.post("/ask", async (req: Request, res: Response) => {
     const httpVerb = req.method;
 
     // Check if user is authorized and has sufficient balance
-    const agentRequest = await payments.requests.startProcessingRequest(
-      NVM_AGENT_ID,
-      authHeader,
-      requestedUrl,
-      httpVerb
-    );
+    // Batch requests allow processing multiple requests together for efficiency
+    // Regular requests process one request at a time
+    const agentRequest = USE_BATCH
+      ? await payments.requests.startProcessingBatchRequest(
+          NVM_AGENT_ID,
+          authHeader,
+          requestedUrl,
+          httpVerb
+        )
+      : await payments.requests.startProcessingRequest(
+          NVM_AGENT_ID,
+          authHeader,
+          requestedUrl,
+          httpVerb
+        );
 
     // Reject request if user doesn't have credits or subscription
     if (
@@ -195,23 +206,56 @@ app.post("/ask", async (req: Request, res: Response) => {
     messages.push({ role: "assistant", content: response });
     sessions.set(sessionId, messages);
 
-    // Calculate dynamic credit amount based on token usage
-    const creditAmount = calculateCreditAmount(tokensUsed, maxTokens);
-
     // Initialize redemption result
     let redemptionResult: any;
 
-    let useMarginPercent = 0.2;
-
     // Redeem credits after successful API call
     try {
-      redemptionResult = await payments.requests.redeemWithMarginFromRequest(
-        agentRequest.agentRequestId,
-        requestAccessToken,
-        useMarginPercent
-      );
-      console.log("redemptionResult", redemptionResult);
-      redemptionResult.creditsRedeemed = redemptionResult.data?.amountOfCredits;
+      if (USE_MARGIN) {
+        // Margin-based redemption: charges the API cost plus a margin percentage on top
+        // For example, if the API call costs 10 cents, a 20% margin charges 10 + (10 * 0.2) = 12 cents in dollar-equivalent credits
+        // This is useful for adding a service fee on top of the actual API costs
+        const useMarginPercent = 0.2; // 20% margin on top of API cost
+
+        if (USE_BATCH) {
+          // Redeem with margin from a batch request
+          redemptionResult = await payments.requests.redeemWithMarginFromBatchRequest(
+            agentRequest.agentRequestId,
+            requestAccessToken,
+            useMarginPercent
+          );
+        } else {
+          // Redeem with margin from a single request
+          redemptionResult = await payments.requests.redeemWithMarginFromRequest(
+            agentRequest.agentRequestId,
+            requestAccessToken,
+            useMarginPercent
+          );
+        }
+        console.log("redemptionResult", redemptionResult);
+        redemptionResult.creditsRedeemed = redemptionResult.data?.amountOfCredits || 0;
+      } else {
+        // Fixed credit redemption: charges a specific number of credits
+        // This is useful for pay-per-use models where costs are predictable
+        const creditAmount = calculateCreditAmount(tokensUsed, maxTokens);
+
+        if (USE_BATCH) {
+          // Redeem fixed credits from a batch request
+          redemptionResult = await payments.requests.redeemCreditsFromBatchRequest(
+            agentRequest.agentRequestId,
+            requestAccessToken,
+            creditAmount
+          );
+        } else {
+          // Redeem fixed credits from a single request
+          redemptionResult = await payments.requests.redeemCreditsFromRequest(
+            agentRequest.agentRequestId,
+            requestAccessToken,
+            creditAmount
+          );
+        }
+        redemptionResult.creditsRedeemed = redemptionResult.data?.amountOfCredits || 0;
+      }
     } catch (redeemErr) {
       console.error("Failed to redeem credits:", redeemErr);
       redemptionResult = {

@@ -22,6 +22,8 @@ NVM_API_KEY = os.getenv("BUILDER_NVM_API_KEY", "")
 NVM_ENVIRONMENT = os.getenv("NVM_ENVIRONMENT", "staging_sandbox")
 NVM_AGENT_ID = os.getenv("NVM_AGENT_ID", "")
 NVM_AGENT_HOST = os.getenv("NVM_AGENT_HOST", f"http://localhost:{PORT}")
+USE_BATCH = os.getenv("USE_BATCH", "false").lower() == "true"
+USE_MARGIN = os.getenv("USE_MARGIN", "false").lower() == "true"
 
 if not OPENAI_API_KEY:
     print("OPENAI_API_KEY is required to run the agent.")
@@ -100,12 +102,22 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
         http_verb = "POST"
 
         # Check if user is authorized and has sufficient balance
-        agent_request = payments.requests.start_processing_request(
-            NVM_AGENT_ID,
-            auth_header,
-            requested_url,
-            http_verb
-        )
+        # Batch requests allow processing multiple requests together for efficiency
+        # Regular requests process one request at a time
+        if USE_BATCH:
+            agent_request = payments.requests.start_processing_batch_request(
+                NVM_AGENT_ID,
+                auth_header,
+                requested_url,
+                http_verb
+            )
+        else:
+            agent_request = payments.requests.start_processing_request(
+                NVM_AGENT_ID,
+                auth_header,
+                requested_url,
+                http_verb
+            )
 
         # Reject request if user doesn't have credits or subscription
         balance_info = agent_request.get("balance", {})
@@ -153,8 +165,8 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
             "operation": "financial_advice",
         }
 
-        # Create OpenAI client with Helicone observability integration
-        openai_config = payments.observability.with_helicone_openai(
+        # Create OpenAI client with observability integration
+        openai_config = payments.observability.with_openai(
             OPENAI_API_KEY,
             agent_request,
             custom_properties
@@ -182,18 +194,52 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
         messages.append({"role": "assistant", "content": response})
         sessions[session_id] = messages
 
-        # Calculate dynamic credit amount based on token usage
-        credit_amount = calculate_credit_amount(tokens_used, max_tokens)
-
         # Redeem credits after successful API call
         redemption_result = None
         try:
-            redemption_response = payments.requests.redeem_credits_from_request(
-                agent_request.get("agentRequestId"),
-                request_access_token,
-                credit_amount
-            )
-            redemption_result = RedemptionResult(creditsRedeemed=credit_amount)
+            if USE_MARGIN:
+                # Margin-based redemption: charges the API cost plus a margin percentage on top
+                # For example, if the API call costs 10 cents, a 20% margin charges 10 + (10 * 0.2) = 12 cents in dollar-equivalent credits
+                # This is useful for adding a service fee on top of the actual API costs
+                margin_percent = 0.2  # 20% margin on top of API cost
+
+                if USE_BATCH:
+                    # Redeem with margin from a batch request
+                    redemption_response = payments.requests.redeem_with_margin_from_batch_request(
+                        agent_request.get("agentRequestId"),
+                        request_access_token,
+                        margin_percent
+                    )
+                else:
+                    # Redeem with margin from a single request
+                    redemption_response = payments.requests.redeem_with_margin_from_request(
+                        agent_request.get("agentRequestId"),
+                        request_access_token,
+                        margin_percent
+                    )
+                credits_redeemed = redemption_response.get("data", {}).get("amountOfCredits", 0)
+            else:
+                # Fixed credit redemption: charges a specific number of credits
+                # This is useful for pay-per-use models where costs are predictable
+                credit_amount = calculate_credit_amount(tokens_used, max_tokens)
+
+                if USE_BATCH:
+                    # Redeem fixed credits from a batch request
+                    redemption_response = payments.requests.redeem_credits_from_batch_request(
+                        agent_request.get("agentRequestId"),
+                        request_access_token,
+                        credit_amount
+                    )
+                else:
+                    # Redeem fixed credits from a single request
+                    redemption_response = payments.requests.redeem_credits_from_request(
+                        agent_request.get("agentRequestId"),
+                        request_access_token,
+                        credit_amount
+                    )
+                credits_redeemed = redemption_response.get("data", {}).get("amountOfCredits") or redemption_response.get("creditsRedeemed", 0)
+
+            redemption_result = RedemptionResult(creditsRedeemed=credits_redeemed)
         except Exception as redeem_err:
             print(f"Failed to redeem credits: {redeem_err}")
             redemption_result = RedemptionResult(
