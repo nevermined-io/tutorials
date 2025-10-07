@@ -169,7 +169,7 @@ app.post("/ask", async (req: Request, res: Response) => {
       operation: "financial_advice",
     };
 
-    // Create OpenAI client with Helicone observability integration
+    // Create OpenAI client with Nevermined observability integration
     const openai = new OpenAI(
       payments.observability.withOpenAI(
         OPENAI_API_KEY,
