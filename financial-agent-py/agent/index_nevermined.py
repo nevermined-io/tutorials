@@ -110,10 +110,7 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
         )
 
         # Reject request if user doesn't have credits or subscription
-        balance_info = agent_request.get("balance", {})
-        is_subscriber = balance_info.get("is_subscriber", False)
-        balance_amount = balance_info.get("balance", 0)
-        if not is_subscriber or balance_amount < 1:
+        if not agent_request.balance.is_subscriber or agent_request.balance.balance < 1:
             raise HTTPException(status_code=402, detail="Payment Required")
 
         # Extract access token for credit redemption
@@ -186,7 +183,7 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
         redemption_result = None
         try:
             redemption_response = payments.requests.redeem_credits_from_request(
-                agent_request.get("agent_request_id"),
+                agent_request.agent_request_id,
                 request_access_token,
                 credit_amount
             )
