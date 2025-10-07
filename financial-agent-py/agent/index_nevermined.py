@@ -92,10 +92,12 @@ class AskResponse(BaseModel):
 
 # Handle financial advice requests with Nevermined payment protection and observability
 @app.post("/ask", response_model=AskResponse)
-async def ask_financial_advice(request: AskRequest, authorization: Optional[str] = Header(None)):
+async def ask_financial_advice(request: AskRequest, authorization: Optional[str] = Header(default=None)):
     try:
         # Extract authorization details from request headers
-        auth_header = authorization or ""
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authorization header must be in format: Bearer <token>")
+        auth_header = authorization
         requested_url = f"{NVM_AGENT_HOST}/ask"
         http_verb = "POST"
 
@@ -109,18 +111,13 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
 
         # Reject request if user doesn't have credits or subscription
         balance_info = agent_request.get("balance", {})
-        is_subscriber = balance_info.get("isSubscriber", False)
-        balance_raw = balance_info.get("balance", 0)
-        # Convert balance to int if it's a string
-        if isinstance(balance_raw, str):
-            balance_amount = int(balance_raw) if balance_raw.isdigit() else 0
-        else:
-            balance_amount = balance_raw
+        is_subscriber = balance_info.get("is_subscriber", False)
+        balance_amount = balance_info.get("balance", 0)
         if not is_subscriber or balance_amount < 1:
             raise HTTPException(status_code=402, detail="Payment Required")
 
         # Extract access token for credit redemption
-        request_access_token = auth_header.replace("Bearer ", "", 1) if auth_header.startswith("Bearer ") else auth_header
+        request_access_token = auth_header.replace("Bearer ", "", 1)
 
         # Extract and validate the user's input
         input_text = request.input_query.strip()
@@ -189,7 +186,7 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
         redemption_result = None
         try:
             redemption_response = payments.requests.redeem_credits_from_request(
-                agent_request.get("agentRequestId"),
+                agent_request.get("agent_request_id"),
                 request_access_token,
                 credit_amount
             )

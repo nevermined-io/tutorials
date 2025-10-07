@@ -66,13 +66,16 @@ async def get_access_token() -> str:
     ))
 
     # Check current plan balance and subscription status
+    # NOTE: get_plan_balance raises PaymentsError if the plan doesn't exist or if there's an API error
+    # The returned balance_info is validated and typed by Pydantic, ensuring 'balance' is always an int
     balance_info = payments.plans.get_plan_balance(PLAN_ID)
-    balance_value = balance_info.get("balance", 0)
-    # Convert balance to int if it's a string
-    if isinstance(balance_value, str):
-        balance_value = int(balance_value) if balance_value.isdigit() else 0
+
+    # Extract balance - no need for type conversion as the SDK returns properly typed data
+    balance_value = balance_info.get("balance", 0)  # balance is guaranteed to be int, not string
     has_credits = balance_value > 0
-    is_subscriber = balance_info.get("isSubscriber", False)
+
+    # Check subscription status using snake_case field name (SDK converts from API's camelCase)
+    is_subscriber = balance_info.get("is_subscriber", False)
 
     # Purchase plan if not subscribed and no credits
     if not is_subscriber and not has_credits:
