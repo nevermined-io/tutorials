@@ -154,7 +154,7 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
         }
 
         # Create OpenAI client with Helicone observability integration
-        openai_config = payments.observability.with_helicone_openai(
+        openai_config = payments.observability.with_openai(
             OPENAI_API_KEY,
             agent_request,
             custom_properties
