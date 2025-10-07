@@ -82,11 +82,11 @@ async def get_access_token() -> str:
     # Get access token for the agent
     credentials = payments.agents.get_agent_access_token(PLAN_ID, AGENT_ID)
 
-    if not credentials or not credentials.get("accessToken"):
+    if not credentials or not credentials.access_token:
         raise Exception("Failed to obtain access token")
 
     print("✅ Access token obtained successfully")
-    return credentials["accessToken"]
+    return credentials.access_token
 
 async def ask_agent(input_text: str, access_token: str, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Send a question to the protected financial agent"""
