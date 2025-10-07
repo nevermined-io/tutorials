@@ -5,6 +5,7 @@ Exposes a `/ask` endpoint with per-session conversational memory and Nevermined 
 import os
 import uuid
 import math
+from dataclasses import asdict
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header
@@ -154,11 +155,7 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
             custom_properties
         )
 
-        openai_client = openai.OpenAI(
-            api_key=openai_config.api_key,
-            base_url=openai_config.base_url,
-            default_headers=openai_config.default_headers
-        )
+        openai_client = openai.OpenAI(**asdict(openai_config))
 
         # Call OpenAI API to generate response
         completion = openai_client.chat.completions.create(
