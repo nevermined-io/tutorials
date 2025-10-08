@@ -8,6 +8,9 @@ const NVM_API_KEY = getEnvOrThrow("NVM_API_KEY");
 const NVM_AGENT_ID = getEnvOrThrow("NVM_AGENT_ID");
 const NVM_PLAN_ID = getEnvOrThrow("NVM_PLAN_ID");
 const NVM_ENVIRONMENT = getEnvOrThrow("NVM_ENVIRONMENT");
+
+// This is not meant to be a full fledged example, it is just to show how to use the async logger
+// For a complete example of how to monetize an agent with Nevermined, see the financial-agent example
 const EXAMPLE_REQUEST_URL = "https://example.com/ask";
 
 const payments = Payments.getInstance({
