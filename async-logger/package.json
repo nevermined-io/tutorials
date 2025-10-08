@@ -1,0 +1,23 @@
+{
+  "name": "async-logger",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/agent.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "dotenv": "^17.2.3",
+    "eslint": "^9.37.0",
+    "prettier": "^3.6.2",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@nevermined-io/payments": "1.0.0-rc19",
+    "openai": "^6.2.0"
+  }
+}
