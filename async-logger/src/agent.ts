@@ -50,19 +50,15 @@ const agent = async (accessToken: string) => {
   }
 
   // Initialize the async logger
-  // This wraps the OpenTelemetry SpanProcessor to automatically add Helicone properties
-  // to ALL spans - similar to Python's Traceloop.set_association_properties()
   const logger = payments.observability.withAsyncLogger(
     {
-      openAI: OpenAI as any,
+      openAI: OpenAI,
     },
     agentRequest
   );
   logger.init();
 
-  // Make LLM call normally - Helicone properties are automatically added to all spans!
-  // No wrapping needed!
-  console.log("Making LLM call...");
+  console.log("Making OpenAI LLM call...");
   const openai = new OpenAI({
     apiKey: OPENAI_API_KEY,
   });

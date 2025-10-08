@@ -252,14 +252,6 @@
     protobufjs "^7.5.3"
     yargs "^17.7.2"
 
-"@helicone/async@^2.0.2":
-  version "2.0.2"
-  resolved "https://registry.yarnpkg.com/@helicone/async/-/async-2.0.2.tgz#4812b81e5e46ea11945c6c6b820b6cb9deab38f5"
-  integrity sha512-0gfbZMgeJ2f21Ocg2QeDZO6hhw+1B4+XVPlpj43k9O0Z4KJ7nDVvdndDKMcwl0kOLJKa3nwDN9K5DdbhhWkJ3Q==
-  dependencies:
-    "@opentelemetry/exporter-trace-otlp-http" "^0.203.0"
-    "@traceloop/node-server-sdk" "^0.14.6"
-
 "@helicone/helpers@^1.6.0":
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/@helicone/helpers/-/helpers-1.8.0.tgz#93db6c0965511d2644723dd182536b7fad632619"
@@ -329,25 +321,16 @@
     zod "^3.25.32"
     zod-to-json-schema "^3.22.3"
 
-"@nevermined-io/payments@/home/rodmar/code/payments":
-  version "1.0.0-rc18"
+"@nevermined-io/payments@1.0.0-rc19":
+  version "1.0.0-rc19"
+  resolved "https://registry.yarnpkg.com/@nevermined-io/payments/-/payments-1.0.0-rc19.tgz#d393e92c3e46f467b07b208c0ff07f1b6f630808"
+  integrity sha512-ECbEVHvmD5raO8AogTcALZIpKwavQFZQ14/3PA9qH5PWmMkH9UHgnCLFHgh76l2NnPo+PvPZeSwH/TmApSYuUg==
   dependencies:
     "@a2a-js/sdk" "^0.2.5"
-    "@helicone/async" "^2.0.2"
     "@helicone/helpers" "^1.6.0"
-    axios "^1.7.7"
-    express "4.21.2"
-    jose "^5.2.4"
-    js-file-download "^0.4.12"
-    uuid "^10.0.0"
-    zod "^4.0.17"
-
-"@nevermined-io/payments@file:../../payments":
-  version "1.0.0-rc18"
-  dependencies:
-    "@a2a-js/sdk" "^0.2.5"
-    "@helicone/async" "^2.0.2"
-    "@helicone/helpers" "^1.6.0"
+    "@opentelemetry/api" "^1.9.0"
+    "@opentelemetry/exporter-trace-otlp-http" "^0.203.0"
+    "@traceloop/node-server-sdk" "^0.14.6"
     axios "^1.7.7"
     express "4.21.2"
     jose "^5.2.4"
@@ -2355,10 +2338,10 @@ once@^1.4.0:
   dependencies:
     wrappy "1"
 
-openai@^6.1.0:
-  version "6.1.0"
-  resolved "https://registry.yarnpkg.com/openai/-/openai-6.1.0.tgz#12919340f9813dae674bd2dfbb04c0989b3ef26d"
-  integrity sha512-5sqb1wK67HoVgGlsPwcH2bUbkg66nnoIYKoyV9zi5pZPqh7EWlmSrSDjAh4O5jaIg/0rIlcDKBtWvZBuacmGZg==
+openai@^6.2.0:
+  version "6.2.0"
+  resolved "https://registry.yarnpkg.com/openai/-/openai-6.2.0.tgz#b5cd5712819ce39823d25047429fa61838200cc7"
+  integrity sha512-qqjzHls7F5xkXNGy9P1Ei1rorI5LWupUUFWP66zPU8FlZbiITX8SFcHMKNZg/NATJ0LpIZcMUFxSwQmdeQPwSw==
 
 optionator@^0.9.3:
   version "0.9.4"

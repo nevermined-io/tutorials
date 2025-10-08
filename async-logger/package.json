@@ -1,5 +1,5 @@
 {
-  "name": "manual-logger",
+  "name": "async-logger",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
@@ -17,8 +17,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@helicone/async": "^2.0.2",
-    "@nevermined-io/payments": "/home/rodmar/code/payments",
-    "openai": "^6.1.0"
+    "@nevermined-io/payments": "1.0.0-rc19",
+    "openai": "^6.2.0"
   }
 }
