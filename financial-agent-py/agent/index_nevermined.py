@@ -184,7 +184,13 @@ async def ask_financial_advice(request: AskRequest, authorization: Optional[str]
                 request_access_token,
                 credit_amount
             )
-            redemption_result = RedemptionResult(creditsRedeemed=credit_amount)
+
+            # Extract credits redeemed from the response
+            credits_redeemed = redemption_response.get("data", {}).get("amountOfCredits", 0)
+
+            # Create redemption result
+            redemption_result = RedemptionResult(creditsRedeemed=credits_redeemed)
+
         except Exception as redeem_err:
             print(f"Failed to redeem credits: {redeem_err}")
             redemption_result = RedemptionResult(
