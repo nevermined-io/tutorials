@@ -151,7 +151,7 @@ function createModelWithSessionId(
   customProperties: Record<string, string> = {}
 ): ChatOpenAI {
   return new ChatOpenAI(
-    payments.observability.withHeliconeLangchain(
+    payments.observability.withLangchain(
       "gpt-4o-mini",
       OPENAI_API_KEY,
       agentRequest,
