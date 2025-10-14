@@ -38,7 +38,7 @@ async function generateWeatherForecast(
     operation: "weather_forecast",
   };
 
-  // Create OpenAI client with Helicone observability integration
+  // Create OpenAI client with Nevermined observability integration
   const openai = new OpenAI(
     payments.observability.withOpenAI(
       process.env.OPENAI_API_KEY!,
