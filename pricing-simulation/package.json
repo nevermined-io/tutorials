@@ -17,7 +17,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@nevermined-io/payments": "/home/rodmar/code/payments",
+    "@nevermined-io/payments": "1.0.0-rc20",
     "openai": "^6.2.0"
   }
 }

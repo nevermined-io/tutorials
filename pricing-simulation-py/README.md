@@ -1,8 +1,8 @@
-# Pricing Simulation Tutorial
+# Pricing Simulation Tutorial (Python)
 
 This tutorial demonstrates how to use the **Nevermined Payments** library's pricing simulation feature to test and estimate costs for your AI agents without requiring user subscriptions, plans, or agent registration.
 
-> 💡 **Python Version Available**: Looking for the Python version? Check out the [pricing-simulation-py](../pricing-simulation-py) tutorial.
+> 💡 **TypeScript Version Available**: Looking for the TypeScript/Node.js version? Check out the [pricing-simulation](../pricing-simulation) tutorial.
 
 ## Overview
 
@@ -26,7 +26,7 @@ Unlike production agents, this requires **no prior setup** - no agent registrati
 
 ## Prerequisites
 
-- Node.js (v18 or higher)
+- Python 3.8 or higher
 - A Nevermined account with API credentials (just the API key!)
 - An OpenAI API key (or other LLM provider)
 - **No agent or plan setup required** ✨
@@ -36,7 +36,15 @@ Unlike production agents, this requires **no prior setup** - no agent registrati
 1. **Install dependencies:**
 
 ```bash
-yarn install
+pip install -r requirements.txt
+```
+
+Or with a virtual environment:
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
 2. **Configure environment variables:**
@@ -59,7 +67,20 @@ OPENAI_API_KEY=your_openai_api_key
 Execute the agent script:
 
 ```bash
-yarn agent
+python run_agent.py
+```
+
+Or run it directly from the src directory:
+
+```bash
+python src/agent.py
+```
+
+If you're using a virtual environment:
+
+```bash
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+python run_agent.py
 ```
 
 ### Expected Output
@@ -88,52 +109,60 @@ This data is sent to the Nevermined observability platform, allowing you to see 
 
 ### Starting a Simulation Request
 
-```typescript
-const agentRequest = await payments.requests.startSimulationRequest();
+```python
+agent_request = payments.requests.start_simulation_request()
 ```
 
 This creates a virtual agent request without needing any agent or plan configuration. You can optionally pass parameters:
 
-```typescript
-const agentRequest = await payments.requests.startSimulationRequest({
-  pricePerCredit: 0.01, // USD per credit (default: 0.01)
-  batch: false, // Batch mode (default: false)
-  agentName: "My Test Agent", // Display name (default: "Simulated Agent")
-  planName: "Test Plan", // Plan name (default: "Simulated Plan")
-});
+```python
+agent_request = payments.requests.start_simulation_request(
+    price_per_credit=0.01,  # USD per credit (default: 0.01)
+    batch=False,  # Batch mode (default: False)
+    agent_name="My Test Agent",  # Display name (default: "Simulated Agent")
+    plan_name="Test Plan",  # Plan name (default: "Simulated Plan")
+)
 ```
 
 ### Making LLM Calls with Observability
 
 Wrap your OpenAI client with observability tracking:
 
-```typescript
-const openai = new OpenAI(
-  payments.observability.withOpenAI(OPENAI_API_KEY, agentRequest, {})
-);
+```python
+from dataclasses import asdict
+import openai
 
-const completion = await openai.chat.completions.create({
-  model: "gpt-4o-mini",
-  messages: [{ role: "user", content: "Hello, world!" }],
-});
+# Configure OpenAI with observability
+openai_config = payments.observability.with_openai(
+    OPENAI_API_KEY,
+    agent_request,
+    {}
+)
+
+openai_client = openai.OpenAI(**asdict(openai_config))
+
+completion = openai_client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello, world!"}],
+)
 ```
 
 This automatically tracks the LLM usage and costs.
 
 ### Finishing the Simulation
 
-```typescript
-await payments.requests.finishSimulationRequest(agentRequest.agentRequestId);
+```python
+payments.requests.finish_simulation_request(agent_request.agent_request_id)
 ```
 
 This calculates the final cost with your profit margin. You can customize the margin:
 
-```typescript
-await payments.requests.finishSimulationRequest(
-  agentRequest.agentRequestId,
-  0.3, // 30% margin instead of default 20%
-  false // batch mode
-);
+```python
+payments.requests.finish_simulation_request(
+    agent_request.agent_request_id,
+    0.3,  # 30% margin instead of default 20%
+    False  # batch mode
+)
 ```
 
 ## Important Note
@@ -148,7 +177,7 @@ await payments.requests.finishSimulationRequest(
 - Complex agent logic
 - Full integration patterns
 
-Please refer to the **[financial-agent tutorial](../financial-agent)**, which provides a comprehensive example of a fully-fledged AI agent with real payment processing.
+Please refer to production agent examples, which provide comprehensive examples of fully-fledged AI agents with real payment processing.
 
 ## Use Cases
 
@@ -166,4 +195,4 @@ Once you're ready for production, transition to the full agent implementation wi
 
 - [Nevermined Payments SDK Documentation](https://docs.nevermined.app)
 - [Observability Guide](https://docs.nevermined.app/docs/development-guide/observability)
-- [Financial Agent Tutorial](../financial-agent) - Full production agent example
+- [Python SDK GitHub Repository](https://github.com/nevermined-io/payments-py)
