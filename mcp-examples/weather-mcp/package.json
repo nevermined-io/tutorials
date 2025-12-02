@@ -13,7 +13,7 @@
     "inspector": "yarn dlx @modelcontextprotocol/inspector connect http://localhost:3000/mcp"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.2",
+    "@modelcontextprotocol/sdk": "^1.24.0",
     "@nevermined-io/payments": "^1.0.0-rc18",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
