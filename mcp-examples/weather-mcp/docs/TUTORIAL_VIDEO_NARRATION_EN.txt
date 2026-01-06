@@ -1,0 +1,171 @@
+INTRO
+
+Hi, welcome to this Nevermined tutorial.
+
+If you already know how to create MCP servers with the official Model Context Protocol SDK, you are going to love this video. We will see how easy it is to turn your MCP server into a monetizable service using the Nevermined Payments library.
+
+In the next few minutes, we will analyze step by step a weather MCP server that protects its tools, resources and prompts with a paywall, calculates credits dynamically based on the response, automatically exposes all the necessary OAuth 2.1 endpoints, and works directly with clients like Cursor or Claude Desktop.
+
+The best part is that if you already know how to use the MCP SDK, the learning curve is practically zero.
+
+Let's get started.
+
+
+DEPENDENCIES AND CONFIGURATION
+
+Let's start by looking at the dependencies.
+
+The Nevermined payments library. It includes everything you need to create monetizable MCP servers.
+
+The official MCP SDK from Model Context Protocol.
+
+Zod for validating input schemas.
+
+And dotenv for managing environment variables.
+
+Regarding configuration, we need our Nevermined API Key, the Agent ID that represents this server, and the environment we are going to work with.
+
+If you do not have this data yet, we have other videos that explain how to create your account and configure your agent in Nevermined.
+
+
+INITIALIZE PAYMENTS
+
+Let's look at the code. 
+
+From the Payments library we import the main class: "Payments". EnvironmentName to type the environment, and CreditsContext, a type we will use later to dynamically calculate credits.
+
+We also import Zod, exactly as we would with the official MCP SDK.
+
+Below we read the environment variables: the port, the API key, the Agent ID and the environment.
+
+Take a look at Payments.getInstance
+
+We initialize Payments by passing our API key and the environment. We use the singleton pattern, so this instance will be available throughout the application.
+
+With these three lines we already have access to the entire MCP module of Nevermined. Let's see how to register our first tool.
+
+
+REGISTER A TOOL
+
+First we define the input schema with Zod. This is exactly the same as in the official MCP SDK. As this MCP server will retrieve weather data from an external API, we define an object with a city field of type string.
+
+Nothing new here. If you already use MCP, this will be familiar.
+
+Now let's look at the handler. And here comes the first important difference from the original SDK.
+
+Look at the function signature: it receives "args", which are the input arguments, and an optional second parameter: authContext.
+
+This authContext is the authorization context that Nevermined automatically injects into each call. What is it for?
+
+First, you have access to the agentRequestId. This unique identifier for each request is very useful for logging, debugging, and tracking issues in production.
+
+Second, you can pass this context to other functions in your handler. For example, here we pass it to generateWeatherForecast. This allows you to use another very powerful Nevermined tool: observability, which lets you track LLM calls within your handler. But we will leave that for another tutorial.
+
+The important thing is to understand that Nevermined gives you information about who is calling and with what credentials, something that the original MCP SDK does not provide.
+
+The rest of the handler is your normal business logic: get data, process it, and return a standard MCP content object.
+
+Here comes another very powerful feature: dynamic credit calculation.
+
+Instead of always charging the same amount, we can define a function that calculates credits based on the call context.
+
+Look at the ctx parameter of type CreditsContext. This object has two key properties.
+
+ctx.args contains the arguments that the user sent to the tool. For example, the city they requested.
+
+ctx.result, and this is the important part, contains the result that your handler returned.
+
+Why is this so useful? Because the credit calculation runs after your handler finishes. First your logic runs, then Nevermined calls this function with the result.
+
+In this example, we charge more credits if the forecast is long. But you could charge more for premium cities, for specific response types, for whatever your business model needs.
+
+And here we register the tool. Look how simple the API is.
+
+payments.mcp.registerTool. We use the MCP module from the Payments object.
+
+First parameter: the tool name, weather.today.
+
+Second parameter: the configuration with title, description and the Zod schema. This is identical to the official SDK.
+
+Third parameter: the handler we just saw.
+
+And fourth parameter: the credit options. Here we pass our calculator function. If you do not need dynamic calculation, you can simply put credits: 5n to always charge 5 credits.
+
+In essence, the API is almost identical to the official SDK, we just add the fourth parameter for monetization.
+
+
+REGISTER RESOURCES AND PROMPTS
+
+Resources and prompts follow the exact same pattern. We use payments.mcp.registerResource and payments.mcp.registerPrompt respectively.
+
+In both cases: name, configuration, handler, and credits. The handler also receives context, so you have access to the same authorization context as in tools.
+
+The pattern is always consistent, which makes the learning curve minimal if you already know MCP.
+
+ 
+START THE SERVER
+
+And now comes the magic. A single call: payments.mcp.start.
+
+We pass the port, the Nevermined Agent ID, the server name, the version and a description.
+ 
+This function returns two things: info with server information, and stop to shut it down cleanly.
+
+But look at everything start does for us. In the log you can see all the endpoints it automatically generates.
+
+The MCP endpoint at slash mcp where clients connect.
+
+And here is the important part: all the OAuth 2.1 endpoints.
+
+The discovery at well-known oauth-authorization-server, the protected resource at well-known oauth-protected-resource, the OpenID Connect configuration, and the dynamic client registration endpoint.
+
+It also generates the health check, configures CORS, JSON parsing, session management for streaming.
+
+If you did this manually with the original MCP SDK, you would need hundreds of lines of code just for the infrastructure. Here it is 10 lines.
+ 
+And best of all: as a developer, you do not have to understand OAuth or implement any authentication. Nevermined does everything.
+
+
+DEMO WITH CURSOR
+
+Let's see it working. We run the server with npx.
+
+Perfect. The server starts and shows us all the available endpoints.
+
+The MCP endpoint at slash mcp, the health check, and all the OAuth endpoints that Nevermined has automatically generated.
+
+It also lists the tools, resources and prompts we have registered.
+
+Now let's connect Cursor as a client.
+
+The Cursor configuration is very simple. In the mcp.json file, we add our server with the MCP endpoint URL.
+
+That is all. Cursor, as a standard MCP Client, will automatically take care of discovering the OAuth endpoints by reading the discovery, registering as a client, obtaining an access token, and using it in all subsequent calls.
+
+We did not have to implement any of this OAuth flow. Nevermined configures everything.
+
+When clicking the 'Connect' button next to the new MCP server, the browser opens the authorization URL. The user logs in, and if the plan associated with the agent has not been purchased or the credits have been exhausted, the payment process is triggered. After this, Nevermined redirects the user back to Cursor, attaching the agent’s access token. At this stage, we are ready to interact with the MCP server.
+
+Let's ask about the weather.
+
+What is the weather in Madrid?
+
+Cursor detects that we have a weather.today tool available, calls it with the argument city Madrid, and shows us the result.
+
+Everything works. And most importantly: in the background, Nevermined has validated the user token, verified they have enough credits, executed our handler, and deducted the credits automatically.
+
+Without us writing a single line of authentication or billing code.
+
+
+CLOSING
+
+In the video description you have the link to the complete code of this example and to the documentation.
+
+Thanks for watching, and see you in the next video.
+
+
+
+
+
+
+

@@ -24,11 +24,11 @@ import {
 } from "../services/weather.service.js";
 import OpenAI from "openai";
 
-const PORT = parseInt(process.env.PORT || "3000", 10);
+const PORT = parseInt(process.env.PORT || "3002", 10);
 const NVM_API_KEY = process.env.NVM_API_KEY;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID;
 const NVM_ENVIRONMENT =
-  (process.env.NVM_ENVIRONMENT as EnvironmentName) || "staging";
+  (process.env.NVM_ENVIRONMENT as EnvironmentName) || "live";
 
 if (!NVM_API_KEY) {
   throw new Error("NVM_API_KEY environment variable is required");
@@ -87,10 +87,10 @@ async function handleWeatherTodayTool(args: any, authContext?: any) {
       { type: "text", text: forecastText },
       {
         type: "resource_link",
-        uri: `weather://today/${encodeURIComponent(weather.city)}`,
-        name: `weather today ${weather.city}`,
+        uri: "weather://today",
+        name: "weather today",
         mimeType: "application/json",
-        description: "Raw JSON for today's weather",
+        description: "Raw JSON for today's weather (default city)",
       },
     ],
     structuredContent: {
@@ -111,19 +111,14 @@ async function handleWeatherTodayTool(args: any, authContext?: any) {
  *****************************************************************************/
 
 /**
- * Handler for the weather://today/{city} resource
- * Returns raw JSON weather data for a specific city
+ * Handler for the weather://today resource (static, no template variables)
+ * Returns raw JSON weather data for the default city
  *
  * @param uri - Resource URI
- * @param variables - URI variables (e.g., city)
  * @param context - Authentication context from Nevermined
  * @returns Resource response with weather data
  */
-async function handleWeatherTodayResource(
-  uri: any,
-  variables?: any,
-  context?: any
-) {
+async function handleWeatherTodayResource(uri: any, context?: any) {
   // You can access context for logging/observability
   if (context) {
     console.log(
@@ -131,18 +126,9 @@ async function handleWeatherTodayResource(
     );
   }
 
-  const cityParamRaw = variables?.city;
-  const cityParam: string = Array.isArray(cityParamRaw)
-    ? cityParamRaw[0]
-    : (cityParamRaw as string);
-  const decodedCity = (() => {
-    try {
-      return decodeURIComponent(cityParam);
-    } catch {
-      return cityParam;
-    }
-  })();
-  const sanitized = sanitizeCity(decodedCity);
+  // Default city for the static weather resource
+  const DEFAULT_WEATHER_CITY = "London";
+  const sanitized = sanitizeCity(DEFAULT_WEATHER_CITY);
   const weather = await getTodayWeather(sanitized);
   return {
     contents: [
@@ -332,13 +318,13 @@ payments.mcp.registerTool(
 );
 
 /**
- * Register weather://today/{city} resource
+ * Register weather://today resource (static, no template variables)
  */
 payments.mcp.registerResource(
-  "weather://today/{city}",
+  "weather://today",
   {
     name: "Today's Weather Resource",
-    description: "JSON for today's weather by city",
+    description: "JSON for today's weather (default city: London)",
     mimeType: "application/json",
   },
   handleWeatherTodayResource,
