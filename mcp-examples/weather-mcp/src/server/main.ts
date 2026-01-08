@@ -14,38 +14,81 @@
  *****************************************************************************/
 
 import "dotenv/config";
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
-import type { CreditsContext } from "@nevermined-io/payments";
+import express, { Request, Response } from "express";
 import { z } from "zod";
+import { randomUUID } from "crypto";
 import {
   getTodayWeather,
   sanitizeCity,
   TodayWeather,
 } from "../services/weather.service.js";
 import OpenAI from "openai";
+// Import MCP Server and Transport
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
-const PORT = parseInt(process.env.PORT || "3002", 10);
-const NVM_API_KEY = process.env.NVM_API_KEY;
-const NVM_AGENT_ID = process.env.NVM_AGENT_ID;
-const NVM_ENVIRONMENT =
-  (process.env.NVM_ENVIRONMENT as EnvironmentName) || "live";
-
-if (!NVM_API_KEY) {
-  throw new Error("NVM_API_KEY environment variable is required");
-}
-
-if (!NVM_AGENT_ID) {
-  throw new Error("NVM_AGENT_ID environment variable is required");
-}
-
-/*****************************************************************************
- * INITIALIZE NEVERMINED PAYMENTS
- *****************************************************************************/
+import { Payments, EnvironmentName } from "@nevermined-io/payments";
 
 const payments = Payments.getInstance({
-  nvmApiKey: NVM_API_KEY,
-  environment: NVM_ENVIRONMENT,
+  nvmApiKey: process.env.NVM_API_KEY!,
+  environment: process.env.NVM_ENVIRONMENT! as EnvironmentName,
 });
+
+const PORT = parseInt(process.env.PORT || "3002", 10);
+
+/*****************************************************************************
+ * REGISTER TOOLS, RESOURCES, AND PROMPTS
+ *****************************************************************************/
+
+/**
+ * Weather Tool Schema
+ */
+const weatherToolSchema = z.object({
+  city: z.string().min(2).max(80).describe("City name"),
+}) as any;
+
+/**
+ * Register weather.today tool with dynamic credits
+ */
+payments.mcp.registerTool(
+  "weather.today",
+  {
+    title: "Today's Weather",
+    description: "Get today's weather summary for a city",
+    inputSchema: weatherToolSchema,
+  },
+  handleWeatherTodayTool,
+  { credits: 1n }
+);
+
+/**
+ * Register weather://today resource
+ */
+payments.mcp.registerResource(
+  "Today's Weather Resource",
+  "weather://today",
+  {
+    title: "Today's Weather Resource",
+    description: "JSON for today's weather (default city: London)",
+    mimeType: "application/json",
+  },
+  handleWeatherTodayResource,
+  { credits: 5n }
+);
+
+/**
+ * Register weather.ensureCity prompt (1 credit)
+ */
+payments.mcp.registerPrompt(
+  "weather.ensureCity",
+  {
+    title: "Ensure city provided",
+    description: "Guide to call weather.today with a city",
+    argsSchema: weatherToolSchema,
+  },
+  handleWeatherEnsureCityPrompt,
+  { credits: (ctx) => (ctx.result.length > 100 ? 2n : 1n) }
+);
 
 /*****************************************************************************
  * TOOL HANDLER CALLBACKS
@@ -56,16 +99,35 @@ const payments = Payments.getInstance({
  * Gets today's weather summary for a city and generates an enhanced forecast
  *
  * @param args - Tool arguments containing the city name
- * @param authContext - Authentication context from Nevermined
+ * @param extra - MCP request handler extra context
  * @returns Tool response with weather forecast and structured data
  */
-async function handleWeatherTodayTool(args: any, authContext?: any) {
-  // You can access authContext for logging/observability
-  if (authContext) {
-    console.log(
-      `📊 Request ID: ${authContext.extra.agentRequest.agentRequestId}`
-    );
-  }
+async function handleWeatherTodayTool(
+  args: any,
+  extra?: any
+): Promise<{
+  content: Array<
+    | { type: "text"; text: string }
+    | {
+        type: "resource_link";
+        uri: string;
+        name: string;
+        mimeType: string;
+        description: string;
+      }
+  >;
+  structuredContent: {
+    city: string;
+    country?: string;
+    timezone: string;
+    temperatureMax?: number;
+    temperatureMin?: number;
+    precipitation?: number;
+    weatherConditions?: string;
+    forecast: string;
+  };
+}> {
+  // You can access extra for logging/observability
 
   const { city } = args as { city: string };
   if (!city) {
@@ -76,7 +138,7 @@ async function handleWeatherTodayTool(args: any, authContext?: any) {
   const weather: TodayWeather = await getTodayWeather(sanitized);
 
   // Generate enhanced weather forecast using LLM with Nevermined observability
-  const forecast = await generateWeatherForecast(weather, authContext);
+  const forecast = await generateWeatherForecast(weather);
 
   // Ensure forecast is a string (not an object)
   const forecastText =
@@ -84,9 +146,9 @@ async function handleWeatherTodayTool(args: any, authContext?: any) {
 
   return {
     content: [
-      { type: "text", text: forecastText },
+      { type: "text" as const, text: forecastText },
       {
-        type: "resource_link",
+        type: "resource_link" as const,
         uri: "weather://today",
         name: "weather today",
         mimeType: "application/json",
@@ -95,12 +157,12 @@ async function handleWeatherTodayTool(args: any, authContext?: any) {
     ],
     structuredContent: {
       city: weather.city,
-      country: weather.country,
+      country: weather.country ?? undefined,
       timezone: weather.timezone,
-      temperatureMax: weather.tmaxC,
-      temperatureMin: weather.tminC,
-      precipitation: weather.precipitationMm,
-      weatherConditions: weather.weatherText,
+      temperatureMax: weather.tmaxC ?? undefined,
+      temperatureMin: weather.tminC ?? undefined,
+      precipitation: weather.precipitationMm ?? undefined,
+      weatherConditions: weather.weatherText ?? undefined,
       forecast: forecastText,
     },
   };
@@ -115,14 +177,14 @@ async function handleWeatherTodayTool(args: any, authContext?: any) {
  * Returns raw JSON weather data for the default city
  *
  * @param uri - Resource URI
- * @param context - Authentication context from Nevermined
+ * @param extra - MCP request handler extra context
  * @returns Resource response with weather data
  */
-async function handleWeatherTodayResource(uri: any, context?: any) {
-  // You can access context for logging/observability
-  if (context) {
+async function handleWeatherTodayResource(uri: URL, extra?: any) {
+  // You can access extra for logging/observability
+  if (extra) {
     console.log(
-      `📊 Resource Request ID: ${context.extra.agentRequest.agentRequestId}`
+      `📊 Resource Request ID: ${extra.agentRequest?.agentRequestId}`
     );
   }
 
@@ -150,17 +212,20 @@ async function handleWeatherTodayResource(uri: any, context?: any) {
  * Guides the LLM to call weather.today with a city name
  *
  * @param args - Prompt arguments containing the city name
- * @param context - Authentication context from Nevermined
+ * @param context - Prompt context from Nevermined
  * @returns Prompt response with guidance message
  */
-function handleWeatherEnsureCityPrompt(args: any, context?: any) {
-  const city = (args as { city: string })?.city || "";
+function handleWeatherEnsureCityPrompt(
+  args: Record<string, string>,
+  context?: any
+) {
+  const city = args?.city || "";
   return {
     messages: [
       {
-        role: "user",
+        role: "user" as const,
         content: {
-          type: "text",
+          type: "text" as const,
           text: `Please call the tool weather.today with { "city": "${sanitizeCity(
             city
           )}" }`,
@@ -169,46 +234,6 @@ function handleWeatherEnsureCityPrompt(args: any, context?: any) {
     ],
   };
 }
-
-/*****************************************************************************
- * CREDITS CALCULATOR
- *****************************************************************************/
-
-/**
- * Calculate credits dynamically based on the city name length.
- * This function is called AFTER the handler executes, so it has access to both args and result.
- *
- * @param ctx - Credits context containing args and result
- * @returns Number of credits to charge for this operation
- *
- * context example:
- * {
- * args: {
- *   city: "London"
- * },
- * result: {
- *   structuredContent: {
- *     city: "London",
- *     country: "United Kingdom",
- *     timezone: "UTC",
- *     temperatureMax: 20,
- *     temperatureMin: 10,
- *     precipitation: 10,
- *     weatherConditions: "sunny",
- *     forecast: "Today's weather is sunny with a temperature of 20°C."
- *   }
- * }
- */
-const weatherToolCreditsCalculator = (ctx: CreditsContext): bigint => {
-  const result = ctx.result as
-    | { structuredContent?: { forecast?: string } }
-    | undefined;
-  const forecast = result?.structuredContent?.forecast || "";
-  const forecastLength = forecast.length;
-  return forecastLength <= 100
-    ? 1n
-    : BigInt(Math.floor(Math.random() * 18) + 2);
-};
 
 /*****************************************************************************
  * WEATHER API ACCESS
@@ -221,29 +246,9 @@ const weatherToolCreditsCalculator = (ctx: CreditsContext): bigint => {
  * @param context - Authentication context from Nevermined (for observability)
  * @returns Formatted weather forecast as a string
  */
-async function generateWeatherForecast(
-  weather: TodayWeather,
-  context?: any
-): Promise<string> {
-  // Set up observability metadata for tracking this operation
-  const customProperties: Record<string, string> = {
-    operation: "weather_forecast",
-  };
-  if (context?.extra?.agentRequest) {
-    customProperties.agentId = context.extra.agentRequest.agentId;
-    customProperties.sessionId = context.extra.agentRequest.agentRequestId;
-  }
-
-  // Create OpenAI client with Nevermined observability integration
-  const openai = new OpenAI(
-    context?.extra?.agentRequest
-      ? payments.observability.withOpenAI(
-          process.env.OPENAI_API_KEY!,
-          context.extra.agentRequest,
-          customProperties
-        )
-      : { apiKey: process.env.OPENAI_API_KEY! }
-  );
+async function generateWeatherForecast(weather: TodayWeather): Promise<string> {
+  // Create OpenAI client (without Nevermined observability)
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
   const systemPrompt = `You are a professional meteorologist. Create well-formatted, informative weather forecasts.
 
@@ -293,100 +298,33 @@ Make it informative but easy to understand, using natural language. Answer in En
 }
 
 /*****************************************************************************
- * REGISTER TOOLS, RESOURCES, AND PROMPTS
- *****************************************************************************/
-
-/**
- * Weather Tool Schema
- */
-const weatherToolSchema = z.object({
-  city: z.string().min(2).max(80).describe("City name"),
-}) as any;
-
-/**
- * Register weather.today tool with dynamic credits
- */
-payments.mcp.registerTool(
-  "weather.today",
-  {
-    title: "Today's Weather",
-    description: "Get today's weather summary for a city",
-    inputSchema: weatherToolSchema,
-  },
-  handleWeatherTodayTool,
-  { credits: weatherToolCreditsCalculator }
-);
-
-/**
- * Register weather://today resource (static, no template variables)
- */
-payments.mcp.registerResource(
-  "weather://today",
-  {
-    name: "Today's Weather Resource",
-    description: "JSON for today's weather (default city: London)",
-    mimeType: "application/json",
-  },
-  handleWeatherTodayResource,
-  { credits: 5n }
-);
-
-/**
- * Register weather.ensureCity prompt (1 credit)
- */
-payments.mcp.registerPrompt(
-  "weather.ensureCity",
-  {
-    name: "Ensure city provided",
-    description: "Guide to call weather.today with a city",
-    inputSchema: weatherToolSchema,
-  },
-  handleWeatherEnsureCityPrompt,
-  { credits: 1n }
-);
-
-/*****************************************************************************
  * START SERVER
  *****************************************************************************/
 
 /**
  * Main function to start the MCP server
- * The Nevermined Payments library handles everything:
- * - McpServer creation
- * - Express app setup
- * - OAuth endpoints
- * - Session/Transport management
- * - HTTP handlers
+ * Uses Express and StreamableHTTPServerTransport for HTTP communication
  */
 async function main() {
   const { info, stop } = await payments.mcp.start({
     port: PORT,
-    agentId: NVM_AGENT_ID!,
+    agentId: process.env.NVM_AGENT_ID!,
     serverName: "weather-mcp",
     version: "0.1.0",
-    description:
-      "Weather MCP server with Nevermined OAuth integration via Streamable HTTP",
+    description: "Weather MCP server with Nevermined Payments integration",
   });
 
   console.log(`
-🚀 Weather MCP Server with Nevermined Integration Started!
+🚀 Weather MCP Server with Nevermined Payments Integration Started!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📡 MCP Endpoint:     ${info.baseUrl}/mcp
 🏥 Health Check:     ${info.baseUrl}/health
 ℹ️  Server Info:      ${info.baseUrl}/
 
-🔐 OAuth Endpoints (auto-generated by Nevermined):
-   ├─ Discovery:     ${info.baseUrl}/.well-known/oauth-authorization-server
-   ├─ Protected:     ${info.baseUrl}/.well-known/oauth-protected-resource
-   ├─ OIDC Config:   ${info.baseUrl}/.well-known/openid-configuration
-   └─ Registration:  ${info.baseUrl}/register
-
-🛠️  Tools: ${info.tools.join(", ")} (dynamic credits)
-📦 Resources: ${info.resources.join(", ")} (dynamic credits)
-💬 Prompts: ${info.prompts.join(", ")} (0 credits)
-🌍 Environment: ${NVM_ENVIRONMENT}
-🆔 Agent ID: ${NVM_AGENT_ID}
+🛠️  Tools: weather.today
+📦 Resources: weather://today
+💬 Prompts: weather.ensureCity
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   `);
@@ -394,6 +332,7 @@ async function main() {
   // Handle graceful shutdown
   process.on("SIGINT", async () => {
     console.log("\n🛑 Shutting down...");
+    // Close all transports
     await stop();
     process.exit(0);
   });
