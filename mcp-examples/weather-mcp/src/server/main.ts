@@ -14,18 +14,13 @@
  *****************************************************************************/
 
 import "dotenv/config";
-import express, { Request, Response } from "express";
 import { z } from "zod";
-import { randomUUID } from "crypto";
 import {
   getTodayWeather,
   sanitizeCity,
   TodayWeather,
 } from "../services/weather.service.js";
 import OpenAI from "openai";
-// Import MCP Server and Transport
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
 
