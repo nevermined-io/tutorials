@@ -91,7 +91,7 @@ Make these important points feel like natural parts of the conversation rather t
 }
 
 // Calculate dynamic credit amount based on token usage
-function calculateCreditAmount(tokensUsed: number, maxTokens: number): number {
+function calculateCreditAmount(tokensUsed: number, maxTokens: number): bigint {
   // Formula: 10 * (actual_tokens / max_tokens)
   // This rewards shorter responses with lower costs
   const tokenUtilization = Math.min(tokensUsed / maxTokens, 1); // Cap at 1
@@ -104,7 +104,7 @@ function calculateCreditAmount(tokensUsed: number, maxTokens: number): number {
     ).toFixed(1)}%) - Credits: ${creditAmount}`
   );
 
-  return creditAmount;
+  return BigInt(creditAmount);
 }
 
 // Store conversation history for each session
@@ -206,9 +206,9 @@ app.post("/ask", async (req: Request, res: Response) => {
       redemptionResult = await payments.requests.redeemCreditsFromRequest(
         agentRequest.agentRequestId,
         requestAccessToken,
-        BigInt(creditAmount)
+        creditAmount
       );
-      redemptionResult.creditsRedeemed = creditAmount;
+      redemptionResult.creditsRedeemed = redemptionResult.amountOfCredits;
     } catch (redeemErr) {
       console.error("Failed to redeem credits:", redeemErr);
       redemptionResult = {
