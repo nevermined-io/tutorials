@@ -19,7 +19,7 @@ import {
   getTodayWeather,
   sanitizeCity,
   TodayWeather,
-} from "../services/weather.service.js";
+} from "./services/weather.service.js";
 import OpenAI from "openai";
 
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
