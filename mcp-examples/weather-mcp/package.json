@@ -1,24 +1,18 @@
 {
-  "name": "weather-mcp",
+  "name": "weather-mcp-tutorial",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js",
-    "client": "tsx src/client-demo.ts",
-    "client:invalid": "tsx src/client-test-invalid.ts",
-    "inspector": "yarn dlx @modelcontextprotocol/inspector connect http://localhost:3000/mcp"
+    "start": "tsx src/server/main.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.2",
-    "@nevermined-io/payments": "^1.0.0-rc18",
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@nevermined-io/payments": "^1.0.0-rc27",
     "dotenv": "^17.2.1",
-    "express": "^5.1.0",
-    "openai": "^5.23.0",
-    "zod": "^3.23.8"
+    "express": "^5.0.1",
+    "openai": "^6.15.0",
+    "zod": "3.25 || ^4.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

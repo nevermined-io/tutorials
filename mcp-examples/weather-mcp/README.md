@@ -1,258 +1,265 @@
 [![banner](https://raw.githubusercontent.com/nevermined-io/assets/main/images/logo/banner_logo.png)](https://nevermined.io)
 
-## Full step-by-step tutorial
+# Weather MCP Server with Nevermined Payments
 
-For the complete, in-depth guide to protecting an MCP server with Nevermined Payments, read:
+A minimal MCP server demonstrating how to protect AI tools with Nevermined Payments. Exposes a `weather.today(city)` tool, a `weather://today` resource, and a `weather.ensureCity` prompt — all protected with credit-based access control.
 
-- [docs/protecting-mcp-with-nevermined-payments.md](docs/protecting-mcp-with-nevermined-payments.md)
+## Documentation
 
-## Weather MCP (High-Level and Low-Level servers)
+| Document | Description |
+|----------|-------------|
+| [RUN.md](RUN.md) | Setup and running instructions |
+| [CLAUDE.md](CLAUDE.md) | AI agent context and technical reference |
 
-Minimal MCP server exposing a `weather.today(city)` tool, a `weather://today/{city}` resource and a `weather.ensureCity` prompt. Includes both a High-Level server (SDK `McpServer` + Streamable HTTP) and a Low-Level server (manual JSON‑RPC routing) to demonstrate Nevermined Payments integration.
+## What is MCP?
 
-### About this demo
+The **Model Context Protocol (MCP)** is a standardized communication layer for AI. It allows agents to discover and use server capabilities through:
 
-This repository is a reference/demo project used to test and validate the Model Context Protocol (MCP) integration inside Nevermined's TypeScript SDK `@nevermined-io/payments`. It showcases how to protect MCP tools, resources and prompts with the paywall, both in a High‑Level (SDK `McpServer` + Streamable HTTP) server and a Low‑Level JSON‑RPC server. It is intended for examples, local experimentation and integration tests, not as production‑ready code.
+- **Tools**: Actions the agent can execute (e.g., fetch weather data)
+- **Resources**: Stable data pointers identified by URI (e.g., JSON weather data)
+- **Prompts**: Pre-defined templates guiding agent behavior
 
-### Requirements
+## Why Nevermined Payments?
 
-- Node.js >= 18
-- Yarn (Berry or Classic)
+While MCP defines *what* an agent can do, it doesn't specify *who* can access it or *how* to charge for it. **Nevermined Payments** adds:
 
-### Install
+- **Authentication**: Validates user tokens via `Authorization` header
+- **Credit System**: Checks and deducts credits per request
+- **Automatic Setup**: Handles Express, sessions, OAuth endpoints
+
+## Project Structure
+
+```
+src/
+├── main.ts                  # MCP server with Nevermined Payments
+└── services/
+    └── weather.service.ts   # Weather API service (Open-Meteo)
+```
+
+## Quick Start
 
 ```bash
+# Install
 yarn install
-```
 
-### Develop
+# Configure environment
+export NVM_API_KEY=...
+export NVM_AGENT_ID=...
+export NVM_ENVIRONMENT=sandbox
+export OPENAI_API_KEY=...
 
-```bash
-yarn dev
-```
-
-### Build
-
-```bash
-yarn build
-```
-
-### Start (built)
-
-```bash
+# Run
 yarn start
 ```
 
-### Client demo (High-Level)
+See [RUN.md](RUN.md) for complete setup instructions.
+
+## Features Demonstrated
+
+| Type | Name | Credits | Description |
+|------|------|---------|-------------|
+| Tool | `weather.today` | 1 | Get weather summary for a city |
+| Resource | `weather://today` | 5 | Raw JSON weather data |
+| Prompt | `weather.ensureCity` | 1-2 | Guide to call weather.today |
+
+## How It Works
+
+### 1. Initialize Nevermined Payments
+
+```typescript
+import { Payments, EnvironmentName } from "@nevermined-io/payments";
+
+const payments = Payments.getInstance({
+  nvmApiKey: process.env.NVM_API_KEY!,
+  environment: process.env.NVM_ENVIRONMENT! as EnvironmentName,
+});
+```
+
+### 2. Register Protected Tools
+
+```typescript
+import { z } from "zod";
+
+const schema = z.object({
+  city: z.string().describe("City name"),
+}) as any;
+
+payments.mcp.registerTool(
+  "weather.today",
+  {
+    title: "Today's Weather",
+    description: "Get weather for a city",
+    inputSchema: schema,
+  },
+  async (args) => {
+    const { city } = args as { city: string };
+    return {
+      content: [{ type: "text", text: `Weather for ${city}: Sunny, 25C` }],
+    };
+  },
+  { credits: 1n }
+);
+```
+
+### 3. Register Protected Resources
+
+```typescript
+payments.mcp.registerResource(
+  "Weather Data",
+  "weather://today",
+  {
+    title: "Today's Weather",
+    description: "JSON weather data",
+    mimeType: "application/json",
+  },
+  async (uri) => {
+    return {
+      contents: [{ uri: uri.href, text: "{...}", mimeType: "application/json" }],
+    };
+  },
+  { credits: 5n }
+);
+```
+
+### 4. Register Protected Prompts
+
+```typescript
+payments.mcp.registerPrompt(
+  "weather.ensureCity",
+  {
+    title: "Ensure city",
+    description: "Guide to call weather.today",
+    argsSchema: schema,
+  },
+  (args) => {
+    return {
+      messages: [{ role: "user", content: { type: "text", text: "..." } }],
+    };
+  },
+  { credits: (ctx) => ctx.result.length > 100 ? 2n : 1n }  // Dynamic credits
+);
+```
+
+### 5. Start the Server
+
+```typescript
+const { info, stop } = await payments.mcp.start({
+  port: 3002,
+  agentId: process.env.NVM_AGENT_ID!,
+  serverName: "weather-mcp",
+  version: "0.1.0",
+});
+```
+
+## Credit Configuration
+
+All registration functions support fixed or dynamic credits:
+
+```typescript
+// Fixed credits
+{ credits: 1n }
+{ credits: 5n }
+
+// Dynamic credits based on input
+{ credits: (ctx) => ctx.args.premium ? 5n : 1n }
+
+// Dynamic credits based on result
+{ credits: (ctx) => ctx.result.length > 1000 ? 3n : 1n }
+
+// Tiered pricing
+{ credits: (ctx) => {
+  const size = JSON.stringify(ctx.result).length;
+  if (size > 1000) return 5n;
+  if (size > 500) return 3n;
+  return 1n;
+}}
+```
+
+## Client Usage
+
+### Get Access Token
+
+```typescript
+import { Payments } from "@nevermined-io/payments";
+
+const payments = Payments.getInstance({
+  nvmApiKey: process.env.NVM_API_KEY!,
+  environment: "sandbox",
+});
+
+const { accessToken } = await payments.agents.getAgentAccessToken(
+  process.env.NVM_PLAN_ID!,
+  process.env.NVM_AGENT_ID!
+);
+```
+
+### Call Protected Tools
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+
+const transport = new StreamableHTTPClientTransport(
+  new URL("http://localhost:3002/mcp"),
+  { requestInit: { headers: { Authorization: `Bearer ${accessToken}` } } }
+);
+
+const client = new Client({ name: "my-client" });
+await client.connect(transport);
+
+const result = await client.callTool({
+  name: "weather.today",
+  arguments: { city: "London" },
+});
+```
+
+## Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /mcp` | MCP JSON-RPC requests |
+| `GET /mcp` | SSE stream for notifications |
+| `DELETE /mcp` | Session termination |
+| `GET /health` | Health check |
+| `GET /` | Server info |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `-32003` | Authorization required / Payment required / Insufficient credits |
+| `-32002` | Server error |
+
+## Environment Variables
+
+### Server
 
 ```bash
-# default city Madrid
-yarn client
+NVM_API_KEY=...            # Builder/agent owner API key
+NVM_AGENT_ID=...           # Agent ID registered in Nevermined
+NVM_ENVIRONMENT=sandbox    # sandbox, live
+PORT=3002                  # Optional, defaults to 3002
+OPENAI_API_KEY=...         # For LLM-enhanced forecasts
+```
 
-# custom city
-yarn client Paris
-### Client demo (Low-Level)
+### Client (Subscriber)
 
 ```bash
-# default city Madrid
-yarn tsx src/client-low-level.ts
-
-# custom city
-yarn tsx src/client-low-level.ts Paris
+NVM_API_KEY=...            # Subscriber's API key
+NVM_PLAN_ID=...            # Subscription plan ID
+NVM_AGENT_ID=...           # Agent ID linked to plan
 ```
 
-```
+## Migration from Original MCP SDK
 
-### Nevermined auth
+| Original SDK | Nevermined Payments |
+|-------------|---------------------|
+| `new McpServer({...})` | `Payments.getInstance({...})` |
+| `server.tool(name, schema, handler)` | `payments.mcp.registerTool(name, metadata, handler, {credits})` |
+| `server.resource(...)` | `payments.mcp.registerResource(...)` |
+| `server.prompt(...)` | `payments.mcp.registerPrompt(...)` |
+| Manual Express setup | `payments.mcp.start({...})` |
 
-Client obtains an access token with its `NVM_API_KEY` and sends it as `Authorization: Bearer ...`. The server requires `Authorization` and performs a lightweight validation (custom JSON‑RPC error `-32003` if unauthorized).
+## License
 
-Server env:
-
-```bash
-export NVM_SERVER_API_KEY=...     # Server key (builder/agent owner)
-export NVM_AGENT_ID=weather-agent # Logical agent id used in validation (or your real ID)
-export NVM_ENVIRONMENT=staging_sandbox    # optional
-yarn dev
-```
-
-Client env:
-
-```bash
-export MCP_ENDPOINT=http://localhost:3000/mcp
-export NVM_API_KEY=...            # Subscriber key
-export NVM_PLAN_ID=...            # Plan that grants access
-export NVM_AGENT_ID=...           # Agent id associated to the plan
-yarn client Madrid
-```
-
-If auth is missing/invalid, the tool returns a JSON‑RPC error with code `-32003`.
-
-Low-Level client env:
-
-```bash
-export MCP_LOW_ENDPOINT=http://localhost:3000/mcp-low
-export NVM_API_KEY=...
-yarn tsx src/client-low-level.ts Madrid
-```
-
-### MCP Inspector (over HTTP)
-
-```bash
-yarn inspector
-```
-
-This runs `yarn dlx @modelcontextprotocol/inspector connect http://localhost:3000/mcp`.
-
-### Environment
-
-- `PORT` (default 3000)
-- `ALLOWED_HOSTS` for DNS-rebind protection (default `127.0.0.1,localhost`)
-
-### Endpoints (High-Level)
-
-- `POST /mcp` — JSON-RPC requests (initialize handled here; server-side sessions)
-- `GET /mcp` — SSE stream for server notifications
-- `DELETE /mcp` — session termination
-- `GET /healthz` — simple health check
-
-### Endpoints (Low-Level)
-
-- `POST /mcp-low` — Minimal JSON-RPC with manual routing and Authorization header passthrough
-- `GET /healthz-low` — simple health check
-
-### Acceptance checklist
-
-- List Tools shows `weather.today`
-- Calling `weather.today` with `{ "city": "Madrid" }` returns a text summary and a `resource_link` to `weather://today/Madrid`
-- Reading that resource returns JSON with the `TodayWeather` fields
-
-### Notes
-
-- DNS-rebind protection is enabled; `ALLOWED_HOSTS` defaults to `127.0.0.1,localhost` and their `:PORT` variants.
-- Inspector requests do not include `Authorization` headers; use the client demo for auth tests.
-
-## Tutorial: Protecting an MCP server with Nevermined (Paywall + Credits Burn)
-
-This guide shows how to protect your MCP tools with Nevermined so that only subscribed users can access them, and how to burn credits after each call.
-
-### 1) Install and configure
-
-```bash
-yarn add @nevermined-io/payments
-```
-
-Server environment:
-
-```bash
-export NVM_API_KEY=...            # Builder/agent owner API key
-export NVM_AGENT_ID=did:nv:...    # Your agent id registered in Nevermined
-export NVM_ENVIRONMENT=staging_sandbox    # or production
-```
-
-Client (subscriber) will use its own `NVM_API_KEY` to obtain an access token and send it as `Authorization: Bearer ...`.
-
-### 2) Initialize Nevermined in your MCP server
-
-```ts
-import { Payments } from '@nevermined-io/payments'
-
-const nvmApiKey = process.env.NVM_API_KEY!
-const environment = process.env.NVM_ENVIRONMENT || 'staging_sandbox'
-const payments = Payments.getInstance({ nvmApiKey, environment })
-
-// Configure paywall defaults once
-payments.mcp.configure({ agentId: process.env.NVM_AGENT_ID!, serverName: 'my-mcp' })
-```
-
-### 3) Wrap your tool handler with the paywall (works in both servers)
-
-```ts
-// Your original tool handler
-async function myHandler(args: any) {
-  // ... your logic
-  return { content: [{ type: 'text', text: 'Hello World' }] }
-}
-
-// Protect it with paywall (single call). Burn 1 credit per call
-const protectedHandler = payments.mcp.withPaywall(myHandler, { credits: 1n })
-
-// High-Level
-server.registerTool('my.namespace.tool', { inputSchema: { /* zod */ } }, protectedHandler)
-
-// Low-Level
-const tools = new Map([[ 'my.namespace.tool', protectedHandler ]])
-```
-
-What the paywall does:
-
-- Extracts `Authorization` from the MCP HTTP headers automatically.
-- Validates access with Nevermined (`startProcessingRequest`).
-- If unauthorized, responds with a JSON‑RPC error `-32003` (and suggests plans when possible).
-- Runs your handler.
-- Burns credits via `redeemCreditsFromRequest` based on the `credits` option.
-
-### 4) Client side
-
-Use the Nevermined client to obtain an access token and pass it as `Authorization` to your MCP transport.
-
-```ts
-import { Payments } from '@nevermined-io/payments'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-
-const subsPayments = Payments.getInstance({ nvmApiKey: process.env.NVM_API_KEY!, environment: 'staging_sandbox' })
-const { accessToken } = await subsPayments.agents.getAgentAccessToken(process.env.NVM_PLAN_ID!, process.env.NVM_AGENT_ID!)
-
-const transport = new StreamableHTTPClientTransport(new URL('http://localhost:3000/mcp'), {
-  requestInit: { headers: { Authorization: `Bearer ${accessToken}` } },
-})
-```
-
-### 5) Error semantics
-
-- Missing token → JSON‑RPC `-32003` (“Authorization required”).
-- Invalid/not subscribed → JSON‑RPC `-32003` (“Payment required”, optionally with plan suggestions).
-- Network/other errors → JSON‑RPC `-32002`.
-
-### 6) Advanced
-
-- Customize `credits` to a function that receives a context `{ args, result, request }` and returns a bigint.
-- Use `payments.mcp.decorateTool` to register and protect in one step.
-
-### Example: dynamic credits and resource burning
-
-- Dynamic credits on tool calls (e.g., random 1..10 credits per call):
-
-```ts
-const handler = payments.mcp.withPaywall(myHandler, {
-  credits: () => BigInt(1 + Math.floor(Math.random() * 10)),
-})
-```
-
-- Burn 1 credit for resource reads (weather-today):
-
-```ts
-server.registerResource(
-  'weather-today',
-  new ResourceTemplate('weather://today/{city}', { list: undefined }),
-  { title: "Today's Weather Resource", mimeType: 'application/json' },
-  async (uri, { city }, extra) => {
-    const headers = extra?.requestInfo?.headers ?? {}
-    const raw = headers['authorization'] ?? headers['Authorization']
-    const authHeader = Array.isArray(raw) ? raw[0] : raw
-    if (!authHeader) throw { code: -32003, message: 'Authorization required' }
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader
-    const logicalUrl = `mcp://weather-mcp/resources/weather-today?city=${encodeURIComponent(String(city))}`
-    const agentId = process.env.NVM_AGENT_ID!
-
-    const start = await payments.requests.startProcessingRequest(agentId, token, logicalUrl, 'GET')
-    if (!start?.balance?.isSubscriber) throw { code: -32003, message: 'Payment required' }
-
-    const weather = await getTodayWeather(String(city))
-    await payments.requests.redeemCreditsFromRequest(start.agentRequestId, token, 1n)
-    return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(weather) }] }
-  }
-)
-```
-
-
+See [LICENSE](LICENSE) file.
