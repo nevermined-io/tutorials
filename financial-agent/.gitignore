@@ -8,3 +8,5 @@ dist/
 .env.local
 .env.staging
 .env.production
+
+.claude

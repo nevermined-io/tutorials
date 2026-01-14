@@ -6,7 +6,7 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import OpenAI from "openai";
 import crypto from "crypto";
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
+import { Payments, EnvironmentName, decodeAccessToken } from "@nevermined-io/payments";
 
 const app = express();
 app.use(express.json());
@@ -17,6 +17,7 @@ const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
 const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT ||
   "staging_sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
+const NVM_PLAN_ID = process.env.NVM_PLAN_ID ?? "";
 const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
 
 if (!OPENAI_API_KEY) {
@@ -24,9 +25,9 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
-if (!NVM_API_KEY || !NVM_AGENT_ID) {
+if (!NVM_API_KEY || !NVM_AGENT_ID || !NVM_PLAN_ID) {
   console.error(
-    "Nevermined environment is required: set NVM_API_KEY and NVM_AGENT_ID in .env"
+    "Nevermined environment is required: set NVM_API_KEY, NVM_AGENT_ID, and NVM_PLAN_ID in .env"
   );
   process.exit(1);
 }
@@ -110,32 +111,86 @@ function calculateCreditAmount(tokensUsed: number, maxTokens: number): number {
 // Store conversation history for each session
 const sessions = new Map<string, any[]>();
 
-// Handle financial advice requests with Nevermined payment protection and observability
+// Build the x402 PaymentRequired object for this endpoint
+function buildPaymentRequired(url: string, httpVerb: string) {
+  return {
+    x402Version: 2,
+    error: "Payment required to access resource",
+    resource: {
+      url,
+      description: "Financial advice agent",
+      mimeType: "application/json",
+    },
+    accepts: [
+      {
+        scheme: "nvm:erc4337",
+        network: "eip155:84532",
+        planId: NVM_PLAN_ID,
+        extra: {
+          version: "1",
+          agentId: NVM_AGENT_ID,
+          httpVerb,
+        },
+      },
+    ],
+    extensions: {},
+  };
+}
+
+// Return 402 Payment Required with PAYMENT-REQUIRED header
+function returnPaymentRequired(res: Response, paymentRequired: any, errorMessage?: string) {
+  const paymentRequiredBase64 = Buffer.from(JSON.stringify(paymentRequired)).toString("base64");
+  return res
+    .status(402)
+    .set("PAYMENT-REQUIRED", paymentRequiredBase64)
+    .json({ error: errorMessage || "Payment required" });
+}
+
+// Handle financial advice requests with Nevermined x402 payment protection
 app.post("/ask", async (req: Request, res: Response) => {
   try {
-    // Extract authorization details from request headers
-    const authHeader = (req.headers["authorization"] || "") as string;
+    // Build the x402 PaymentRequired object for this endpoint
     const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
-    const httpVerb = req.method;
+    const paymentRequired = buildPaymentRequired(requestedUrl, req.method);
 
-    // Check if user is authorized and has sufficient balance
-    const agentRequest = await payments.requests.startProcessingRequest(
-      NVM_AGENT_ID,
-      authHeader,
-      requestedUrl,
-      httpVerb
-    );
+    // Check for PAYMENT-SIGNATURE header (x402 standard)
+    const paymentSignature = req.headers["payment-signature"] as string | undefined;
 
-    // Reject request if user doesn't have credits or subscription
-    if (
-      !agentRequest.balance.isSubscriber ||
-      agentRequest.balance.balance < 1n
-    ) {
-      return res.status(402).json({ error: "Payment Required" });
+    // If no payment signature, return 402 with PAYMENT-REQUIRED header
+    if (!paymentSignature) {
+      console.log("No PAYMENT-SIGNATURE header, returning 402 with PAYMENT-REQUIRED");
+      return returnPaymentRequired(res, paymentRequired, "PAYMENT-SIGNATURE header is required");
     }
 
-    // Extract access token for credit redemption
-    const requestAccessToken = authHeader.replace(/^Bearer\s+/i, "");
+    // The x402 token is the base64-encoded PaymentPayload
+    const x402Token = paymentSignature;
+
+    // Decode the PAYMENT-SIGNATURE (base64-encoded PaymentPayload)
+    let paymentPayload: any;
+    try {
+      paymentPayload = JSON.parse(Buffer.from(x402Token, "base64").toString("utf-8"));
+    } catch {
+      return returnPaymentRequired(res, paymentRequired, "Invalid PAYMENT-SIGNATURE format");
+    }
+
+    // Validate the payment payload structure
+    if (!paymentPayload || paymentPayload.x402Version !== 2 || !paymentPayload.accepted) {
+      return returnPaymentRequired(res, paymentRequired, "Invalid payment payload structure");
+    }
+
+    // Define expected credits for this operation (max 10 based on token usage formula)
+    const expectedCredits = 10;
+
+    // Verify user has permission to access this resource
+    const verification = await payments.facilitator.verifyPermissions({
+      paymentRequired,
+      x402AccessToken: x402Token,
+      maxAmount: BigInt(expectedCredits),
+    });
+
+    if (!verification.isValid) {
+      return returnPaymentRequired(res, paymentRequired, verification.invalidReason || "Payment verification failed");
+    }
 
     // Extract and validate the user's input
     const input = String(req.body?.input_query ?? "").trim();
@@ -162,21 +217,10 @@ app.post("/ask", async (req: Request, res: Response) => {
     // Add the user's question to the conversation
     messages.push({ role: "user", content: input });
 
-    // Set up observability metadata for tracking this operation
-    const customProperties = {
-      agentid: NVM_AGENT_ID,
-      sessionid: sessionId,
-      operation: "financial_advice",
-    };
-
-    // Create OpenAI client with Nevermined observability integration
-    const openai = new OpenAI(
-      payments.observability.withOpenAI(
-        OPENAI_API_KEY,
-        agentRequest,
-        customProperties
-      )
-    );
+    // Create OpenAI client
+    const openai = new OpenAI({
+      apiKey: OPENAI_API_KEY,
+    });
 
     // Call OpenAI API to generate response
     const completion = await openai.chat.completions.create({
@@ -198,27 +242,41 @@ app.post("/ask", async (req: Request, res: Response) => {
     // Calculate dynamic credit amount based on token usage
     const creditAmount = calculateCreditAmount(tokensUsed, maxTokens);
 
-    // Initialize redemption result
-    let redemptionResult: any;
+    // Initialize settlement result
+    let settlementResult: any;
 
-    // Redeem credits after successful API call
+    // Settle permissions after successful API call
     try {
-      redemptionResult = await payments.requests.redeemCreditsFromRequest(
-        agentRequest.agentRequestId,
-        requestAccessToken,
-        BigInt(creditAmount)
-      );
-      redemptionResult.creditsRedeemed = creditAmount;
-    } catch (redeemErr) {
-      console.error("Failed to redeem credits:", redeemErr);
-      redemptionResult = {
-        creditsRedeemed: 0,
-        error: redeemErr,
-      };
+      settlementResult = await payments.facilitator.settlePermissions({
+        paymentRequired,
+        x402AccessToken: x402Token,
+        maxAmount: BigInt(creditAmount),
+      });
+    } catch (settleErr: any) {
+      console.error("Failed to settle permissions:", settleErr);
+      return returnPaymentRequired(res, paymentRequired, "Settlement failed: " + (settleErr.message || "Unknown error"));
     }
 
-    // Return response with session info and payment details
-    res.json({ output: response, sessionId, redemptionResult });
+    // Build PAYMENT-RESPONSE header (x402 standard settlement receipt)
+    const paymentResponse = {
+      success: settlementResult.success,
+      transaction: settlementResult.transaction || "",
+      network: paymentRequired.accepts[0].network,
+      payer: paymentPayload.payload?.authorization?.from || "",
+    };
+    const paymentResponseBase64 = Buffer.from(JSON.stringify(paymentResponse)).toString("base64");
+
+    // Return response with PAYMENT-RESPONSE header and payment details in body
+    res
+      .set("PAYMENT-RESPONSE", paymentResponseBase64)
+      .json({
+        output: response,
+        sessionId,
+        payment: {
+          creditsRedeemed: settlementResult.creditsRedeemed || creditAmount.toString(),
+          remainingBalance: settlementResult.remainingBalance || "unknown",
+        },
+      });
   } catch (error: any) {
     console.error("Error handling /ask", error);
     const status = error?.statusCode === 402 ? 402 : 500;
