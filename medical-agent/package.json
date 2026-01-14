@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@langchain/openai": "^0.3.10",
-    "@nevermined-io/payments": "^1.0.0-rc10",
+    "@nevermined-io/payments": "^1.0.0-rc28",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "langchain": "^0.2.14"

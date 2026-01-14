@@ -1,122 +1,311 @@
 /**
- * @fileoverview Minimal client that sends three questions to the agent,
- * storing and reusing the returned sessionId to maintain conversation context.
+ * @fileoverview x402 client that implements the full payment flow:
+ * 1. Makes initial request without token
+ * 2. Receives 402 with PAYMENT-REQUIRED header
+ * 3. Obtains x402 access token based on payment requirements
+ * 4. Retries request with PAYMENT-SIGNATURE header
  */
 import "dotenv/config";
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
 
-/**
- * Simple demo client that makes three HTTP requests to the agent.
- * It stores the sessionId returned by the first response and reuses it
- * for subsequent requests so the agent can leverage conversation history.
- */
-async function main(): Promise<void> {
-  const baseUrl = process.env.AGENT_URL || "http://localhost:3000";
+// Configuration: Load environment variables with defaults
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:3000";
+const SUBSCRIBER_API_KEY = process.env.SUBSCRIBER_NVM_API_KEY as string;
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT ||
+  "staging_sandbox") as EnvironmentName;
 
-  // Predefined questions for the demo client. The client is intentionally dumb.
-  const questions: string[] = [
-    "I have a sore throat and mild fever. What could it be and what should I do?",
-    "I also noticed nasal congestion and fatigue. Does that change your assessment?",
-    "When should I see a doctor, and are there any red flags I should watch for?",
-  ];
+// Define demo conversation to show chatbot-style interaction
+const DEMO_CONVERSATION_QUESTIONS = [
+  "I have a sore throat and mild fever. What could it be and what should I do?",
+  "I also noticed nasal congestion and fatigue. Does that change your assessment?",
+  "When should I see a doctor, and are there any red flags I should watch for?",
+];
 
-  let sessionId: string | undefined;
-  let bearer: string | undefined;
-
-  const planId = process.env.NVM_PLAN_ID as string;
-  const agentId = process.env.NVM_AGENT_ID as string;
-  const nvmApiKey = process.env.SUBSCRIBER_NVM_API_KEY as string;
-  const nvmEnv = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
-  if (!planId || !agentId) {
-    throw new Error("NVM_PLAN_ID and NVM_AGENT_ID are required in client env");
-  }
-  if (!nvmApiKey) {
-    throw new Error("SUBSCRIBER_NVM_API_KEY is required in client env");
-  }
-  bearer = await getOrBuyAccessToken({
-    planId,
-    agentId,
-    nvmApiKey,
-    nvmEnv,
-  });
-
-  for (let i = 0; i < questions.length; i += 1) {
-    const input = questions[i];
-    // eslint-disable-next-line no-console
-    console.log(`\n[CLIENT] Sending question ${i + 1}: ${input}`);
-    const response = await askAgent(baseUrl, input, sessionId, bearer);
-    sessionId = response.sessionId;
-    // eslint-disable-next-line no-console
-    console.log(`[AGENT] (sessionId=${sessionId})\n${response.output}`);
+// Validate required environment variables
+function validateEnvironment(): void {
+  if (!SUBSCRIBER_API_KEY) {
+    throw new Error("SUBSCRIBER_NVM_API_KEY is required in environment");
   }
 }
 
-/**
- * Perform a POST /ask to the agent.
- * @param baseUrl Base URL of the agent service
- * @param input User question text
- * @param sessionId Optional existing session id
- * @returns The JSON response containing output and sessionId
- */
+// Initialize Nevermined Payments SDK
+const payments = Payments.getInstance({
+  nvmApiKey: SUBSCRIBER_API_KEY,
+  environment: NVM_ENVIRONMENT,
+});
+
+// Interface for parsed payment requirements
+interface PaymentRequired {
+  x402Version: number;
+  error?: string;
+  resource: {
+    url: string;
+    description?: string;
+    mimeType?: string;
+  };
+  accepts: Array<{
+    scheme: string;
+    network: string;
+    planId: string;
+    extra?: {
+      version?: string;
+      agentId?: string;
+      httpVerb?: string;
+    };
+  }>;
+  extensions: Record<string, unknown>;
+}
+
+// Parse the PAYMENT-REQUIRED header from a 402 response
+function parsePaymentRequiredHeader(response: Response): PaymentRequired | null {
+  const header = response.headers.get("payment-required");
+  if (!header) {
+    console.log("No PAYMENT-REQUIRED header found in 402 response");
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(header, "base64").toString("utf-8");
+    const paymentRequired = JSON.parse(decoded) as PaymentRequired;
+    console.log("Received payment requirements:");
+    console.log(`   Plan ID: ${paymentRequired.accepts[0]?.planId}`);
+    console.log(`   Agent ID: ${paymentRequired.accepts[0]?.extra?.agentId}`);
+    console.log(`   Scheme: ${paymentRequired.accepts[0]?.scheme}`);
+    return paymentRequired;
+  } catch (error) {
+    console.error("Failed to parse PAYMENT-REQUIRED header:", error);
+    return null;
+  }
+}
+
+// Get x402 access token based on payment requirements
+async function getX402AccessToken(planId: string, agentId: string): Promise<string> {
+  console.log("Obtaining x402 access token...");
+
+  // Try to get token directly first
+  try {
+    const result = await payments.x402.getX402AccessToken(planId, agentId);
+    if (result?.accessToken) {
+      console.log("x402 access token obtained successfully");
+      return result.accessToken;
+    }
+  } catch (tokenError: any) {
+    console.log("Could not get x402 token directly, checking subscription...");
+
+    // Check if we need to purchase a subscription
+    const balanceInfo: any = await payments.plans.getPlanBalance(planId);
+    const hasCredits = Number(balanceInfo?.balance ?? 0) > 0;
+    const isSubscriber = balanceInfo?.isSubscriber === true;
+
+    if (!isSubscriber && !hasCredits) {
+      console.log("No subscription or credits found. Purchasing plan...");
+      await payments.plans.orderPlan(planId);
+    }
+
+    // Retry getting the x402 token after subscription
+    const result = await payments.x402.getX402AccessToken(planId, agentId);
+    if (result?.accessToken) {
+      console.log("x402 access token obtained successfully");
+      return result.accessToken;
+    }
+  }
+
+  throw new Error("Failed to obtain x402 access token");
+}
+
+// Simple loading animation for terminal
+function startLoadingAnimation(): () => void {
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  let i = 0;
+  const interval = setInterval(() => {
+    process.stdout.write(`\r${frames[i]} MedGuide is thinking...`);
+    i = (i + 1) % frames.length;
+  }, 100);
+
+  return () => {
+    clearInterval(interval);
+    process.stdout.write("\r");
+  };
+}
+
+// Cache for x402 tokens (keyed by planId:agentId)
+const tokenCache = new Map<string, string>();
+
+// Send a question to the protected medical agent using x402 flow
 async function askAgent(
-  baseUrl: string,
   input: string,
-  sessionId?: string,
-  bearer?: string
-): Promise<{ output: string; sessionId: string }> {
-  const res = await fetch(`${baseUrl}/ask`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
-    },
-    body: JSON.stringify({ input_query: input, sessionId }),
-  });
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(
-      `Agent request failed: ${res.status} ${res.statusText} ${errorText}`
-    );
+  sessionId?: string
+): Promise<{ output: string; sessionId: string; payment?: any }> {
+  // Start loading animation
+  const stopLoading = startLoadingAnimation();
+
+  try {
+    // Prepare request payload
+    const requestBody = {
+      input_query: input,
+      sessionId: sessionId,
+    };
+
+    // Step 1: Make initial request without PAYMENT-SIGNATURE header
+    console.log("\nMaking request to agent...");
+    const initialResponse = await fetch(`${AGENT_URL}/ask`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    // Step 2: If we get 402, parse PAYMENT-REQUIRED header
+    if (initialResponse.status === 402) {
+      console.log("Received 402 Payment Required");
+
+      const paymentRequired = parsePaymentRequiredHeader(initialResponse);
+      if (!paymentRequired || !paymentRequired.accepts[0]) {
+        throw new Error("Invalid payment requirements in 402 response");
+      }
+
+      const scheme = paymentRequired.accepts[0];
+      const planId = scheme.planId;
+      const agentId = scheme.extra?.agentId;
+
+      if (!planId || !agentId) {
+        throw new Error("Missing planId or agentId in payment requirements");
+      }
+
+      // Step 3: Get x402 access token (use cache if available)
+      const cacheKey = `${planId}:${agentId}`;
+      let x402Token = tokenCache.get(cacheKey);
+
+      if (!x402Token) {
+        x402Token = await getX402AccessToken(planId, agentId);
+        tokenCache.set(cacheKey, x402Token);
+      } else {
+        console.log("Using cached x402 access token");
+      }
+
+      // Step 4: Retry request with PAYMENT-SIGNATURE header (x402 standard)
+      console.log("Retrying request with PAYMENT-SIGNATURE header...");
+      const retryResponse = await fetch(`${AGENT_URL}/ask`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "PAYMENT-SIGNATURE": x402Token, // x402 token is already base64 encoded
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      // Handle retry response
+      if (!retryResponse.ok) {
+        // If still 402, token might be invalid - clear cache and throw
+        if (retryResponse.status === 402) {
+          tokenCache.delete(cacheKey);
+          const errorBody = await retryResponse.text().catch(() => "");
+          throw new Error(`Payment still required after retry: ${errorBody}`);
+        }
+        throw new Error(
+          `Agent request failed: ${retryResponse.status} ${retryResponse.statusText}`
+        );
+      }
+
+      // Parse PAYMENT-RESPONSE header if present
+      const paymentResponseHeader = retryResponse.headers.get("payment-response");
+      if (paymentResponseHeader) {
+        try {
+          const paymentResponse = JSON.parse(
+            Buffer.from(paymentResponseHeader, "base64").toString("utf-8")
+          );
+          console.log("Payment settled:", paymentResponse.success ? "Success" : "Failed");
+          if (paymentResponse.transaction) {
+            console.log(`   Transaction: ${paymentResponse.transaction.substring(0, 20)}...`);
+          }
+        } catch {
+          // Ignore parsing errors for payment response header
+        }
+      }
+
+      return (await retryResponse.json()) as {
+        output: string;
+        sessionId: string;
+        payment?: any;
+      };
+    }
+
+    // If not 402, handle as normal response or error
+    if (!initialResponse.ok) {
+      throw new Error(
+        `Agent request failed: ${initialResponse.status} ${initialResponse.statusText}`
+      );
+    }
+
+    return (await initialResponse.json()) as {
+      output: string;
+      sessionId: string;
+      payment?: any;
+    };
+  } finally {
+    // Stop loading animation
+    stopLoading();
   }
-  const data = (await res.json()) as { output: string; sessionId: string };
-  return data;
 }
 
 /**
- * Get a valid access token by checking plan balance/subscription first.
- * If not subscribed or no credits, purchase the plan and then fetch the token.
- * @param opts.planId Plan identifier
- * @param opts.agentId Agent identifier
- * @param opts.nvmApiKey Nevermined API Key (subscriber)
- * @param opts.nvmEnv Nevermined environment
+ * Run the x402 demo client.
+ * Demonstrates the full x402 payment flow with PAYMENT-REQUIRED and PAYMENT-SIGNATURE headers.
  */
-async function getOrBuyAccessToken(opts: {
-  planId: string;
-  agentId: string;
-  nvmApiKey: string;
-  nvmEnv: EnvironmentName;
-}): Promise<string> {
-  const payments = Payments.getInstance({
-    nvmApiKey: opts.nvmApiKey,
-    environment: opts.nvmEnv,
-  });
-  const balanceInfo: any = await payments.plans.getPlanBalance(opts.planId);
-  const hasCredits = Number(balanceInfo?.balance ?? 0) > 0;
-  const isSubscriber = balanceInfo?.isSubscriber === true;
-  if (!isSubscriber && !hasCredits) {
-    await payments.plans.orderPlan(opts.planId);
+async function runDemo(): Promise<void> {
+  console.log("Starting Medical Agent Demo (x402 Payment Flow)\n");
+  console.log("This demo implements the full x402 payment protocol:");
+  console.log("  1. Client makes request without payment");
+  console.log("  2. Server returns 402 with PAYMENT-REQUIRED header");
+  console.log("  3. Client obtains x402 access token");
+  console.log("  4. Client retries with PAYMENT-SIGNATURE header");
+  console.log("  5. Server verifies, executes, settles, returns PAYMENT-RESPONSE\n");
+
+  // Validate environment setup
+  validateEnvironment();
+
+  // Track session across multiple questions
+  let sessionId: string | undefined;
+
+  // Send each demo question using x402 flow
+  for (let i = 0; i < DEMO_CONVERSATION_QUESTIONS.length; i++) {
+    const question = DEMO_CONVERSATION_QUESTIONS[i];
+
+    console.log("=".repeat(80));
+    console.log(`Question ${i + 1}: ${question}`);
+
+    try {
+      // Send question using x402 payment flow
+      const result = await askAgent(question, sessionId);
+
+      // Update sessionId for next question
+      sessionId = result.sessionId;
+
+      // Display agent response
+      console.log(`\nMedGuide (Session: ${sessionId}):`);
+      console.log(result.output);
+
+      // Display payment info if available
+      if (result.payment) {
+        console.log(`\nPayment Info:`);
+        console.log(`   Credits used: ${result.payment.creditsRedeemed || "unknown"}`);
+        console.log(`   Remaining balance: ${result.payment.remainingBalance || "unknown"}`);
+      }
+
+      console.log("\n");
+    } catch (error) {
+      console.error(`\nError processing question ${i + 1}:`, error);
+      break;
+    }
   }
-  const creds = await payments.agents.getAgentAccessToken(
-    opts.planId,
-    opts.agentId
-  );
-  if (!creds?.accessToken) throw new Error("Access token unavailable");
-  return creds.accessToken;
+
+  console.log("=".repeat(80));
+  console.log("Demo completed!");
 }
 
-// Run the client
-main().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error("[CLIENT] Error:", err);
+// Run the demo and handle any errors
+runDemo().catch((error) => {
+  console.error("Demo failed:", error);
   process.exit(1);
 });
