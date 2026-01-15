@@ -13,7 +13,7 @@
     "start:client": "node dist/client.js"
   },
   "dependencies": {
-    "@nevermined-io/payments": "file:../../payments",
+    "@nevermined-io/payments": "^1.0.0-rc30",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "openai": "^4.77.0"
