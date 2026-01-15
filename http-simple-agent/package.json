@@ -1,0 +1,27 @@
+{
+  "name": "http-simple-agent",
+  "version": "1.0.0",
+  "description": "Minimal Express server with OpenAI endpoint - foundation for payment middleware",
+  "author": "Nevermined",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "client": "tsx src/client.ts",
+    "build": "tsc",
+    "start:agent": "node dist/agent.js",
+    "start:client": "node dist/client.js"
+  },
+  "dependencies": {
+    "@nevermined-io/payments": "^1.0.0-rc30",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.7.4",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}
