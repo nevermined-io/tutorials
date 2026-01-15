@@ -1,106 +1,143 @@
 /**
- * @fileoverview Minimal client (free) that sends three questions to the free agent
- * without Nevermined protection, storing and reusing sessionId.
+ * @fileoverview Financial Agent Client - Unprotected Version
+ *
+ * Minimal client that sends questions to the unprotected financial agent,
+ * storing and reusing sessionId for conversation continuity.
  */
 import "dotenv/config";
 
-// Configuration: Agent URL from environment or default
+// ============================================================================
+// Configuration
+// ============================================================================
+
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
 
-// Define demo conversation to show chatbot-style interaction
+// ============================================================================
+// Demo Data
+// ============================================================================
+
 const DEMO_CONVERSATION_QUESTIONS = [
   "Hi there! I'm new to investing and keep hearing about diversification. Can you explain what that means in simple terms?",
   "That makes sense! So if I want to start investing but only have $100 a month, what should I focus on first?",
   "I've been thinking about cryptocurrency. What should a beginner like me know before investing in crypto?",
 ];
 
-// Simple loading animation for terminal
-function startLoadingAnimation(): () => void {
-  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-  let i = 0;
-  const interval = setInterval(() => {
-    process.stdout.write(`\r${frames[i]} FinGuide is thinking...`);
-    i = (i + 1) % frames.length;
-  }, 100);
+// ============================================================================
+// Types
+// ============================================================================
 
-  return () => {
-    clearInterval(interval);
-    process.stdout.write('\r');
-  };
+/**
+ * Response from the agent API
+ */
+interface AgentResponse {
+  output: string;
+  sessionId: string;
 }
 
-// Send a question to the financial agent
-async function askAgent(input: string, sessionId?: string): Promise<{ output: string; sessionId: string }> {
-  // Start loading animation
-  const stopLoading = startLoadingAnimation();
+// ============================================================================
+// SDK Initialization
+// ============================================================================
 
-  try {
-    // Prepare request payload
-    const requestBody = {
-      input_query: input,
-      sessionId: sessionId
-    };
+// SDK initialization section - add external service integrations here if needed
 
-    // Make HTTP request to agent
-    const response = await fetch(`${AGENT_URL}/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody),
-    });
+// ============================================================================
+// Validation
+// ============================================================================
 
-    // Handle HTTP errors
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      throw new Error(`Agent request failed: ${response.status} ${response.statusText} ${errorText}`);
-    }
+/**
+ * Validates that all required environment variables are set
+ */
+function validateEnvironment(): void {
+  // Add validation logic here if needed
+}
 
-    // Parse and return JSON response
-    return await response.json() as { output: string; sessionId: string };
-  } finally {
-    // Stop loading animation
-    stopLoading();
+// ============================================================================
+// Agent Communication
+// ============================================================================
+
+/**
+ * Makes a request to the agent
+ * @param input - The user's question/input
+ * @param sessionId - Optional session identifier for conversation continuity
+ * @returns The agent response
+ */
+async function askAgent(
+  input: string,
+  sessionId?: string
+): Promise<AgentResponse> {
+  const requestBody = {
+    input_query: input,
+    sessionId: sessionId,
+  };
+
+  const response = await fetch(`${AGENT_URL}/ask`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(
+      `Agent request failed: ${response.status} ${response.statusText} ${errorText}`
+    );
   }
+
+  return (await response.json()) as AgentResponse;
+}
+
+// ============================================================================
+// Demo Execution
+// ============================================================================
+
+/**
+ * Displays the agent's response
+ * @param result - The agent response
+ * @param sessionId - The current session identifier
+ */
+function displayAgentResponse(result: AgentResponse, sessionId: string): void {
+  console.log(`\n🤖 FinGuide (Session: ${sessionId}):`);
+  console.log(result.output);
 }
 
 /**
- * Run the unprotected demo client.
- * Sends predefined financial questions to the agent and reuses sessionId to preserve context.
- * @returns {Promise<void>} Resolves when the run finishes
+ * Runs the demo client
  */
 async function runDemo(): Promise<void> {
-  console.log("🚀 Starting Financial Agent Demo (Unprotected)\n");
+  console.log("🚀 Starting Financial Agent Demo\n");
+  console.log("This demo sends questions to the agent.\n");
 
-  // Track session across multiple questions
+  validateEnvironment();
+
   let sessionId: string | undefined;
 
-  // Send each demo question and maintain conversation context
   for (let i = 0; i < DEMO_CONVERSATION_QUESTIONS.length; i++) {
     const question = DEMO_CONVERSATION_QUESTIONS[i];
 
+    console.log("=".repeat(80));
     console.log(`📝 Question ${i + 1}: ${question}`);
 
     try {
-      // Send question to agent (reusing sessionId for context)
       const result = await askAgent(question, sessionId);
-
-      // Update sessionId for next question
       sessionId = result.sessionId;
-
-      // Display agent response
-      console.log(`🤖 FinGuide (Session: ${sessionId}):`);
-      console.log(result.output);
-      console.log("\n" + "=".repeat(80) + "\n");
-
+      displayAgentResponse(result, sessionId);
+      console.log("\n");
     } catch (error) {
-      console.error(`❌ Error processing question ${i + 1}:`, error);
+      console.error(`\n❌ Error processing question ${i + 1}:`, error);
       break;
     }
   }
 
+  console.log("=".repeat(80));
   console.log("✅ Demo completed!");
 }
 
-// Run the demo and handle any errors
+// ============================================================================
+// Entry Point
+// ============================================================================
+
 runDemo().catch((error) => {
   console.error("💥 Demo failed:", error);
   process.exit(1);

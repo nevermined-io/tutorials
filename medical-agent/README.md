@@ -1,13 +1,13 @@
 [![banner](https://raw.githubusercontent.com/nevermined-io/assets/main/images/logo/banner_logo.png)](https://nevermined.io)
 
-## Medical Agent Tutorial (LangChain + OpenAI + Nevermined)
+## Medical Agent Tutorial (LangChain + OpenAI + Nevermined x402 Protocol)
 
-This tutorial shows how to evolve a simple medical-advice agent and client from an unprotected HTTP API to a Nevermined-protected, paid-access API. You will:
+This tutorial shows how to evolve a simple medical-advice agent and client from an unprotected HTTP API to a Nevermined-protected, paid-access API using the **x402 payment protocol**. You will:
 
 - Start with an unprotected agent and client
-- Add Nevermined authorization to the agent
-- Redeem credits on successful requests
-- Update the client to purchase a plan (if needed), obtain an access token, and call the protected endpoint
+- Add Nevermined x402 payment protection to the agent
+- Implement credit settlement based on usage
+- Update the client to handle the x402 payment flow (402 → obtain token → retry)
 
 The project includes both versions side-by-side for learning purposes.
 
@@ -33,8 +33,10 @@ agent/
 client/
   index_unprotected.ts   # Simple client hitting the free agent
   index_nevermined.ts    # Client that buys/uses plan to call protected agent
-.env                      # Environment variables (not committed)
+.env                      # Environment variables
 ```
+
+**Important:** Both unprotected and protected files share the same structure and organization. This makes it easy to compare them side-by-side and understand exactly what needs to be added to transform an unprotected version into a protected one. The only differences are the payment-related functions and Nevermined SDK integration.
 
 ---
 
@@ -44,23 +46,53 @@ The unprotected version exposes a POST `/ask` endpoint and a GET `/health` endpo
 
 ### 1.1 Server (unprotected)
 
-Key points in `agent/index_unprotected.ts`:
+The unprotected server uses LangChain and follows the same structure as the protected version. Key points in `agent/index_unprotected.ts`:
+
+**Structure:** The file is organized into clear sections:
+- Configuration
+- Validation
+- SDK Initialization
+- Session Management
+- Express App Initialization
+- Prompt Configuration
+- LLM Integration (LangChain)
+- Additional Features
+- API Routes
+- Server Initialization
+
+**Key code:**
 ```ts
-// Model and runnable
-const model = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.3, apiKey: OPENAI_API_KEY });
+// Initialize LangChain model and runnable
+const model = new ChatOpenAI({
+  model: "gpt-4o-mini",
+  temperature: 0.3,
+  apiKey: OPENAI_API_KEY,
+});
 const runnable = createRunnable(model);
 
-// POST /ask without any auth
+// Generate response using LangChain
+async function generateLLMResponse(input: string, sessionId: string): Promise<string> {
+  const result = await runnable.invoke(
+    { input },
+    { configurable: { sessionId } }
+  );
+  return result?.content ?? (Array.isArray(result) 
+    ? result.map((m: any) => m.content).join("\n") 
+    : String(result));
+}
+
+// POST /ask without any payment protection
 app.post("/ask", async (req: Request, res: Response) => {
-  const input = String(req.body?.input_query ?? "").trim();
+  const input = String(req.body?.input_query ?? req.body?.input ?? "").trim();
   if (!input) return res.status(400).json({ error: "Missing input" });
 
   let { sessionId } = req.body as { sessionId?: string };
   if (!sessionId) sessionId = crypto.randomUUID();
 
-  const result = await runnable.invoke({ input }, { configurable: { sessionId } });
-  const text = result?.content ?? (Array.isArray(result) ? result.map((m: any) => m.content).join("\n") : String(result));
-  res.json({ output: text, sessionId });
+  // Generate response
+  const response = await generateLLMResponse(input, sessionId);
+  
+  res.json({ output: response, sessionId });
 });
 ```
 
@@ -75,9 +107,36 @@ curl http://localhost:3001/health
 
 ### 1.2 Client (unprotected)
 
-The free client simply POSTs to `/ask` and prints the responses:
+The unprotected client follows the same structure as the protected version, making it easy to see what needs to be added. Key points in `client/index_unprotected.ts`:
+
+**Structure:** The file is organized into clear sections:
+- Configuration
+- Demo Data
+- Types
+- SDK Initialization (empty - no external services)
+- Validation
+- Agent Communication
+- Demo Execution
+- Entry Point
+
+**Key code:**
 ```ts
-const baseUrl = process.env.AGENT_URL || "http://localhost:3001";
+// Simple request to agent (no payment flow)
+async function askAgent(input: string, sessionId?: string): Promise<AgentResponse> {
+  const response = await fetch(`${AGENT_URL}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input_query: input, sessionId }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Agent request failed: ${response.status}`);
+  }
+  
+  return await response.json() as AgentResponse;
+}
+
+// Run demo
 const questions = [
   "I have a sore throat and mild fever. What could it be and what should I do?",
   "I also noticed nasal congestion and fatigue. Does that change your assessment?",
@@ -85,10 +144,11 @@ const questions = [
 ];
 
 let sessionId: string | undefined;
-for (let i = 0; i < questions.length; i += 1) {
-  const response = await askAgent(baseUrl, questions[i], sessionId);
-  sessionId = response.sessionId;
-  console.log(`[FREE AGENT] (sessionId=${sessionId})\n${response.output}`);
+for (const question of questions) {
+  const result = await askAgent(question, sessionId);
+  sessionId = result.sessionId;
+  console.log(`\nMedGuide (Session: ${sessionId}):`);
+  console.log(result.output);
 }
 ```
 
@@ -99,162 +159,173 @@ AGENT_URL=http://localhost:3001 npm run dev:client:unprotected
 
 ---
 
-## Part 2 — Protecting the agent with Nevermined
+## Part 2 — Protecting the agent with Nevermined x402 Protocol
 
-Now we add paid access protection. The high-level flow is:
+Now we add paid access protection using the **x402 payment protocol**. The high-level flow is:
 
-1) The client obtains an access token for a specific `plan` and `agent`
-2) The client calls the agent with `Authorization: Bearer <token>`
-3) The agent verifies authorization using Nevermined
-4) The agent completes the request and redeems one credit
+1) The client makes a request without any payment signature
+2) The agent returns HTTP 402 with a `PAYMENT-REQUIRED` header containing payment requirements
+3) The client obtains an x402 access token based on those requirements
+4) The client retries the request with a `PAYMENT-SIGNATURE` header
+5) The agent verifies permissions, executes the request, and settles credits
+6) The agent returns the response with a `PAYMENT-RESPONSE` header
 
 ### 2.1 Environment variables
 
-Create a `.env` file in the project root. Use sandbox by default while testing.
+Create a `.env` file in the project root. Use `staging_sandbox` by default while testing.
 
 For the protected agent (server):
 ```
 OPENAI_API_KEY=sk-...
 PORT=3000
-NVM_ENV=sandbox
+NVM_ENVIRONMENT=staging_sandbox            # or "live" for production
 BUILDER_NVM_API_KEY=your-builder-api-key   # server-side key
 NVM_AGENT_ID=your-agent-id                 # agent registered in Nevermined
+NVM_PLAN_ID=your-plan-id                   # plan linked to the agent
+AGENT_URL=http://localhost:3000            # public URL in production (shared with client)
 ```
 
 For the protected client:
 ```
 AGENT_URL=http://localhost:3000
-NVM_ENV=sandbox
+NVM_ENVIRONMENT=staging_sandbox            # or "live" for production
 SUBSCRIBER_NVM_API_KEY=your-subscriber-api-key  # client/subscriber key
-NVM_PLAN_ID=your-plan-id                         # plan linked to the agent
-NVM_AGENT_ID=your-agent-id
 ```
+Note: The client no longer needs `NVM_PLAN_ID` or `NVM_AGENT_ID` upfront — these are provided by the agent in the `PAYMENT-REQUIRED` header.
 
-### 2.2 Server (protected) — add authorization
+### 2.2 Server (protected) — x402 payment protection
 
 Key additions in `agent/index_nevermined.ts`:
 
-1) Create a Nevermined `Payments` client (server side uses the Builder key). This object talks to the Nevermined backend to validate access and redeem credits.
+1) Create a Nevermined `Payments` client (server side uses the Builder key). This object talks to the Nevermined backend to validate access and settle credits.
 ```ts
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
 
 const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENV = (process.env.NVM_ENV || "sandbox") as EnvironmentName; // or "live" for prod environment
-const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENV });
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT || "staging_sandbox") as EnvironmentName;
+const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENVIRONMENT });
 ```
 
-2) Extract the `Authorization` header and the HTTP request context. We will pass these to Nevermined to verify that the token is valid for this `agent` and endpoint.
+2) Build the `PAYMENT-REQUIRED` object that describes what payment is needed. This follows the x402 protocol specification:
 ```ts
-const authHeader = (req.headers["authorization"] || "") as string;
-const requestedUrl = `${NVM_AGENT_HOST}${req.url}`; 
-const httpVerb = req.method; 
-```
-
-3) Ask Nevermined to start processing this request. This validates the token and returns metadata:
-```ts
-const result = await payments.requests.startProcessingRequest(
-  NVM_AGENT_ID,
-  authHeader,
-  requestedUrl,
-  httpVerb
-);
-```
-
-4) Enforce access policy. If the caller is not a subscriber and has no valid credits for the plan/agent, return HTTP 402 (Payment Required).
-```ts
-if (!result.balance.isSubscriber) {
-  const error: any = new Error("Payment Required");
-  error.statusCode = 402;
-  throw error;
+function buildPaymentRequired(url: string, httpVerb: string) {
+  return {
+    x402Version: 2,
+    error: "Payment required to access resource",
+    resource: { url, description: "Medical advice agent", mimeType: "application/json" },
+    accepts: [{
+      scheme: "nvm:erc4337",
+      network: "eip155:84532",
+      planId: NVM_PLAN_ID,
+      extra: { version: "1", agentId: NVM_AGENT_ID, httpVerb },
+    }],
+    extensions: {},
+  };
 }
 ```
 
-5) Capture two important values for later:
-- **agentRequestId**: a unique identifier Nevermined assigns to this in-flight request. You must use it when redeeming credits.
-- **requestAccessToken**: the token extracted from the `Authorization` header, used again during redemption.
+3) Return 402 with the `PAYMENT-REQUIRED` header (base64-encoded) when no valid payment is provided:
 ```ts
-const requestAccessToken = authHeader.replace(/^Bearer\s+/i, "");
-const agentRequestId = result.agentRequestId;
-```
-
-6) Wrap the above in a helper you can call at the top of protected handlers:
-```ts
-async function ensureAuthorized(req: Request): Promise<{ agentRequestId: string; requestAccessToken: string }> {
-  const authHeader = (req.headers["authorization"] || "") as string;
-  const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
-  const httpVerb = req.method;
-  const result = await payments.requests.startProcessingRequest(NVM_AGENT_ID, authHeader, requestedUrl, httpVerb);
-  if (!result.balance.isSubscriber) {
-    const error: any = new Error("Payment Required");
-    error.statusCode = 402;
-    throw error;
-  }
-  const requestAccessToken = authHeader.replace(/^Bearer\s+/i, "");
-  return { agentRequestId: result.agentRequestId, requestAccessToken };
+function returnPaymentRequired(res: Response, paymentRequired: any, errorMessage?: string) {
+  const paymentRequiredBase64 = Buffer.from(JSON.stringify(paymentRequired)).toString("base64");
+  return res
+    .status(402)
+    .set("PAYMENT-REQUIRED", paymentRequiredBase64)
+    .json({ error: errorMessage || "Payment required" });
 }
 ```
 
-7) Use `ensureAuthorized` at the very beginning of your protected endpoint. If it throws, reply accordingly; otherwise, proceed with your normal logic.
+4) Check for the `PAYMENT-SIGNATURE` header and parse the x402 token:
 ```ts
-app.post("/ask", async (req: Request, res: Response) => {
-  try {
-    const { agentRequestId, requestAccessToken } = await ensureAuthorized(req);
-    // ... run your model and build the response ...
-  } catch (error: any) {
-    const status = error?.statusCode === 402 ? 402 : 500;
-    res.status(status).json({ error: status === 402 ? "Payment Required" : "Internal server error" });
-  }
+const paymentSignature = req.headers["payment-signature"] as string | undefined;
+if (!paymentSignature) {
+  return returnPaymentRequired(res, paymentRequired, "PAYMENT-SIGNATURE header is required");
+}
+
+// Decode the base64-encoded PaymentPayload
+const paymentPayload = JSON.parse(Buffer.from(paymentSignature, "base64").toString("utf-8"));
+```
+
+5) Verify the user has permission to access this resource using the facilitator API:
+```ts
+const verification = await payments.facilitator.verifyPermissions({
+  paymentRequired,
+  x402AccessToken: paymentSignature,
+  maxAmount: BigInt(expectedCredits),
+});
+
+if (!verification.isValid) {
+  return returnPaymentRequired(res, paymentRequired, verification.invalidReason);
+}
+```
+
+6) After generating the response, settle permissions to charge the user:
+```ts
+const settlementResult = await payments.facilitator.settlePermissions({
+  paymentRequired,
+  x402AccessToken: paymentSignature,
+  maxAmount: BigInt(creditAmount),
 });
 ```
 
-### 2.3 Server (protected) — redeem credits after success
-
-After you successfully generate the response, redeem credits so the user is charged for usage. This is a separate call to tie consumption to the validated request.
-
-- You must pass the same `agentRequestId` returned by `startProcessingRequest`
-- You must include the `requestAccessToken` used for authorization
-- The third parameter is the number of credits to redeem (as a bigint)
-
+7) Return the response with a `PAYMENT-RESPONSE` header containing the settlement receipt:
 ```ts
-try {
-  await payments.requests.redeemCreditsFromRequest(
-    agentRequestId,      // from ensureAuthorized
-    requestAccessToken,  // from ensureAuthorized
-    1n                   // redeem one credit for this request
-  );
-} catch (redeemErr) {
-  console.error("Failed to redeem credits:", redeemErr);
-}
+const paymentResponse = {
+  success: settlementResult.success,
+  transaction: settlementResult.transaction || "",
+  network: paymentRequired.accepts[0].network,
+  payer: paymentPayload.payload?.authorization?.from || "",
+};
+const paymentResponseBase64 = Buffer.from(JSON.stringify(paymentResponse)).toString("base64");
+
+res.set("PAYMENT-RESPONSE", paymentResponseBase64).json({ output: response, sessionId, payment: { ... } });
 ```
 
-Putting it together, a minimal protected handler follows this sequence (omitting non-essential details):
+### 2.3 Server (protected) — credit settlement
+
+The agent uses a fixed credit amount (1 credit per request) for medical advice:
+
+```ts
+// Fixed credit amount for medical advice (1 credit per request)
+const creditAmount = 1;
+```
+
+Putting it together, a minimal protected handler follows this sequence:
 ```ts
 app.post("/ask", async (req: Request, res: Response) => {
-  try {
-    // 1) Authorize
-    const { agentRequestId, requestAccessToken } = await ensureAuthorized(req);
+  const paymentRequired = buildPaymentRequired(`${AGENT_URL}${req.url}`, req.method);
+  const paymentSignature = req.headers["payment-signature"] as string | undefined;
 
-    // 2) Perform your business logic
-    //    - validate body
-    //    - run LLM with per-session memory
-    //    - build response text
-
-    // 3) Redeem credits (charge usage)
-    await payments.requests.redeemCreditsFromRequest(agentRequestId, requestAccessToken, 1n);
-
-    // 4) Return response
-    res.json({ output: text, sessionId });
-  } catch (error: any) {
-    const status = error?.statusCode === 402 ? 402 : 500;
-    res.status(status).json({ error: status === 402 ? "Payment Required" : "Internal server error" });
+  // 1) If no payment signature, return 402 with payment requirements
+  if (!paymentSignature) {
+    return returnPaymentRequired(res, paymentRequired);
   }
+
+  // 2) Verify permissions
+  const verification = await payments.facilitator.verifyPermissions({
+    paymentRequired, x402AccessToken: paymentSignature, maxAmount: BigInt(1)
+  });
+  if (!verification.isValid) {
+    return returnPaymentRequired(res, paymentRequired, verification.invalidReason);
+  }
+
+  // 3) Execute your business logic (call LangChain/OpenAI, etc.)
+  const result = await runnable.invoke({ input }, { configurable: { sessionId } });
+
+  // 4) Settle credits after success
+  const settlementResult = await payments.facilitator.settlePermissions({
+    paymentRequired, x402AccessToken: paymentSignature, maxAmount: BigInt(1)
+  });
+
+  // 5) Return response with PAYMENT-RESPONSE header
+  res.set("PAYMENT-RESPONSE", paymentResponseBase64).json({ output, sessionId, payment: { ... } });
 });
 ```
 
 Run the protected server:
 ```
 PORT=3000 OPENAI_API_KEY=sk-... \
-BUILDER_NVM_API_KEY=... NVM_ENV=sandbox NVM_AGENT_ID=... \
+BUILDER_NVM_API_KEY=... NVM_ENVIRONMENT=staging_sandbox NVM_AGENT_ID=... NVM_PLAN_ID=... \
 npm run dev:agent
 ```
 Health check:
@@ -264,83 +335,98 @@ curl http://localhost:3000/health
 
 ---
 
-## Part 3 — Updating the client to use Nevermined
+## Part 3 — Updating the client to use x402 payment flow
 
-The protected client must:
-1) Check if it has plan access/credits; if not subscribed and no credits, purchase the plan
-2) Obtain an access token for the plan + agent
-3) Send `Authorization: Bearer <token>` in each request
+The protected client implements the full x402 payment protocol:
+1) Make an initial request without payment
+2) Receive 402 with `PAYMENT-REQUIRED` header
+3) Parse the payment requirements to get `planId` and `agentId`
+4) Obtain an x402 access token
+5) Retry the request with `PAYMENT-SIGNATURE` header
+6) Parse the `PAYMENT-RESPONSE` header from successful responses
 
-### 3.1 Get or buy an access token
+### 3.1 Parse the PAYMENT-REQUIRED header
 
-In `client/index_nevermined.ts`, the client ensures it has access before calling the agent:
-
-1) Initialize the client-side `Payments` using the Subscriber key:
+When the agent returns 402, extract the payment requirements from the header:
 ```ts
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
-const payments = Payments.getInstance({ nvmApiKey: opts.nvmApiKey, environment: opts.nvmEnv });
-```
+function parsePaymentRequiredHeader(response: Response): PaymentRequired | null {
+  const header = response.headers.get("payment-required");
+  if (!header) return null;
 
-2) Check your plan status. If not a subscriber and no credits remain, purchase the plan:
-```ts
-const balanceInfo: any = await payments.plans.getPlanBalance(opts.planId);
-const hasCredits = Number(balanceInfo?.balance ?? 0) > 0;
-const isSubscriber = balanceInfo?.isSubscriber === true;
-if (!isSubscriber && !hasCredits) {
-  await payments.plans.orderPlan(opts.planId);
+  const decoded = Buffer.from(header, "base64").toString("utf-8");
+  return JSON.parse(decoded) as PaymentRequired;
 }
 ```
 
-3) Request an access token bound to the `planId` and `agentId`:
+### 3.2 Get x402 access token
+
+Use the `payments.x402.getX402AccessToken()` method to obtain a token:
 ```ts
-const creds = await payments.agents.getAgentAccessToken(opts.planId, opts.agentId);
-if (!creds?.accessToken) throw new Error("Access token unavailable");
-return creds.accessToken;
+async function getX402AccessToken(planId: string, agentId: string): Promise<string> {
+  // Try to get token directly first
+  try {
+    const result = await payments.x402.getX402AccessToken(planId, agentId);
+    if (result?.accessToken) return result.accessToken;
+  } catch {
+    // Check if we need to purchase a subscription
+    const balanceInfo = await payments.plans.getPlanBalance(planId);
+    if (!balanceInfo?.isSubscriber && !balanceInfo?.balance) {
+      await payments.plans.orderPlan(planId);
+    }
+    // Retry after subscription
+    const result = await payments.x402.getX402AccessToken(planId, agentId);
+    return result.accessToken;
+  }
+}
 ```
 
-### 3.2 Call the agent with Authorization header
+### 3.3 Implement the full x402 flow
 
-Include the token in every request to protected endpoints:
+The client handles the 402 → token → retry flow automatically:
 ```ts
-const res = await fetch(`${baseUrl}/ask`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${bearer}`,
-  },
-  body: JSON.stringify({ input, sessionId }),
-});
-```
+async function askAgent(input: string, sessionId?: string) {
+  // Step 1: Make initial request without PAYMENT-SIGNATURE
+  const initialResponse = await fetch(`${AGENT_URL}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input_query: input, sessionId }),
+  });
 
-If the token is missing/invalid or the plan has no credits, the agent will reply with HTTP 402.
+  // Step 2: If 402, parse PAYMENT-REQUIRED and get token
+  if (initialResponse.status === 402) {
+    const paymentRequired = parsePaymentRequiredHeader(initialResponse);
+    const { planId, extra: { agentId } } = paymentRequired.accepts[0];
 
-### 3.3 Putting it together (client main)
+    const x402Token = await getX402AccessToken(planId, agentId);
 
-```ts
-const baseUrl = process.env.AGENT_URL || "http://localhost:3000";
+    // Step 3: Retry with PAYMENT-SIGNATURE header
+    const retryResponse = await fetch(`${AGENT_URL}/ask`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "PAYMENT-SIGNATURE": x402Token,
+      },
+      body: JSON.stringify({ input_query: input, sessionId }),
+    });
 
-const planId = process.env.NVM_PLAN_ID as string;
-const agentId = process.env.NVM_AGENT_ID as string;
-const nvmApiKey = process.env.SUBSCRIBER_NVM_API_KEY as string;
-const nvmEnv = (process.env.NVM_ENV || "sandbox") as EnvironmentName;
+    // Step 4: Parse PAYMENT-RESPONSE header
+    const paymentResponseHeader = retryResponse.headers.get("payment-response");
+    // ... decode and log settlement info
 
-const bearer = await getOrBuyAccessToken({ planId, agentId, nvmApiKey, nvmEnv });
+    return await retryResponse.json();
+  }
 
-let sessionId: string | undefined;
-for (const input of questions) {
-  const response = await askAgent(baseUrl, input, sessionId, bearer);
-  sessionId = response.sessionId;
-  console.log(`[AGENT] (sessionId=${sessionId})\n${response.output}`);
+  return await initialResponse.json();
 }
 ```
 
 Run it (in a separate terminal):
 ```
 AGENT_URL=http://localhost:3000 \
-SUBSCRIBER_NVM_API_KEY=... NVM_ENV=sandbox \
-NVM_PLAN_ID=... NVM_AGENT_ID=... \
+SUBSCRIBER_NVM_API_KEY=... NVM_ENVIRONMENT=staging_sandbox \
 npm run dev:client
 ```
+Note: The client automatically discovers `planId` and `agentId` from the `PAYMENT-REQUIRED` header.
 
 ---
 
@@ -355,17 +441,17 @@ PORT=3001 OPENAI_API_KEY=sk-... npm run dev:agent:unprotected
 AGENT_URL=http://localhost:3001 npm run dev:client:unprotected
 ```
 
-Protected flow:
+Protected flow (x402):
 ```
 # Terminal A (agent)
 PORT=3000 OPENAI_API_KEY=sk-... \
-BUILDER_NVM_API_KEY=... NVM_ENV=sandbox NVM_AGENT_ID=... \
+BUILDER_NVM_API_KEY=... NVM_ENVIRONMENT=staging_sandbox \
+NVM_AGENT_ID=... NVM_PLAN_ID=... \
 npm run dev:agent
 
 # Terminal B (client)
 AGENT_URL=http://localhost:3000 \
-SUBSCRIBER_NVM_API_KEY=... NVM_ENV=sandbox \
-NVM_PLAN_ID=... NVM_AGENT_ID=... \
+SUBSCRIBER_NVM_API_KEY=... NVM_ENVIRONMENT=staging_sandbox \
 npm run dev:client
 ```
 
@@ -373,105 +459,210 @@ npm run dev:client
 
 ## Notes and tips
 - Session memory is in-memory for simplicity; for production, use a durable store.
-- Use `sandbox` while testing payments; switch to `live` when ready.
+- Use `staging_sandbox` while testing payments; switch to `live` when ready.
 - Ensure you use the correct API keys: `BUILDER_NVM_API_KEY` on the server, `SUBSCRIBER_NVM_API_KEY` on the client.
-- If the client receives HTTP 402, it means the request isn’t authorized (no subscription/credits or missing/invalid token).
+- If the client receives HTTP 402, it means the request isn't authorized (no subscription/credits or missing/invalid token).
 
 ---
 
-## Unprotected → Protected: 1:1 code mapping
+## Unprotected → Protected: 1:1 code mapping (x402 protocol)
 
-This section shows exactly what changes to make when converting `agent/index_unprotected.ts` into `agent/index_nevermined.ts`. 
+Since both files share the same structure, transforming from unprotected to protected is straightforward. This section shows exactly what changes to make when converting `agent/index_unprotected.ts` into `agent/index_nevermined.ts` using the x402 protocol.
 
-- Add imports:
-```ts
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
-```
+**Key advantage:** The identical file structure means you can easily compare sections side-by-side. Each section in the unprotected file has a corresponding section in the protected file, with payment-related code added.
 
-- Add Nevermined configuration (after OpenAI checks):
+**In the Configuration section:**
+- Add Nevermined environment variables:
 ```ts
 const NVM_API_KEY = process.env.BUILDER_NVM_API_KEY ?? "";
-const NVM_ENV = (process.env.NVM_ENV || "sandbox") as EnvironmentName; // or "live"
+const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT || "staging_sandbox") as EnvironmentName;
 const NVM_AGENT_ID = process.env.NVM_AGENT_ID ?? "";
-const NVM_AGENT_HOST = process.env.NVM_AGENT_HOST || `http://localhost:${PORT}`;
-if (!NVM_API_KEY || !NVM_AGENT_ID) {
-  console.error("Nevermined environment is required: set NVM_API_KEY and NVM_AGENT_ID in .env");
+const NVM_PLAN_ID = process.env.NVM_PLAN_ID ?? "";
+const AGENT_URL = process.env.AGENT_URL || `http://localhost:${PORT}`;
+```
+
+**In the Validation section:**
+- Add Nevermined validation:
+```ts
+if (!NVM_API_KEY || !NVM_AGENT_ID || !NVM_PLAN_ID) {
+  console.error("Nevermined environment is required: set NVM_API_KEY, NVM_AGENT_ID, and NVM_PLAN_ID in .env");
   process.exit(1);
 }
 ```
 
-- Create a singleton `payments` client (near other singletons like `model`):
+**In the SDK Initialization section:**
+- Add imports at the top:
 ```ts
-const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENV });
+import { Payments, EnvironmentName, buildPaymentRequired } from "@nevermined-io/payments";
 ```
 
-- Introduce an authorization helper (before route handlers):
+- Add Nevermined Payments SDK initialization:
 ```ts
-async function ensureAuthorized(req: Request): Promise<{ agentRequestId: string; requestAccessToken: string }> {
-  const authHeader = (req.headers["authorization"] || "") as string;
-  const requestedUrl = `${NVM_AGENT_HOST}${req.url}`;
-  const httpVerb = req.method;
-  const result = await payments.requests.startProcessingRequest(NVM_AGENT_ID, authHeader, requestedUrl, httpVerb);
-  if (!result.balance.isSubscriber) {
-    const error: any = new Error("Payment Required");
-    error.statusCode = 402;
-    throw error;
+const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENVIRONMENT });
+```
+
+**Add a new "Payment Helpers" section** (after "Credit Calculation" section):
+- Add helper functions:
+```ts
+function returnPaymentRequired(res: Response, paymentRequired: any, errorMessage?: string): Response {
+  const paymentRequiredBase64 = Buffer.from(JSON.stringify(paymentRequired)).toString("base64");
+  return res.status(402).set("PAYMENT-REQUIRED", paymentRequiredBase64).json({ error: errorMessage || "Payment required" });
+}
+
+function decodePaymentToken(x402Token: string): any | null {
+  try {
+    const paymentPayload = JSON.parse(Buffer.from(x402Token, "base64").toString("utf-8"));
+    if (!paymentPayload || paymentPayload.x402Version !== 2 || !paymentPayload.accepted) {
+      return null;
+    }
+    return paymentPayload;
+  } catch {
+    return null;
   }
-  const requestAccessToken = authHeader.replace(/^Bearer\s+/i, "");
-  return { agentRequestId: result.agentRequestId, requestAccessToken };
+}
+
+function buildPaymentResponse(settlementResult: any, paymentRequired: any, paymentPayload: any): string {
+  const paymentResponse = {
+    success: settlementResult.success,
+    transaction: settlementResult.transaction || "",
+    network: paymentRequired.accepts[0].network,
+    payer: paymentPayload.payload?.authorization?.from || "",
+  };
+  return Buffer.from(JSON.stringify(paymentResponse)).toString("base64");
 }
 ```
 
-- Modify `/ask` handler: call `ensureAuthorized` first, and redeem credits before responding:
+Note: The `buildPaymentRequired()` function is provided by the `@nevermined-io/payments` library, so you use it directly instead of defining it yourself.
+
+**In the API Routes section, modify the `/ask` handler** to add payment verification and settlement:
+
+The structure remains the same, but add payment checks at the beginning and settlement at the end:
+
 ```ts
 app.post("/ask", async (req: Request, res: Response) => {
   try {
-    const { agentRequestId, requestAccessToken } = await ensureAuthorized(req);
-    // ... existing input/session handling + LLM invocation ...
-    await payments.requests.redeemCreditsFromRequest(agentRequestId, requestAccessToken, 1n);
-    res.json({ output: text, sessionId });
+    // NEW: Build payment requirements and check for payment signature
+    const requestedUrl = `${AGENT_URL}${req.url}`;
+    const paymentRequired = buildPaymentRequired(NVM_PLAN_ID, {
+      endpoint: requestedUrl,
+      agentId: NVM_AGENT_ID,
+      httpVerb: req.method,
+    });
+
+    const paymentSignature = req.headers["payment-signature"] as string | undefined;
+    if (!paymentSignature) {
+      return returnPaymentRequired(res, paymentRequired, "PAYMENT-SIGNATURE header is required");
+    }
+
+    // NEW: Decode and validate payment token
+    const paymentPayload = decodePaymentToken(paymentSignature);
+    if (!paymentPayload) {
+      return returnPaymentRequired(res, paymentRequired, "Invalid PAYMENT-SIGNATURE format");
+    }
+
+    // NEW: Verify permissions
+    const expectedCredits = getCreditAmount();
+    const verification = await payments.facilitator.verifyPermissions({
+      paymentRequired,
+      x402AccessToken: paymentSignature,
+      maxAmount: BigInt(expectedCredits),
+    });
+    if (!verification.isValid) {
+      return returnPaymentRequired(res, paymentRequired, verification.invalidReason || "Payment verification failed");
+    }
+
+    // EXISTING: Extract input, get/create sessionId, generate response
+    const input = String(req.body?.input_query ?? req.body?.input ?? "").trim();
+    if (!input) return res.status(400).json({ error: "Missing input" });
+    
+    let { sessionId } = req.body as { sessionId?: string };
+    if (!sessionId) sessionId = crypto.randomUUID();
+    
+    // ... existing LangChain generation code ...
+    const response = await generateLLMResponse(input, sessionId);
+    const creditAmount = getCreditAmount();
+
+    // NEW: Settle permissions after successful API call
+    const settlementResult = await payments.facilitator.settlePermissions({
+      paymentRequired,
+      x402AccessToken: paymentSignature,
+      maxAmount: BigInt(creditAmount),
+    });
+
+    // NEW: Build and return PAYMENT-RESPONSE header
+    const paymentResponseBase64 = buildPaymentResponse(settlementResult, paymentRequired, paymentPayload);
+    
+    res.set("PAYMENT-RESPONSE", paymentResponseBase64).json({
+      output: response,
+      sessionId,
+      payment: {
+        creditsRedeemed: settlementResult.creditsRedeemed || creditAmount.toString(),
+        remainingBalance: settlementResult.remainingBalance || "unknown",
+      },
+    });
   } catch (error: any) {
-    const status = error?.statusCode === 402 ? 402 : 500;
-    res.status(status).json({ error: status === 402 ? "Payment Required" : "Internal server error" });
+    // ... error handling ...
   }
 });
 ```
 
 Notes:
-- `agentRequestId` is a unique id for the current request; use it when redeeming credits so consumption is tied to a validated request.
-- `requestAccessToken` is the token extracted from `Authorization: Bearer ...`; pass it to redemption as well.
-- `NVM_AGENT_HOST` should reflect how clients reach your agent (public URL in production). It’s used to build `requestedUrl` for Nevermined request verification.
+- The x402 protocol uses `PAYMENT-SIGNATURE` and `PAYMENT-REQUIRED` headers instead of `Authorization: Bearer`
+- `payments.facilitator.verifyPermissions()` replaces `payments.requests.startProcessingRequest()`
+- `payments.facilitator.settlePermissions()` replaces `payments.requests.redeemCreditsFromRequest()`
+- The agent now provides `planId` and `agentId` to clients in the payment requirements
 
 ---
 
-## Migration checklist (unprotected → protected)
+## Migration checklist (unprotected → x402 protected)
 
-- Add `@nevermined-io/payments` import in the agent
-- Add env vars: `BUILDER_NVM_API_KEY`, `NVM_ENV`, `NVM_AGENT_ID`, `NVM_AGENT_HOST`
-- Instantiate `payments = Payments.getInstance(...)`
-- Add `ensureAuthorized(req)` and call it at the start of protected handlers
-- On success, call `payments.requests.redeemCreditsFromRequest(agentRequestId, requestAccessToken, 1n)`
-- Handle 402 errors (`Payment Required`) distinctly from 500
-- On the client, add Subscriber key, plan/agent ids, `getOrBuyAccessToken`, and send `Authorization: Bearer <token>`
+Since both files share the same structure, you can work section by section:
+
+**Agent-side (`agent/index_unprotected.ts` → `agent/index_nevermined.ts`):**
+1. **Configuration section:** Add Nevermined environment variables (`NVM_API_KEY`, `NVM_ENVIRONMENT`, `NVM_AGENT_ID`, `NVM_PLAN_ID`, `AGENT_URL`)
+2. **Validation section:** Add Nevermined validation checks
+3. **SDK Initialization section:** 
+   - Add `@nevermined-io/payments` import
+   - Instantiate `payments = Payments.getInstance(...)`
+4. **Add "Payment Helpers" section:** Add `returnPaymentRequired()`, `decodePaymentToken()`, and `buildPaymentResponse()` functions
+5. **API Routes section:** 
+   - Add payment verification at the start of `/ask` handler
+   - Add payment settlement after successful LLM response
+   - Add `PAYMENT-RESPONSE` header to response
+
+**Client-side (`client/index_unprotected.ts` → `client/index_nevermined.ts`):**
+1. **Configuration section:** Add `SUBSCRIBER_API_KEY` and `NVM_ENVIRONMENT`
+2. **SDK Initialization section:** Add `@nevermined-io/payments` import and initialize Payments SDK
+3. **Add "Token Cache" section:** Add token caching for efficiency
+4. **Add "Payment Header Parsing" section:** Add functions to parse payment headers
+5. **Add "Token Management" section:** Add functions to obtain and manage x402 tokens
+6. **Agent Communication section:** 
+   - Modify `askAgent()` to implement 402 → token → retry flow
+   - Add `makeInitialRequest()`, `retryRequestWithPayment()`, and `handlePaymentRequired()` helper functions
+7. **Demo Execution section:** Update `displayAgentResponse()` to show payment info
 
 ---
 
 ## Troubleshooting
 
 - HTTP 402 Payment Required
-  - Missing `Authorization` header or token malformed (must be `Bearer <token>`)
-  - Plan has zero credits and you’re not a subscriber; purchase the plan then retry
-  - `NVM_AGENT_ID` mismatched between client/agent
+  - Missing `PAYMENT-SIGNATURE` header
+  - Invalid or expired x402 token; obtain a fresh token via `payments.x402.getX402AccessToken()`
+  - Plan has zero credits and you're not a subscriber; purchase the plan then retry
+  - `NVM_AGENT_ID` or `NVM_PLAN_ID` mismatched between client and agent
 - 401/403 Unauthorized
   - Access token invalid/expired; obtain a fresh token
   - Using Subscriber key on the server or Builder key on the client (keys swapped)
 - 500 Internal server error after model run
-  - Redemption failing. Log `redeemErr` details; ensure you pass both `agentRequestId` and `requestAccessToken`
+  - Settlement failing. Log `settleErr` details
   - Timeouts or network issues reaching Nevermined; retry or increase timeouts
 - Wrong `requestedUrl`
-  - Ensure `NVM_AGENT_HOST` matches the externally reachable host used by clients
-- Sandbox vs live
-  - `NVM_ENV` must match keys and assets created in that environment
+  - Ensure `AGENT_URL` matches the externally reachable host used by clients
+- staging_sandbox vs live
+  - `NVM_ENVIRONMENT` must match keys and assets created in that environment
+- x402 token parsing errors
+  - Ensure the `PAYMENT-SIGNATURE` header contains the base64-encoded token
+  - Check that `x402Version` in the token matches version 2
 
 ---
 
@@ -483,17 +674,17 @@ Copy to `.env` and adjust values:
 # --- Server ---
 OPENAI_API_KEY=sk-your-openai-key
 PORT=3000
-NVM_ENV=sandbox # or live
+NVM_ENVIRONMENT=staging_sandbox # or live
 BUILDER_NVM_API_KEY=your-builder-api-key
 NVM_AGENT_ID=your-agent-id
-NVM_AGENT_HOST=http://localhost:3000 # public URL in production
+NVM_PLAN_ID=your-plan-id
+AGENT_URL=http://localhost:3000 # public URL in production
 
 # --- Client ---
 AGENT_URL=http://localhost:3000
-NVM_ENV=sandbox # or live
+NVM_ENVIRONMENT=staging_sandbox # or live
 SUBSCRIBER_NVM_API_KEY=your-subscriber-api-key
-NVM_PLAN_ID=your-plan-id
-NVM_AGENT_ID=your-agent-id
+# Note: planId and agentId are discovered from the PAYMENT-REQUIRED header
 ```
 
 ## License
@@ -513,4 +704,4 @@ Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions
-and limitations under the License. 
+and limitations under the License.
