@@ -23,7 +23,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@nevermined-io/payments": "^1.0.0-rc7",
+    "@nevermined-io/payments": "1.0.0-rc31",
     "dotenv": "^16.5.0",
     "eventsource": "^2.0.2",
     "express": "^4.18.3",
