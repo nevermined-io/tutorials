@@ -200,8 +200,10 @@
     zod "^3.25.32"
     zod-to-json-schema "^3.22.3"
 
-"@nevermined-io/payments@file:../../payments":
-  version "1.0.0-rc28"
+"@nevermined-io/payments@1.0.0-rc33":
+  version "1.0.0-rc33"
+  resolved "https://registry.yarnpkg.com/@nevermined-io/payments/-/payments-1.0.0-rc33.tgz#9b104f90c651089e35e150f9f2f0c617b356675a"
+  integrity sha512-Wtfc2EHQc4180GoPWQVhb5qNewsGrByWUctKdmWK4IMXcjwX9lRPJXm7Lkjsviqsn/sFP+0SN6EpSBApSKyeQA==
   dependencies:
     "@a2a-js/sdk" "^0.3.4"
     "@helicone/helpers" "^1.6.0"

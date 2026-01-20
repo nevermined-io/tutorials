@@ -9,6 +9,7 @@ A minimal Express server demonstrating the [x402 payment protocol](https://githu
 This tutorial includes:
 
 - **Agent** (`src/agent.ts`) - An Express server with a payment-protected `/ask` endpoint
+- **Agent with Observability** (`src/agent-observability.ts`) - Same agent with Nevermined observability for tracking OpenAI costs
 - **Client** (`src/client.ts`) - A demo client showing the complete x402 payment flow
 
 ## x402 Payment Flow
@@ -215,8 +216,9 @@ Header: payment-required: <base64-payment-requirements>
 ```
 http-simple-agent/
 ├── src/
-│   ├── agent.ts       # Express server with payment middleware
-│   └── client.ts      # x402 flow demo client
+│   ├── agent.ts              # Express server with payment middleware
+│   ├── agent-observability.ts # Agent with Nevermined observability
+│   └── client.ts             # x402 flow demo client
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
@@ -226,24 +228,34 @@ http-simple-agent/
 
 ## Scripts
 
-| Script              | Description                     |
-| ------------------- | ------------------------------- |
-| `yarn agent`        | Run the agent server (dev mode) |
-| `yarn client`       | Run the client demo             |
-| `yarn build`        | Build TypeScript to JavaScript  |
-| `yarn start:agent`  | Run built agent                 |
-| `yarn start:client` | Run built client                |
+| Script                   | Description                              |
+| ------------------------ | ---------------------------------------- |
+| `yarn agent`             | Run the agent server (dev mode)          |
+| `yarn agent:observability` | Run the agent with observability logging |
+| `yarn client`            | Run the client demo                      |
+| `yarn build`             | Build TypeScript to JavaScript           |
+| `yarn start:agent`       | Run built agent                          |
+| `yarn start:client`      | Run built client                         |
 
 ## Middleware Options
 
 ```typescript
 paymentMiddleware(payments, routes, {
-  // Custom token header(s) - default: ['payment-signature', 'x-payment']
+  // Custom token header - default: 'payment-signature' (x402 v2)
   tokenHeader: "payment-signature",
 
   // Hook before verification
   onBeforeVerify: (req, paymentRequired) => {
     console.log(`Verifying ${req.path}`);
+  },
+
+  // Hook after verification (for observability)
+  onAfterVerify: (req, verification) => {
+    // Access agentRequest for observability setup
+    const agentRequest = verification.agentRequest;
+    if (agentRequest) {
+      console.log(`Agent: ${agentRequest.agentName}`);
+    }
   },
 
   // Hook after settlement
@@ -283,9 +295,57 @@ paymentMiddleware(payments, {
 });
 ```
 
+## Observability
+
+The `agent-observability.ts` demonstrates how to integrate Nevermined observability for tracking OpenAI costs per agent and plan.
+
+### How it works
+
+1. The `paymentMiddleware` verifies the x402 token and returns an `agentRequest` object
+2. The `agentRequest` is available via `req.paymentContext.agentRequest` in route handlers
+3. Pass `agentRequest` to `payments.observability.withOpenAI()` to route calls through Nevermined observability
+
+```typescript
+// In your route handler
+const agentRequest = req.paymentContext?.agentRequest;
+
+if (agentRequest) {
+  // Route OpenAI calls through Nevermined observability
+  const config = payments.observability.withOpenAI(
+    OPENAI_API_KEY,
+    agentRequest,
+    { sessionid: randomUUID() }
+  );
+  openai = new OpenAI(config);
+}
+```
+
+### agentRequest contents
+
+The `agentRequest` object contains:
+
+| Field | Description |
+| ----- | ----------- |
+| `agentRequestId` | Unique identifier for this request |
+| `agentName` | Name of the AI agent |
+| `agentId` | ID of the AI agent |
+| `balance.planId` | Payment plan ID |
+| `balance.planName` | Payment plan name |
+| `balance.balance` | Subscriber's remaining credits |
+| `balance.pricePerCredit` | Cost per credit in USD |
+| `urlMatching` | The matched endpoint URL |
+| `verbMatching` | The matched HTTP verb |
+
+### Running with observability
+
+```bash
+yarn agent:observability
+```
+
 ## Learn More
 
 - [Nevermined Documentation](https://nevermined.ai/docs)
+- [Nevermined Observability Guide](https://nevermined.ai/docs/development-guide/observability)
 - [Nevermined x402 Smart Accounts Spec](https://nevermined.ai/docs/specs/x402-smart-accounts)
 - [x402 Protocol Specification](https://github.com/coinbase/x402)
 - [@nevermined-io/payments SDK](https://github.com/nevermined-io/payments)
