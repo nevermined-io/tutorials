@@ -7,13 +7,14 @@
   "type": "module",
   "scripts": {
     "agent": "tsx src/agent.ts",
+    "agent:observability": "tsx src/agent-observability.ts",
     "client": "tsx src/client.ts",
     "build": "tsc",
     "start:agent": "node dist/agent.js",
     "start:client": "node dist/client.js"
   },
   "dependencies": {
-    "@nevermined-io/payments": "^1.0.0-rc31",
+    "@nevermined-io/payments": "1.0.0-rc33",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "openai": "^4.77.0"
