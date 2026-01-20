@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
-    "@nevermined-io/payments": "^1.0.0-rc31",
+    "@nevermined-io/payments": "^1.0.0-rc32",
     "dotenv": "^17.2.1",
     "express": "^5.0.1",
     "openai": "^6.15.0",
