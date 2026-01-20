@@ -397,7 +397,8 @@ app.post("/ask", async (req: Request, res: Response) => {
     res.set("PAYMENT-RESPONSE", paymentResponseBase64).json({
       output: response,
       sessionId,
-      payment: {
+      redemptionResult: {
+        txHash: settlementResult.transaction,
         creditsRedeemed:
           settlementResult.creditsRedeemed || creditAmount.toString(),
         remainingBalance: settlementResult.remainingBalance || "unknown",
