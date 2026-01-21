@@ -30,6 +30,7 @@ const payments = Payments.getInstance({
 });
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 /*****************************************************************************
  * REGISTER TOOLS, RESOURCES, AND PROMPTS
@@ -304,6 +305,7 @@ async function main() {
   const { info, stop } = await payments.mcp.start({
     port: PORT,
     agentId: process.env.NVM_AGENT_ID!,
+    baseUrl: BASE_URL,
     serverName: "weather-mcp",
     version: "0.1.0",
     description: "Weather MCP server with Nevermined Payments integration",

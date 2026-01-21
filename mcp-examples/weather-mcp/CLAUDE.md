@@ -135,7 +135,8 @@ return {
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3002` | Server port |
+| `PORT` | `3000` | Server port |
+| `BASE_URL` | `http://localhost:PORT` | External URL for OAuth metadata. Required for production/Docker deployments (e.g., `https://weather-mcp-agent.nevermined.dev`) |
 
 ### Required for Client
 
@@ -154,6 +155,7 @@ return {
 | `DELETE` | `/mcp` | Session termination |
 | `GET` | `/health` | Health check |
 | `GET` | `/` | Server info |
+| `GET` | `/.well-known/oauth-protected-resource` | OAuth metadata (uses `BASE_URL`) |
 
 ## Error Codes
 

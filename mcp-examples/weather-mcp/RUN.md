@@ -35,8 +35,13 @@ NVM_ENVIRONMENT=sandbox
 # Required - OpenAI (for LLM forecasts)
 OPENAI_API_KEY=your_openai_api_key
 
-# Optional
-PORT=3002
+# Optional - Server Configuration
+PORT=3000
+
+# External URL (required for production/Docker deployments)
+# Used in OAuth metadata endpoints (.well-known/oauth-protected-resource)
+# Leave unset for local development (defaults to http://localhost:PORT)
+# BASE_URL=https://your-external-domain.com
 ```
 
 ### Getting Nevermined Credentials
@@ -73,9 +78,9 @@ This runs `tsx src/main.ts` which:
 🚀 Weather MCP Server with Nevermined Payments Integration Started!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📡 MCP Endpoint:     http://localhost:3002/mcp
-🏥 Health Check:     http://localhost:3002/health
-ℹ️  Server Info:      http://localhost:3002/
+📡 MCP Endpoint:     http://localhost:3000/mcp
+🏥 Health Check:     http://localhost:3000/health
+ℹ️  Server Info:      http://localhost:3000/
 
 🛠️  Tools: weather.today
 📦 Resources: weather://today
@@ -89,7 +94,7 @@ This runs `tsx src/main.ts` which:
 ### Health Check
 
 ```bash
-curl http://localhost:3002/health
+curl http://localhost:3000/health
 ```
 
 Expected: `{"status":"ok"}` or similar
@@ -97,7 +102,7 @@ Expected: `{"status":"ok"}` or similar
 ### Server Info
 
 ```bash
-curl http://localhost:3002/
+curl http://localhost:3000/
 ```
 
 Returns server metadata.
@@ -105,7 +110,7 @@ Returns server metadata.
 ### List Tools (requires auth)
 
 ```bash
-curl -X POST http://localhost:3002/mcp \
+curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
@@ -148,7 +153,7 @@ import { Client } from "@modelcontextprotocol/sdk/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
 
 const transport = new StreamableHTTPClientTransport(
-  new URL("http://localhost:3002/mcp"),
+  new URL("http://localhost:3000/mcp"),
   {
     requestInit: {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -171,7 +176,7 @@ await client.close();
 ## Testing with MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector connect http://localhost:3002/mcp
+npx @modelcontextprotocol/inspector connect http://localhost:3000/mcp
 ```
 
 **Note**: The inspector doesn't send `Authorization` headers, so paywall validation will fail. Use it only for testing the MCP protocol structure, not the full authentication flow.
@@ -264,10 +269,55 @@ The server will:
 2. Close all active transports
 3. Exit cleanly
 
+## Docker Deployment
+
+### Build the Image
+
+```bash
+docker build -t weather-mcp .
+```
+
+### Run the Container
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -e NVM_API_KEY=your_api_key \
+  -e NVM_AGENT_ID=your_agent_id \
+  -e NVM_ENVIRONMENT=live \
+  -e OPENAI_API_KEY=your_openai_key \
+  -e BASE_URL=https://your-external-domain.com \
+  weather-mcp
+```
+
+**Important**: Set `BASE_URL` to your external domain so OAuth metadata endpoints return correct URLs for MCP clients.
+
+### Verify Deployment
+
+```bash
+# Health check
+curl https://your-external-domain.com/health
+
+# OAuth metadata (should show external URL)
+curl https://your-external-domain.com/.well-known/oauth-protected-resource
+```
+
+Expected OAuth metadata response:
+```json
+{
+  "resource": "https://your-external-domain.com",
+  "authorization_servers": ["https://your-external-domain.com"],
+  "scopes_supported": ["openid", "profile", "credits", "mcp:read", "mcp:write", "mcp:tools"],
+  "bearer_methods_supported": ["header"],
+  "resource_documentation": "https://your-external-domain.com/"
+}
+```
+
 ## Production Considerations
 
 1. **Environment**: Use `live` for production
-2. **Secrets**: Use proper secret management (not `.env` files)
-3. **Monitoring**: Add logging/monitoring integration
-4. **Scaling**: The server is stateless; scale horizontally behind a load balancer
-5. **HTTPS**: Use a reverse proxy (nginx, Caddy) for TLS termination
+2. **BASE_URL**: Always set `BASE_URL` to your external domain when deploying
+3. **Secrets**: Use proper secret management (not `.env` files)
+4. **Monitoring**: Add logging/monitoring integration
+5. **Scaling**: The server is stateless; scale horizontally behind a load balancer
+6. **HTTPS**: Use a reverse proxy (nginx, Caddy) for TLS termination

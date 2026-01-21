@@ -143,13 +143,19 @@ payments.mcp.registerPrompt(
 ### 5. Start the Server
 
 ```typescript
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+
 const { info, stop } = await payments.mcp.start({
-  port: 3002,
+  port: PORT,
+  baseUrl: BASE_URL,  // External URL for OAuth metadata
   agentId: process.env.NVM_AGENT_ID!,
   serverName: "weather-mcp",
   version: "0.1.0",
 });
 ```
+
+The `baseUrl` parameter is important for production deployments. It determines the URLs returned in OAuth metadata endpoints like `/.well-known/oauth-protected-resource`.
 
 ## Credit Configuration
 
@@ -222,6 +228,7 @@ const result = await client.callTool({
 | `DELETE /mcp` | Session termination |
 | `GET /health` | Health check |
 | `GET /` | Server info |
+| `GET /.well-known/oauth-protected-resource` | OAuth metadata (uses `BASE_URL`) |
 
 ## Error Codes
 
@@ -238,9 +245,12 @@ const result = await client.callTool({
 NVM_API_KEY=...            # Builder/agent owner API key
 NVM_AGENT_ID=...           # Agent ID registered in Nevermined
 NVM_ENVIRONMENT=sandbox    # sandbox, live
-PORT=3002                  # Optional, defaults to 3002
+PORT=3000                  # Optional, defaults to 3000
 OPENAI_API_KEY=...         # For LLM-enhanced forecasts
+BASE_URL=...               # External URL (required for production/Docker)
 ```
+
+**Note on `BASE_URL`**: When deploying behind a reverse proxy or in Docker, set `BASE_URL` to your external domain (e.g., `https://weather-mcp-agent.nevermined.dev`). This ensures OAuth metadata endpoints return correct URLs. For local development, leave it unset to default to `http://localhost:PORT`.
 
 ### Client (Subscriber)
 
