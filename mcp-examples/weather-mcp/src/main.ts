@@ -29,7 +29,7 @@ const payments = Payments.getInstance({
   environment: process.env.NVM_ENVIRONMENT! as EnvironmentName,
 });
 
-const PORT = parseInt(process.env.PORT || "3002", 10);
+const PORT = parseInt(process.env.PORT || "3000", 10);
 
 /*****************************************************************************
  * REGISTER TOOLS, RESOURCES, AND PROMPTS
