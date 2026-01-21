@@ -143,4 +143,5 @@ To test the full flow:
 - The protected agent uses direct OpenAI API (not LangChain) for better control
 - Tokens are cached on the client side to avoid repeated token requests
 - The `PAYMENT-REQUIRED` header contains all info needed by clients (planId, agentId)
+- The `PAYMENT-RESPONSE`header contains the settlement result and tx receipt.
 - Settlement happens after successful response generation (pay-per-use model)
