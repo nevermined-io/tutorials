@@ -68,7 +68,7 @@ const openai = new OpenAI({
 
 /**
  * Store conversation history for each session
- * Key: sessionId, Value: array of message objects
+ * Key: sessionId. Value: array of message objects
  */
 const sessions = new Map<string, any[]>();
 
