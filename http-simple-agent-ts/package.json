@@ -1,5 +1,5 @@
 {
-  "name": "http-simple-agent",
+  "name": "http-simple-agent-ts",
   "version": "1.0.0",
   "description": "Minimal Express server with OpenAI endpoint - foundation for payment middleware",
   "author": "Nevermined",
