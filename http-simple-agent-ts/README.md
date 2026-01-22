@@ -1,6 +1,8 @@
-# HTTP Simple Agent with x402 Payment Protection
+# HTTP Simple Agent (TypeScript) with x402 Payment Protection
 
 A minimal Express server demonstrating the [x402 payment protocol](https://github.com/coinbase/x402) using Nevermined's payment middleware. This tutorial shows how to protect API endpoints with credit-based payments.
+
+> **Note:** For a Python version of this tutorial, see [http-simple-agent-py](../http-simple-agent-py/).
 
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289da?logo=discord&logoColor=white)](https://discord.com/invite/GZju2qScKq)
 
@@ -214,7 +216,7 @@ Header: payment-required: <base64-payment-requirements>
 ## Project Structure
 
 ```
-http-simple-agent/
+http-simple-agent-ts/
 ├── src/
 │   ├── agent.ts              # Express server with payment middleware
 │   ├── agent-observability.ts # Agent with Nevermined observability

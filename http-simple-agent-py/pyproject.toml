@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "http-simple-agent-py"
+version = "1.0.0"
+description = "FastAPI server with x402 payment middleware - Python tutorial"
+authors = ["Nevermined <tech@nevermined.io>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "^0.120.0"
+uvicorn = "^0.30.0"
+openai = "^1.40.0"
+python-dotenv = "^1.0.0"
+httpx = "^0.28.0"
+payments-py = "^0.13.0"
+
+[tool.poetry.scripts]
+agent = "src.agent:main"
+agent-observability = "src.agent_observability:main"
+client = "src.client:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
