@@ -12,6 +12,7 @@ import {
   Payments,
   EnvironmentName,
   buildPaymentRequired,
+  StartAgentRequest,
 } from "@nevermined-io/payments";
 
 // ============================================================================
@@ -243,15 +244,17 @@ function buildPaymentResponse(
 
 /**
  * Generate response using OpenAI API directly
+ * @param openaiClient - OpenAI client instance (with or without observability)
  * @param messages - Conversation messages
  * @param maxTokens - Maximum tokens for response
  * @returns Object with response text and tokens used
  */
 async function generateLLMResponse(
+  openaiClient: OpenAI,
   messages: any[],
   maxTokens: number
 ): Promise<{ response: string; tokensUsed: number }> {
-  const completion = await openai.chat.completions.create({
+  const completion = await openaiClient.chat.completions.create({
     model: "gpt-4o-mini",
     messages: messages,
     temperature: 0.3,
@@ -327,6 +330,9 @@ app.post("/ask", async (req: Request, res: Response) => {
       );
     }
 
+    // Extract agentRequest for observability
+    const agentRequest = verification.agentRequest;
+
     // Extract and validate the user's input
     const input = String(req.body?.input_query ?? "").trim();
     if (!input) {
@@ -356,8 +362,26 @@ app.post("/ask", async (req: Request, res: Response) => {
     // Add the user's question to the conversation
     messages.push({ role: "user", content: input });
 
+    // Create OpenAI client with observability if agentRequest is available
+    let openaiClient: OpenAI;
+    if (agentRequest) {
+      const config = payments.observability.withOpenAI(
+        OPENAI_API_KEY,
+        agentRequest,
+        { sessionid: sessionId }
+      );
+      openaiClient = new OpenAI(config);
+      console.log(
+        `[Observability] Using Nevermined observability for request ${agentRequest.agentRequestId}`
+      );
+    } else {
+      openaiClient = openai;
+      console.log("[Observability] agentRequest not available, using direct OpenAI");
+    }
+
     // Generate response using OpenAI
     const { response, tokensUsed } = await generateLLMResponse(
+      openaiClient,
       messages,
       maxTokens
     );
