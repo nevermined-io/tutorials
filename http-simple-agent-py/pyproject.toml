@@ -14,8 +14,7 @@ uvicorn = "^0.30.0"
 openai = "^1.40.0"
 python-dotenv = "^1.0.0"
 httpx = "^0.28.0"
-# Reference payments-py from local path for development
-payments-py = {path = "../../payments-py", develop = true, extras = ["fastapi"]}
+payments-py = "^0.13.0"
 
 [tool.poetry.scripts]
 agent = "src.agent:main"
