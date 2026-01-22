@@ -12,7 +12,6 @@ import {
   Payments,
   EnvironmentName,
   buildPaymentRequired,
-  StartAgentRequest,
 } from "@nevermined-io/payments";
 
 // ============================================================================

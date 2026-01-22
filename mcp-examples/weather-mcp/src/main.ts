@@ -23,7 +23,6 @@ import {
 import OpenAI from "openai";
 
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
-
 const payments = Payments.getInstance({
   nvmApiKey: process.env.NVM_API_KEY!,
   environment: process.env.NVM_ENVIRONMENT! as EnvironmentName,
@@ -134,7 +133,7 @@ async function handleWeatherTodayTool(
   const weather: TodayWeather = await getTodayWeather(sanitized);
 
   // Generate enhanced weather forecast using LLM with Nevermined observability
-  const forecast = await generateWeatherForecast(weather);
+  const forecast = await generateWeatherForecast(weather, extra?.agentRequest);
 
   // Ensure forecast is a string (not an object)
   const forecastText =
@@ -239,12 +238,29 @@ function handleWeatherEnsureCityPrompt(
  * Generate a well-formatted weather forecast using OpenAI with Nevermined observability
  *
  * @param weather - Today's weather data
- * @param context - Authentication context from Nevermined (for observability)
+ * @param agentRequest - Agent request from Nevermined (for observability)
  * @returns Formatted weather forecast as a string
  */
-async function generateWeatherForecast(weather: TodayWeather): Promise<string> {
-  // Create OpenAI client (without Nevermined observability)
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+async function generateWeatherForecast(
+  weather: TodayWeather,
+  agentRequest?: any
+): Promise<string> {
+  // Create OpenAI client with Nevermined observability if agentRequest is available
+  let openai: OpenAI;
+  if (agentRequest) {
+    const config = payments.observability.withOpenAI(
+      process.env.OPENAI_API_KEY!,
+      agentRequest,
+      { city: weather.city }
+    );
+    openai = new OpenAI(config);
+    console.log(
+      `[Observability] Using Nevermined observability for request ${agentRequest.agentRequestId}`
+    );
+  } else {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+    console.log("[Observability] agentRequest not available, using direct OpenAI");
+  }
 
   const systemPrompt = `You are a professional meteorologist. Create well-formatted, informative weather forecasts.
 
