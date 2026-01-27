@@ -1,1 +1,1 @@
-__all__ = []
+"""Weather MCP Server source package."""
