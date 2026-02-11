@@ -6,7 +6,7 @@ This example demonstrates how to use the Nevermined payments library with the Ag
 
 ## Features
 
-- **Bearer Token Authentication**: The server extracts bearer tokens from the `Authorization` header and injects them into the task context.
+- **Payment Signature Authentication**: The server extracts access tokens from the `payment-signature` header and injects them into the task context.
 - **Credit Validation**: Validates that the user has sufficient credits before executing a task.
 - **Credit Burning**: Burns the credits specified in the result after successful execution.
 - **Push Notifications**: Supports the A2A standard flow for push notification configuration and delivery.
@@ -166,7 +166,7 @@ app.post("/webhook", async (req, res) => {
 ## Complete Flow
 
 1. **Client gets access token**: Uses API key to call `getAgentAccessToken`.
-2. **Client sends request**: Includes access token in `Authorization` header using `sendMessage`.
+2. **Client sends request**: Includes access token in `payment-signature` header using `sendMessage`.
 3. **Agent receives and creates the task**: Publishes the initial task event.
 4. **Agent publishes intermediate status-update events**: For long-running or async tasks, publishes `status-update` events with `final: false`.
 5. **Client can poll or stream events**: Using `getTask` or streaming endpoints.
