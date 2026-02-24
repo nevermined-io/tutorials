@@ -4,9 +4,10 @@ x402 Client - Demonstrates the full payment flow.
 This client shows the complete x402 HTTP protocol flow:
 1. Request without token -> 402 Payment Required
 2. Decode payment requirements from header
-3. Generate x402 access token
-4. Request with token -> Success
-5. Decode settlement response from header
+3. Resolve scheme (auto-detect crypto vs fiat plan)
+4. Generate x402 access token (with card-delegation config if fiat)
+5. Request with token -> Success
+6. Decode settlement response from header
 """
 
 import base64
@@ -24,6 +25,8 @@ import httpx
 
 from payments_py import Payments, PaymentOptions
 from payments_py.x402.fastapi import X402_HEADERS
+from payments_py.x402.resolve_scheme import resolve_scheme
+from payments_py.x402.types import CardDelegationConfig, X402TokenOptions
 
 # Configuration
 SERVER_URL = os.getenv("SERVER_URL", "http://localhost:3000")
@@ -111,15 +114,45 @@ def main():
         print(pretty_json(body1))
 
         # ============================================================
-        # Step 3: Generate x402 access token
+        # Step 3: Resolve scheme and generate x402 access token
         # ============================================================
         print("\n" + "=" * 60)
-        print("STEP 3: Generate x402 access token")
+        print("STEP 3: Resolve scheme and generate x402 access token")
         print("=" * 60)
+
+        # Auto-detect scheme from plan metadata (crypto vs fiat)
+        scheme = resolve_scheme(payments, NVM_PLAN_ID)
+        print(f"\nResolved scheme: {scheme}")
+
+        # Build token options based on scheme
+        token_options = X402TokenOptions(scheme=scheme)
+
+        if scheme == "nvm:card-delegation":
+            print("\nFiat plan detected - setting up card delegation...")
+            # List payment methods and use the first one
+            methods = payments.delegation.list_payment_methods()
+            if not methods:
+                print("No payment methods enrolled. Please add a card first.")
+                sys.exit(1)
+            pm = methods[0]
+            print(f"Using payment method: {pm.brand} *{pm.last4}")
+            token_options = X402TokenOptions(
+                scheme=scheme,
+                delegation_config=CardDelegationConfig(
+                    provider_payment_method_id=pm.id,
+                    spending_limit_cents=10000,
+                    duration_secs=604800,
+                    currency="usd",
+                ),
+            )
+        else:
+            print("\nCrypto plan detected - using ERC-4337 scheme")
 
         print("\nCalling payments.x402.get_x402_access_token()...")
 
-        token_result = payments.x402.get_x402_access_token(NVM_PLAN_ID)
+        token_result = payments.x402.get_x402_access_token(
+            NVM_PLAN_ID, token_options=token_options
+        )
         access_token = token_result["accessToken"]
 
         print("\nToken generated successfully!")
@@ -196,13 +229,14 @@ def main():
         print("FLOW COMPLETE!")
         print("=" * 60)
         print(
-            """
+            f"""
 x402 Payment Flow Summary:
 1. Request without token    -> 402 Payment Required
 2. Decoded payment-required -> Plan ID, scheme, network
-3. Generated access token   -> Using Nevermined SDK
-4. Request with token       -> 200 OK + AI response
-5. Settlement              -> Credits burned asynchronously
+3. Resolved scheme          -> {scheme}
+4. Generated access token   -> Using Nevermined SDK
+5. Request with token       -> 200 OK + AI response
+6. Settlement              -> Credits burned asynchronously
 """
         )
 
