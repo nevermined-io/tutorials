@@ -11,6 +11,7 @@
 import "dotenv/config";
 import { Payments, EnvironmentName } from "@nevermined-io/payments";
 import { X402_HEADERS } from "@nevermined-io/payments/express";
+import type { X402SchemeType } from "@nevermined-io/payments";
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000";
 const NVM_API_KEY = process.env.NVM_API_KEY ?? "";
@@ -99,15 +100,54 @@ async function main() {
   console.log(prettyJson(body1));
 
   // ============================================================
-  // Step 3: Generate x402 access token
+  // Step 3: Generate x402 access token (scheme-aware)
   // ============================================================
   console.log("\n" + "=".repeat(60));
   console.log("STEP 3: Generate x402 access token");
   console.log("=".repeat(60));
 
-  console.log("\nCalling payments.x402.getX402AccessToken()...");
+  // Read scheme from the 402 response to determine payment type
+  const paymentRequiredObj = paymentRequired as any;
+  const scheme: X402SchemeType =
+    paymentRequiredObj?.accepts?.[0]?.scheme || "nvm:erc4337";
+  console.log(`\nDetected scheme: ${scheme}`);
 
-  const tokenResult = await payments.x402.getX402AccessToken(NVM_PLAN_ID);
+  let tokenResult;
+  if (scheme === "nvm:card-delegation") {
+    // Fiat flow: list enrolled cards and create a card-delegation token
+    console.log("\nFiat plan detected — listing enrolled payment methods...");
+    const paymentMethods = await payments.delegation.listPaymentMethods();
+    if (paymentMethods.length === 0) {
+      console.error(
+        "No enrolled payment methods. Enroll a card in the Nevermined App first."
+      );
+      process.exit(1);
+    }
+    const pm = paymentMethods[0];
+    console.log(`Using payment method: ${pm.brand} ****${pm.last4}`);
+
+    tokenResult = await payments.x402.getX402AccessToken(
+      NVM_PLAN_ID,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        scheme: "nvm:card-delegation",
+        delegationConfig: {
+          providerPaymentMethodId: pm.id,
+          spendingLimitCents: 10000,
+          durationSecs: 604800,
+          currency: "usd",
+        },
+      }
+    );
+  } else {
+    // Crypto flow: standard ERC-4337 token
+    console.log("\nCalling payments.x402.getX402AccessToken()...");
+    tokenResult = await payments.x402.getX402AccessToken(NVM_PLAN_ID);
+  }
+
   const accessToken = tokenResult.accessToken;
 
   console.log("\nToken generated successfully!");
