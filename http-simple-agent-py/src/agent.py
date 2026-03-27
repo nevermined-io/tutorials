@@ -71,6 +71,8 @@ app.add_middleware(
         "POST /ask": {
             "plan_id": NVM_PLAN_ID,
             "credits": 1,
+            "description": "Send a query to the AI assistant",
+            "mime_type": "application/json",
         },
     },
 )
