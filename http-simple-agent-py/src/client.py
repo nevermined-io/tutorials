@@ -26,7 +26,7 @@ import httpx
 from payments_py import Payments, PaymentOptions
 from payments_py.x402.fastapi import X402_HEADERS
 from payments_py.x402.resolve_scheme import resolve_scheme
-from payments_py.x402.types import CardDelegationConfig, X402TokenOptions
+from payments_py.x402.types import DelegationConfig, X402TokenOptions
 
 # Configuration
 SERVER_URL = os.getenv("SERVER_URL", "http://localhost:3000")
@@ -120,25 +120,38 @@ def main():
         print("STEP 3: Resolve scheme and generate x402 access token")
         print("=" * 60)
 
-        # Auto-detect scheme from plan metadata (crypto vs fiat)
-        scheme = resolve_scheme(payments, NVM_PLAN_ID)
-        print(f"\nResolved scheme: {scheme}")
+        # Extract scheme and network from server's payment requirements
+        accepts = payment_required.get("accepts", [])
+        accepted = accepts[0] if accepts else {}
+        scheme = accepted.get("scheme", resolve_scheme(payments, NVM_PLAN_ID))
+        network = accepted.get("network")
+        print(f"\nResolved scheme: {scheme}, network: {network}")
 
         # Build token options based on scheme
         token_options = X402TokenOptions(scheme=scheme)
 
         if scheme == "nvm:card-delegation":
             print("\nFiat plan detected - setting up card delegation...")
-            # List payment methods and use the first one
+            # List payment methods and find one matching the server's accepted network
             methods = payments.delegation.list_payment_methods()
             if not methods:
-                print("No payment methods enrolled. Please add a card first.")
+                print("No payment methods enrolled. Please add a card/PayPal at https://nevermined.app")
                 sys.exit(1)
-            pm = methods[0]
-            print(f"Using payment method: {pm.brand} *{pm.last4}")
+
+            # Match payment method provider to server's accepted network
+            pm = None
+            if network:
+                pm = next((m for m in methods if getattr(m, "provider", None) == network), None)
+                if pm:
+                    print(f"Matched payment method for network '{network}': {pm.brand} *{pm.last4}")
+            if not pm:
+                pm = methods[0]
+                print(f"Using payment method: {pm.brand} *{pm.last4} (provider: {getattr(pm, 'provider', 'unknown')})")
+
             token_options = X402TokenOptions(
                 scheme=scheme,
-                delegation_config=CardDelegationConfig(
+                network=network,
+                delegation_config=DelegationConfig(
                     provider_payment_method_id=pm.id,
                     spending_limit_cents=10000,
                     duration_secs=604800,
