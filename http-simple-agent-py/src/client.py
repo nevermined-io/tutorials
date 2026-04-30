@@ -160,6 +160,19 @@ def main():
             )
         else:
             print("\nCrypto plan detected - using ERC-4337 scheme")
+            # nvm:erc4337 also requires a delegation_config so the API can
+            # auto-create the ERC-4337 delegation that backs the payment
+            # signature. Same shape as the fiat branch above, but currency
+            # is the on-chain ERC-20 (usdc on Base / Base Sepolia).
+            token_options = X402TokenOptions(
+                scheme=scheme,
+                network=network,
+                delegation_config=DelegationConfig(
+                    spending_limit_cents=10000,
+                    duration_secs=604800,
+                    currency="usdc",
+                ),
+            )
 
         print("\nCalling payments.x402.get_x402_access_token()...")
 
