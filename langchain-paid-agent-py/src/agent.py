@@ -7,6 +7,7 @@ Wrapping it with ``@requires_payment`` makes the function gated on an x402
 access token threaded through ``RunnableConfig.configurable.payment_token``.
 """
 
+import functools
 import os
 
 from dotenv import load_dotenv
@@ -29,7 +30,34 @@ payments = Payments.get_instance(
 )
 
 
+# Holder for the most recent settlement receipt so the buyer can read it
+# after agent.invoke() returns. LangGraph copies RunnableConfig.configurable
+# per node, so the SDK's in-place mutation lives only inside the tool node;
+# this wrapper hoists the receipt back to module scope.
+LAST_SETTLEMENT = {"value": None}
+
+
+def _capture_settlement(func):
+    """Read payment_settlement after @requires_payment has settled.
+
+    Must sit OUTSIDE @requires_payment so it runs after the settle phase.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        config = kwargs.get("config")
+        if isinstance(config, dict):
+            settlement = config.get("configurable", {}).get("payment_settlement")
+            if settlement is not None:
+                LAST_SETTLEMENT["value"] = settlement
+        return result
+
+    return wrapper
+
+
 @tool
+@_capture_settlement
 @requires_payment(payments=payments, plan_id=NVM_PLAN_ID, credits=1)
 def get_market_insight(topic: str, config: RunnableConfig = None) -> str:
     """Return a short market insight for the requested topic.

@@ -10,14 +10,18 @@ import os
 from dotenv import load_dotenv
 
 from payments_py import Payments, PaymentOptions
+from payments_py.x402.types import DelegationConfig, X402TokenOptions
 
-from .agent import create_agent
+from .agent import LAST_SETTLEMENT, create_agent
 
 load_dotenv()
 
 NVM_API_KEY = os.environ["NVM_API_KEY"]
 NVM_ENVIRONMENT = os.getenv("NVM_ENVIRONMENT", "sandbox")
 NVM_PLAN_ID = os.environ["NVM_PLAN_ID"]
+# Provider of the enrolled payment method to use. Must match the provider
+# the plan was created against (the SDK call to Stripe will 404 otherwise).
+PAYMENT_PROVIDER = os.getenv("NVM_PAYMENT_PROVIDER", "stripe")
 
 QUERY = os.getenv("QUERY", "What's the market insight on electric vehicles?")
 
@@ -30,7 +34,37 @@ def main() -> None:
     )
 
     print(f"[1/4] Acquiring x402 access token for plan {NVM_PLAN_ID}...")
-    token_result = payments.x402.get_x402_access_token(NVM_PLAN_ID)
+    methods = payments.delegation.list_payment_methods()
+    if not methods:
+        print(
+            "      No payment methods enrolled. Add a card/PayPal at "
+            "https://nevermined.app and re-run."
+        )
+        return
+
+    pm = next((m for m in methods if getattr(m, "provider", None) == PAYMENT_PROVIDER), None)
+    if pm is None:
+        available = ", ".join(sorted({getattr(m, "provider", "unknown") for m in methods})) or "<none>"
+        print(
+            f"      No {PAYMENT_PROVIDER!r} payment method enrolled. "
+            f"Available providers on this account: {available}. "
+            f"Set NVM_PAYMENT_PROVIDER in .env to match your plan's provider."
+        )
+        return
+    print(f"      payment method: {pm.brand} *{pm.last4} (provider: {pm.provider})")
+
+    token_result = payments.x402.get_x402_access_token(
+        NVM_PLAN_ID,
+        token_options=X402TokenOptions(
+            scheme="nvm:card-delegation",
+            delegation_config=DelegationConfig(
+                provider_payment_method_id=pm.id,
+                spending_limit_cents=10000,  # $100 cap per delegation
+                duration_secs=604800,        # 1 week TTL
+                currency="usd",
+            ),
+        ),
+    )
     access_token = token_result["accessToken"]
     print(f"      token = {access_token[:24]}...  (truncated)\n")
 
@@ -47,8 +81,8 @@ def main() -> None:
     final_message = result["messages"][-1]
     print(f"\n      Agent answer: {final_message.content}\n")
 
-    print("[4/4] Settlement receipt (from configurable.payment_settlement):")
-    settlement = configurable.get("payment_settlement")
+    print("[4/4] Settlement receipt:")
+    settlement = LAST_SETTLEMENT["value"]
     if settlement is None:
         print("      (no settlement recorded — the tool may not have been called)")
         return

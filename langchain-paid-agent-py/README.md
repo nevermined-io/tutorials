@@ -51,7 +51,8 @@ Unlike the x402 HTTP middleware pattern (used in [`http-simple-agent-py`](../htt
   - As the seller, it owns the plan and the protected tool.
   - As the buyer, it has subscribed to the plan and acquires x402 access tokens against it.
 - An API key for the account (`Settings → API Keys`) — goes into `NVM_API_KEY`.
-- A **plan** created and subscribed (one click each on the plan page) — its id goes into `NVM_PLAN_ID`.
+- A **fiat plan** (card-delegation scheme), created and subscribed, with at least one charge remaining — its id goes into `NVM_PLAN_ID`.
+- A **payment method enrolled** that matches the plan's provider (Stripe by default; set `NVM_PAYMENT_PROVIDER` if your plan uses a different provider).
 - An OpenAI API key for the agent's LLM.
 
 > Need the click-by-click for the plan setup? Follow the [5-minute setup](https://nevermined.ai/docs/integrate/quickstart/5-minute-setup).
@@ -68,7 +69,7 @@ poetry install
 cp .env.example .env
 ```
 
-Fill in `NVM_API_KEY`, `NVM_PLAN_ID`, and `OPENAI_API_KEY`.
+Fill in `NVM_API_KEY`, `NVM_PLAN_ID`, and `OPENAI_API_KEY`. Optionally set `NVM_PAYMENT_PROVIDER` (defaults to `stripe`).
 
 ### 4. Run
 
@@ -125,27 +126,48 @@ Two requirements for the tool function:
 
 ```python
 from payments_py import Payments, PaymentOptions
-from .agent import create_agent
+from payments_py.x402.types import DelegationConfig, X402TokenOptions
+from .agent import LAST_SETTLEMENT, create_agent
 
-# Same Nevermined account as the seller in this demo; the account has
-# subscribed to its own plan to acquire x402 access tokens.
 payments = Payments.get_instance(
     PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
 )
 
-token = payments.x402.get_x402_access_token(NVM_PLAN_ID)["accessToken"]
+# Pick a payment method that matches the plan's provider (default: stripe).
+methods = payments.delegation.list_payment_methods()
+pm = next(m for m in methods if m.provider == "stripe")
+
+# For card-delegation plans the SDK needs delegation_config so the API can
+# auto-create the Stripe delegation that backs the payment signature.
+token = payments.x402.get_x402_access_token(
+    NVM_PLAN_ID,
+    token_options=X402TokenOptions(
+        scheme="nvm:card-delegation",
+        delegation_config=DelegationConfig(
+            provider_payment_method_id=pm.id,
+            spending_limit_cents=10000,  # $100 cap per delegation
+            duration_secs=604800,        # 1 week TTL
+            currency="usd",
+        ),
+    ),
+)["accessToken"]
 
 agent = create_agent()
-configurable = {"payment_token": token}
 result = agent.invoke(
     {"messages": [("human", "What's the market insight on electric vehicles?")]},
-    config={"configurable": configurable},
+    config={"configurable": {"payment_token": token}},
 )
 
-settlement = configurable["payment_settlement"]  # populated after settlement
+settlement = LAST_SETTLEMENT["value"]
 ```
 
-The same `configurable` dict that carried the token *into* the agent receives the settlement receipt on the way *out* — that is how the buyer recovers `credits_redeemed`, `remaining_balance`, and the on-chain `transaction`.
+### Why `LAST_SETTLEMENT` and not `configurable["payment_settlement"]`?
+
+The decorator writes the settlement receipt to `config["configurable"]["payment_settlement"]`. **LangGraph copies `configurable` into a new dict per node**, so the receipt is set on the *node's copy* of `configurable`, not on the dict the buyer passed in. The seller-side `agent.py` therefore wraps the protected tool with a tiny `_capture_settlement` decorator (placed **outside** `@requires_payment` so it runs after settle) that reads the receipt off the inner `configurable` and stashes it in module-level `LAST_SETTLEMENT` — a place the buyer's outer scope can see.
+
+### Why does the receipt say `credits_redeemed: 5` when the decorator says `credits=1`?
+
+For **fixed plans** (the kind this tutorial recommends), the server-side `plan.credits.maxAmount` always wins — the client-side `credits=N` is overridden. The decorator's `credits` parameter is effectively a max-cap that only constrains **range plans** (where `minAmount < maxAmount` and the caller picks the amount within that band). For fixed plans, leaving `credits` at the default `1` is fine; the actual redemption is whatever the plan was configured with.
 
 ## File layout
 
