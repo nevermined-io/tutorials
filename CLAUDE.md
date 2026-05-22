@@ -49,7 +49,7 @@ Most tutorials require these environment variables in a `.env` file:
 ```bash
 # Nevermined credentials (required)
 NVM_API_KEY=nvm:your-api-key
-NVM_ENVIRONMENT=sandbox          # or 'live', 'staging_sandbox'
+NVM_ENVIRONMENT=sandbox          # or 'live'
 NVM_PLAN_ID=your-plan-id
 NVM_AGENT_ID=your-agent-id       # optional, for agent-specific plans
 
