@@ -24,13 +24,13 @@ NVM_API_KEY = os.environ["NVM_API_KEY"]
 NVM_ENVIRONMENT = os.getenv("NVM_ENVIRONMENT", "sandbox")
 NVM_PLAN_ID = os.environ["NVM_PLAN_ID"]
 
-seller_payments = Payments.get_instance(
+payments = Payments.get_instance(
     PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
 )
 
 
 @tool
-@requires_payment(payments=seller_payments, plan_id=NVM_PLAN_ID, credits=1)
+@requires_payment(payments=payments, plan_id=NVM_PLAN_ID, credits=1)
 def get_market_insight(topic: str, config: RunnableConfig = None) -> str:
     """Return a short market insight for the requested topic.
 

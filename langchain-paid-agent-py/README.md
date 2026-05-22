@@ -7,6 +7,8 @@ A minimal LangChain / LangGraph agent with a single tool gated by [Nevermined](h
 
 Everything else (agent prompt, tool body, model choice) is deliberately trivial so the payment flow is the only signal.
 
+> **Note — one Nevermined account for both roles.** In production the seller (plan owner) and the buyer (plan subscriber) are typically separate Nevermined accounts with separate API keys. This tutorial uses a **single** account for both roles so the demo only requires one Nevermined signup. Your account creates a plan, subscribes to it, then acts as both the protected-tool host and the x402 token holder.
+
 For the full, production-ready reference see the published guide: **[Nevermined LangChain integration](https://nevermined.ai/docs/integrate/add-to-your-agent/langchain)**.
 
 ## Payment flow
@@ -45,9 +47,11 @@ Unlike the x402 HTTP middleware pattern (used in [`http-simple-agent-py`](../htt
 ### 1. Prerequisites
 
 - Python 3.10+
-- A Nevermined builder account at [nevermined.app](https://nevermined.app) with one **plan** created. The plan is what the buyer subscribes to and the tool charges against.
-- A subscriber account that has **purchased the plan** (one click on the plan page).
-- Both accounts have an API key (`Settings → API Keys`). The builder key goes in `NVM_API_KEY`, the subscriber key in `NVM_SUBSCRIBER_API_KEY`.
+- A Nevermined account at [nevermined.app](https://nevermined.app). The **same** account plays both roles in this demo:
+  - As the seller, it owns the plan and the protected tool.
+  - As the buyer, it has subscribed to the plan and acquires x402 access tokens against it.
+- An API key for the account (`Settings → API Keys`) — goes into `NVM_API_KEY`.
+- A **plan** created and subscribed (one click each on the plan page) — its id goes into `NVM_PLAN_ID`.
 - An OpenAI API key for the agent's LLM.
 
 > Need the click-by-click for the plan setup? Follow the [5-minute setup](https://nevermined.ai/docs/integrate/quickstart/5-minute-setup).
@@ -64,7 +68,7 @@ poetry install
 cp .env.example .env
 ```
 
-Fill in `NVM_API_KEY`, `NVM_SUBSCRIBER_API_KEY`, `NVM_PLAN_ID`, and `OPENAI_API_KEY`.
+Fill in `NVM_API_KEY`, `NVM_PLAN_ID`, and `OPENAI_API_KEY`.
 
 ### 4. Run
 
@@ -101,12 +105,12 @@ from langchain_core.tools import tool
 from payments_py import Payments, PaymentOptions
 from payments_py.x402.langchain import requires_payment
 
-seller_payments = Payments.get_instance(
+payments = Payments.get_instance(
     PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
 )
 
 @tool
-@requires_payment(payments=seller_payments, plan_id=NVM_PLAN_ID, credits=1)
+@requires_payment(payments=payments, plan_id=NVM_PLAN_ID, credits=1)
 def get_market_insight(topic: str, config: RunnableConfig = None) -> str:
     """Return a short market insight for the requested topic. Costs 1 credit."""
     return f"Market insight for '{topic}': ..."
@@ -123,11 +127,13 @@ Two requirements for the tool function:
 from payments_py import Payments, PaymentOptions
 from .agent import create_agent
 
-buyer_payments = Payments.get_instance(
-    PaymentOptions(nvm_api_key=NVM_SUBSCRIBER_API_KEY, environment=NVM_ENVIRONMENT)
+# Same Nevermined account as the seller in this demo; the account has
+# subscribed to its own plan to acquire x402 access tokens.
+payments = Payments.get_instance(
+    PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
 )
 
-token = buyer_payments.x402.get_x402_access_token(NVM_PLAN_ID)["accessToken"]
+token = payments.x402.get_x402_access_token(NVM_PLAN_ID)["accessToken"]
 
 agent = create_agent()
 configurable = {"payment_token": token}

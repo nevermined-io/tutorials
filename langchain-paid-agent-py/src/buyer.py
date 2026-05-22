@@ -15,7 +15,7 @@ from .agent import create_agent
 
 load_dotenv()
 
-NVM_SUBSCRIBER_API_KEY = os.environ["NVM_SUBSCRIBER_API_KEY"]
+NVM_API_KEY = os.environ["NVM_API_KEY"]
 NVM_ENVIRONMENT = os.getenv("NVM_ENVIRONMENT", "sandbox")
 NVM_PLAN_ID = os.environ["NVM_PLAN_ID"]
 
@@ -23,12 +23,14 @@ QUERY = os.getenv("QUERY", "What's the market insight on electric vehicles?")
 
 
 def main() -> None:
-    buyer_payments = Payments.get_instance(
-        PaymentOptions(nvm_api_key=NVM_SUBSCRIBER_API_KEY, environment=NVM_ENVIRONMENT)
+    # The buyer uses the same Nevermined account as the seller in this demo;
+    # the account has subscribed to its own plan to acquire x402 tokens.
+    payments = Payments.get_instance(
+        PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
     )
 
     print(f"[1/4] Acquiring x402 access token for plan {NVM_PLAN_ID}...")
-    token_result = buyer_payments.x402.get_x402_access_token(NVM_PLAN_ID)
+    token_result = payments.x402.get_x402_access_token(NVM_PLAN_ID)
     access_token = token_result["accessToken"]
     print(f"      token = {access_token[:24]}...  (truncated)\n")
 
