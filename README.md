@@ -88,7 +88,28 @@ Similar to the financial agent, this tutorial demonstrates protecting a medical 
 
 ---
 
-### 4. Weather MCP Server (TypeScript)
+### 4. LangChain Paid Agent (Python)
+
+**Location**: `langchain-paid-agent-py/`
+
+A deliberately minimal LangChain + LangGraph tutorial showing how to gate a single tool with Nevermined payments via the `@requires_payment` decorator. No HTTP layer, no 402 round-trip — the buyer threads an x402 access token through `RunnableConfig.configurable` and the tool verifies + settles in-process.
+
+**Technologies**:
+- Python 3.10+
+- LangChain (`langchain-core`, `langchain-openai`)
+- LangGraph (`create_react_agent`)
+- Nevermined Payments SDK (`payments-py[langchain]`)
+- OpenAI GPT-4o-mini
+
+**What You'll Learn**:
+- Protect a LangChain `@tool` with `@requires_payment`
+- Acquire an x402 access token with `payments.x402.get_x402_access_token(plan_id=...)`
+- Thread the token through `agent.invoke(..., config={"configurable": {"payment_token": ...}})`
+- Read the settlement receipt back from `configurable["payment_settlement"]`
+
+---
+
+### 5. Weather MCP Server (TypeScript)
 
 **Location**: `mcp-examples/weather-mcp/`
 
@@ -116,7 +137,7 @@ A reference implementation of the Model Context Protocol (MCP) with Nevermined p
 
 ---
 
-### 5. Weather MCP Server (Python)
+### 6. Weather MCP Server (Python)
 
 **Location**: `mcp-examples/weather-mcp-py/`
 

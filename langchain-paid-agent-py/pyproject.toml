@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "langchain-paid-agent-py"
+version = "1.0.0"
+description = "Minimal LangChain agent with a Nevermined-protected tool"
+authors = ["Nevermined <tech@nevermined.io>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^1.0.0"
+langchain-core = "^0.3.0"
+langchain-openai = "^0.3.0"
+langgraph = "^0.6.0"
+payments-py = {version = "^1.5.0", extras = ["langchain"]}
+
+[tool.poetry.scripts]
+buyer = "src.buyer:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
