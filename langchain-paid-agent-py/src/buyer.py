@@ -1,6 +1,7 @@
 """
-Buyer-side: acquire an x402 access token, invoke the agent, print the
-settlement receipt.
+Buyer-side: discover payment requirements from the protocol error,
+acquire an x402 access token against the discovered plan, invoke the
+agent, print the settlement receipt.
 
 Run with: ``poetry run buyer``
 """
@@ -10,6 +11,7 @@ import os
 from dotenv import load_dotenv
 
 from payments_py import Payments, PaymentOptions
+from payments_py.x402.langchain import PaymentRequiredError
 from payments_py.x402.types import DelegationConfig, X402TokenOptions
 
 from .agent import LAST_SETTLEMENT, create_agent
@@ -18,10 +20,6 @@ load_dotenv()
 
 NVM_API_KEY = os.environ["NVM_API_KEY"]
 NVM_ENVIRONMENT = os.getenv("NVM_ENVIRONMENT", "sandbox")
-NVM_PLAN_ID = os.environ["NVM_PLAN_ID"]
-# Provider of the enrolled payment method to use. Must match the provider
-# the plan was created against (the SDK call to Stripe will 404 otherwise).
-PAYMENT_PROVIDER = os.getenv("NVM_PAYMENT_PROVIDER", "stripe")
 
 QUERY = os.getenv("QUERY", "What's the market insight on electric vehicles?")
 
@@ -32,31 +30,45 @@ def main() -> None:
     payments = Payments.get_instance(
         PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
     )
+    agent = create_agent()
 
-    print(f"[1/4] Acquiring x402 access token for plan {NVM_PLAN_ID}...")
-    methods = payments.delegation.list_payment_methods()
-    if not methods:
-        print(
-            "      No payment methods enrolled. Add a card/PayPal at "
-            "https://nevermined.app and re-run."
+    print("[1/5] Asking the agent without paying (discovering requirements)...")
+    try:
+        agent.invoke(
+            {"messages": [("human", QUERY)]},
+            config={"configurable": {}},  # no payment_token
         )
+    except PaymentRequiredError as err:
+        requirements = err.payment_required
+    else:
+        # Defensive: if the agent answered without calling the protected tool
+        # we have nothing to pay for. Bail out instead of hiding the surprise.
+        print("      Unexpected: agent answered without calling the paid tool. Aborting.")
         return
 
-    pm = next((m for m in methods if getattr(m, "provider", None) == PAYMENT_PROVIDER), None)
+    accept = requirements.accepts[0]
+    print(f"      scheme:  {accept.scheme}")
+    print(f"      network: {accept.network}")
+    print(f"      plan_id: {accept.plan_id[:24]}...\n")
+
+    print(f"[2/5] Picking an enrolled payment method matching {accept.network!r}...")
+    methods = payments.delegation.list_payment_methods()
+    pm = next((m for m in methods if getattr(m, "provider", None) == accept.network), None)
     if pm is None:
         available = ", ".join(sorted({getattr(m, "provider", "unknown") for m in methods})) or "<none>"
         print(
-            f"      No {PAYMENT_PROVIDER!r} payment method enrolled. "
-            f"Available providers on this account: {available}. "
-            f"Set NVM_PAYMENT_PROVIDER in .env to match your plan's provider."
+            f"      No {accept.network!r} payment method enrolled. "
+            f"Available on this account: {available}. "
+            f"Enroll a matching method at https://nevermined.app and re-run."
         )
         return
-    print(f"      payment method: {pm.brand} *{pm.last4} (provider: {pm.provider})")
+    print(f"      {pm.brand} *{pm.last4}\n")
 
+    print("[3/5] Acquiring x402 access token from the discovered plan...")
     token_result = payments.x402.get_x402_access_token(
-        NVM_PLAN_ID,
+        accept.plan_id,
         token_options=X402TokenOptions(
-            scheme="nvm:card-delegation",
+            scheme=accept.scheme,
             delegation_config=DelegationConfig(
                 provider_payment_method_id=pm.id,
                 spending_limit_cents=10000,  # $100 cap per delegation
@@ -68,20 +80,15 @@ def main() -> None:
     access_token = token_result["accessToken"]
     print(f"      token = {access_token[:24]}...  (truncated)\n")
 
-    print("[2/4] Building the LangGraph agent...")
-    agent = create_agent()
-    print()
-
-    print(f"[3/4] Invoking the agent with query: {QUERY!r}")
-    configurable = {"payment_token": access_token}
+    print(f"[4/5] Asking the agent again with the token: {QUERY!r}")
     result = agent.invoke(
         {"messages": [("human", QUERY)]},
-        config={"configurable": configurable},
+        config={"configurable": {"payment_token": access_token}},
     )
     final_message = result["messages"][-1]
     print(f"\n      Agent answer: {final_message.content}\n")
 
-    print("[4/4] Settlement receipt:")
+    print("[5/5] Settlement receipt:")
     settlement = LAST_SETTLEMENT["value"]
     if settlement is None:
         print("      (no settlement recorded — the tool may not have been called)")

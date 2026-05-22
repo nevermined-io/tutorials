@@ -13,7 +13,7 @@ For the full, production-ready reference see the published guide: **[Nevermined 
 
 ## Payment flow
 
-Unlike the x402 HTTP middleware pattern (used in [`http-simple-agent-py`](../http-simple-agent-py/)), the LangChain tool decorator runs in-process: there is no `402` round-trip and no retry. The buyer acquires the token once, then threads it through the agent's `RunnableConfig`. The tool verifies and settles inside the agent's tool call.
+This tutorial mirrors the x402 HTTP discovery pattern from [`http-simple-agent-py`](../http-simple-agent-py/) but in-process: the buyer first invokes the agent **without** a payment token, the protected tool raises `PaymentRequiredError` carrying the full x402 `accepts` block (scheme, network, plan id), and the buyer uses that to acquire a token before retrying. No plan id, no provider name, no scheme has to be configured on the buyer up front.
 
 ```text
 ┌─────────┐                                                   ┌────────────────┐
@@ -21,10 +21,21 @@ Unlike the x402 HTTP middleware pattern (used in [`http-simple-agent-py`](../htt
 │ script  │                                                   │  (in-process)  │
 └────┬────┘                                                   └────────┬───────┘
      │                                                                 │
-     │  1. get_x402_access_token(plan_id)                              │
-     │      via payments-py (buyer SDK)                                │
+     │  1. agent.invoke({"messages": [...]},                           │
+     │       config={"configurable": {}})       (no payment_token)     │
+     │ ───────────────────────────────────────────────────────────────>│
      │                                                                 │
-     │  2. agent.invoke({"messages": [...]}, config={                  │
+     │  2. PaymentRequiredError raised                                 │
+     │     .payment_required.accepts[0] →                              │
+     │       scheme, network, plan_id                                  │
+     │ <───────────────────────────────────────────────────────────────│
+     │                                                                 │
+     │  3. Pick an enrolled payment method whose provider              │
+     │     matches accept.network                                      │
+     │                                                                 │
+     │  4. get_x402_access_token(plan_id, token_options=...)           │
+     │                                                                 │
+     │  5. agent.invoke({"messages": [...]}, config={                  │
      │        "configurable": {"payment_token": token}})               │
      │ ───────────────────────────────────────────────────────────────>│
      │                                                                 │
@@ -37,8 +48,7 @@ Unlike the x402 HTTP middleware pattern (used in [`http-simple-agent-py`](../htt
      │                                          │      c) settle (burn credits)
      │                                          └──────────────────────┐
      │                                                                 │
-     │  3. answer + settlement receipt                                 │
-     │     (config.configurable.payment_settlement)                    │
+     │  6. answer + settlement receipt                                 │
      │ <───────────────────────────────────────────────────────────────│
 ```
 
@@ -69,7 +79,7 @@ poetry install
 cp .env.example .env
 ```
 
-Fill in `NVM_API_KEY`, `NVM_PLAN_ID`, and `OPENAI_API_KEY`. Optionally set `NVM_PAYMENT_PROVIDER` (defaults to `stripe`).
+Fill in `NVM_API_KEY`, `NVM_PLAN_ID`, and `OPENAI_API_KEY`. The buyer learns the payment provider from the protocol error — no need to hard-code it.
 
 ### 4. Run
 
@@ -122,44 +132,57 @@ Two requirements for the tool function:
 - Decorator order is `@tool` *outside* `@requires_payment` *inside*.
 - The function signature **must** include `config: RunnableConfig` — that is how the decorator reads the payment token at call time.
 
-### Buyer: acquire a token and invoke (`src/buyer.py`)
+### Buyer: discover, pay, retry (`src/buyer.py`)
 
 ```python
 from payments_py import Payments, PaymentOptions
+from payments_py.x402.langchain import PaymentRequiredError
 from payments_py.x402.types import DelegationConfig, X402TokenOptions
 from .agent import LAST_SETTLEMENT, create_agent
 
 payments = Payments.get_instance(
     PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
 )
+agent = create_agent()
 
-# Pick a payment method that matches the plan's provider (default: stripe).
+# 1. Probe — invoke without a payment_token to provoke the protocol error.
+try:
+    agent.invoke({"messages": [("human", "...")]}, config={"configurable": {}})
+except PaymentRequiredError as err:
+    accept = err.payment_required.accepts[0]
+    # accept.scheme   → "nvm:card-delegation"
+    # accept.network  → "stripe"
+    # accept.plan_id  → "<plan id>"
+
+# 2. Pick an enrolled payment method whose provider matches accept.network.
 methods = payments.delegation.list_payment_methods()
-pm = next(m for m in methods if m.provider == "stripe")
+pm = next(m for m in methods if m.provider == accept.network)
 
-# For card-delegation plans the SDK needs delegation_config so the API can
-# auto-create the Stripe delegation that backs the payment signature.
+# 3. Acquire a token against the discovered plan.
 token = payments.x402.get_x402_access_token(
-    NVM_PLAN_ID,
+    accept.plan_id,
     token_options=X402TokenOptions(
-        scheme="nvm:card-delegation",
+        scheme=accept.scheme,
         delegation_config=DelegationConfig(
             provider_payment_method_id=pm.id,
-            spending_limit_cents=10000,  # $100 cap per delegation
-            duration_secs=604800,        # 1 week TTL
+            spending_limit_cents=10000,
+            duration_secs=604800,
             currency="usd",
         ),
     ),
 )["accessToken"]
 
-agent = create_agent()
+# 4. Retry with the token.
 result = agent.invoke(
-    {"messages": [("human", "What's the market insight on electric vehicles?")]},
+    {"messages": [("human", "...")]},
     config={"configurable": {"payment_token": token}},
 )
-
 settlement = LAST_SETTLEMENT["value"]
 ```
+
+### Why does the agent raise instead of swallowing the error?
+
+By default LangGraph's `ToolNode` catches tool exceptions and surfaces them to the LLM as `ToolMessage` content (`handle_tool_errors=True`). That stringifies the exception and **loses** the `X402PaymentRequired` payload. `src/agent.py` therefore builds the agent with `ToolNode([get_market_insight], handle_tool_errors=False)` so `PaymentRequiredError` propagates all the way up to `agent.invoke()`'s caller with its payload intact.
 
 ### Why `LAST_SETTLEMENT` and not `configurable["payment_settlement"]`?
 
