@@ -136,9 +136,9 @@ Two requirements for the tool function:
 
 ```python
 from payments_py import Payments, PaymentOptions
-from payments_py.x402.langchain import PaymentRequiredError
+from payments_py.x402.langchain import PaymentRequiredError, last_settlement
 from payments_py.x402.types import DelegationConfig, X402TokenOptions
-from .agent import LAST_SETTLEMENT, create_agent
+from .agent import create_agent
 
 payments = Payments.get_instance(
     PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
@@ -155,8 +155,9 @@ except PaymentRequiredError as err:
     # accept.plan_id  → "<plan id>"
 
 # 2. Pick an enrolled payment method whose provider matches accept.network.
-methods = payments.delegation.list_payment_methods()
-pm = next(m for m in methods if m.provider == accept.network)
+#    Extracted into pick_payment_method() in the actual source.
+pm = next(m for m in payments.delegation.list_payment_methods()
+          if m.provider == accept.network)
 
 # 3. Acquire a token against the discovered plan.
 token = payments.x402.get_x402_access_token(
@@ -165,28 +166,30 @@ token = payments.x402.get_x402_access_token(
         scheme=accept.scheme,
         delegation_config=DelegationConfig(
             provider_payment_method_id=pm.id,
-            spending_limit_cents=10000,
-            duration_secs=604800,
+            spending_limit_cents=10000,  # $100 cap per delegation
+            duration_secs=3600,          # 1 hour TTL
             currency="usd",
         ),
     ),
 )["accessToken"]
 
-# 4. Retry with the token.
+# 4. Retry with the token and read the settlement.
 result = agent.invoke(
     {"messages": [("human", "...")]},
     config={"configurable": {"payment_token": token}},
 )
-settlement = LAST_SETTLEMENT["value"]
+settlement = last_settlement()
 ```
 
 ### Why does the agent raise instead of swallowing the error?
 
-By default LangGraph's `ToolNode` catches tool exceptions and surfaces them to the LLM as `ToolMessage` content (`handle_tool_errors=True`). That stringifies the exception and **loses** the `X402PaymentRequired` payload. `src/agent.py` therefore builds the agent with `ToolNode([get_market_insight], handle_tool_errors=False)` so `PaymentRequiredError` propagates all the way up to `agent.invoke()`'s caller with its payload intact.
+By default LangGraph's `ToolNode` catches tool exceptions and surfaces them to the LLM as `ToolMessage` content (`handle_tool_errors=True`). That stringifies the exception and **loses** the `X402PaymentRequired` payload. The SDK ships `create_paid_react_agent` (from `payments_py.x402.langchain`) — a thin wrapper over `langgraph.prebuilt.create_react_agent` that constructs the underlying `ToolNode` with `handle_tool_errors=False` so `PaymentRequiredError` propagates all the way up to `agent.invoke()`'s caller with its payload intact.
 
-### Why `LAST_SETTLEMENT` and not `configurable["payment_settlement"]`?
+### Why `last_settlement()` and not `configurable["payment_settlement"]`?
 
-The decorator writes the settlement receipt to `config["configurable"]["payment_settlement"]`. **LangGraph copies `configurable` into a new dict per node**, so the receipt is set on the *node's copy* of `configurable`, not on the dict the buyer passed in. The seller-side `agent.py` therefore wraps the protected tool with a tiny `_capture_settlement` decorator (placed **outside** `@requires_payment` so it runs after settle) that reads the receipt off the inner `configurable` and stashes it in module-level `LAST_SETTLEMENT` — a place the buyer's outer scope can see.
+The decorator writes the settlement receipt to `config["configurable"]["payment_settlement"]`. **LangGraph copies `configurable` into a new dict per node**, so the receipt is set on the *node's copy* of `configurable`, not on the dict the buyer passed in. ContextVars don't help either — LangGraph runs tools in worker contexts that don't propagate `set()` calls back. `payments_py.x402.langchain.last_settlement()` reads from a module-level slot the decorator updates on every settle, so the buyer can read the receipt from the outer scope.
+
+The slot is process-global — in multi-tenant servers (concurrent settlements), it reflects whichever invocation settled most recently. For multi-tenant scenarios, surface settlement via a callback or observability layer instead.
 
 ### Why does the receipt say `credits_redeemed: 5` when the decorator says `credits=1`?
 
