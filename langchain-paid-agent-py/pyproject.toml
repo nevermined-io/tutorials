@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langchain-paid-agent-py"
-version = "1.0.0"
+version = "1.1.0"
 description = "Minimal LangChain agent with a Nevermined-protected tool"
 authors = ["Nevermined <tech@nevermined.io>"]
 license = "MIT"
@@ -13,7 +13,7 @@ python-dotenv = "^1.0.0"
 langchain-core = "^0.3.0"
 langchain-openai = "^0.3.0"
 langgraph = "^0.6.0"
-payments-py = {version = "^1.7.0", extras = ["langchain"]}
+payments-py = {version = "^1.8.0", extras = ["langchain", "langsmith"]}
 
 [tool.poetry.scripts]
 buyer = "src.buyer:main"
