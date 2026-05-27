@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "langchain-langsmith-deployment-py"
+version = "0.1.0"
+description = "Nevermined x402 + LangSmith Deployment tutorial. Sprint 3 of the LangChain integration epic (nvm-monorepo#1703, tracked at nvm-monorepo#1707)."
+authors = ["Nevermined <tech@nevermined.io>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+python-dotenv = "^1.0.0"
+langgraph = ">=0.7"
+httpx = "^0.28"
+payments-py = {version = "^1.9.0", extras = ["langsmith"]}
+
+[tool.poetry.group.dev.dependencies]
+langgraph-cli = {extras = ["inmem"], version = "*"}
+langgraph-api = "^0.8"
+
+[tool.poetry.scripts]
+buyer = "src.buyer:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
