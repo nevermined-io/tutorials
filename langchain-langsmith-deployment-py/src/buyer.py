@@ -15,7 +15,6 @@ Run with: `poetry run buyer`
 
 import asyncio
 import base64
-import json
 import os
 
 import httpx
@@ -24,6 +23,7 @@ from payments_py import PaymentOptions, Payments
 from payments_py.x402.resolve_scheme import resolve_network
 from payments_py.x402.types import (
     DelegationConfig,
+    SettleResponse,
     X402PaymentRequired,
     X402TokenOptions,
 )
@@ -135,12 +135,18 @@ async def main() -> None:
 
         settlement_b64 = second.headers.get("payment-response")
         if settlement_b64:
-            settlement = json.loads(base64.b64decode(settlement_b64))
+            # Parse via the typed SDK model - SettleResponse uses camelCase
+            # aliases on the wire (creditsRedeemed, remainingBalance) and
+            # snake_case attribute access, so a dict-based json.loads() would
+            # miss the renamed fields and print None.
+            settlement = SettleResponse.model_validate_json(
+                base64.b64decode(settlement_b64)
+            )
             print("Settlement receipt:")
-            print(f"      transaction:       {settlement.get('transaction')}")
-            print(f"      payer:             {settlement.get('payer')}")
-            print(f"      credits_redeemed:  {settlement.get('credits_redeemed')}")
-            print(f"      remaining_balance: {settlement.get('remaining_balance')}")
+            print(f"      transaction:       {settlement.transaction}")
+            print(f"      payer:             {settlement.payer}")
+            print(f"      credits_redeemed:  {settlement.credits_redeemed}")
+            print(f"      remaining_balance: {settlement.remaining_balance}")
         else:
             print("      (no payment-response header - settle may have failed; check server logs)")
 
