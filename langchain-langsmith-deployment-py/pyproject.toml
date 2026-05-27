@@ -12,12 +12,7 @@ python = ">=3.11,<4.0"
 python-dotenv = "^1.0.0"
 langgraph = ">=0.7"
 httpx = "^0.28"
-# Local path dep while payments-py 1.9.0 is unreleased. Swap to
-#   payments-py = {version = "^1.9.0", extras = ["langsmith"]}
-# once it ships on PyPI. Path deps do NOT survive `langgraph up` Docker
-# builds - for hosted deployment, either wait for 1.9.0 or pin a git ref:
-#   payments-py = {git = "https://github.com/nevermined-io/payments-py.git", branch = "feat/langsmith-deployment-middleware", extras = ["langsmith"]}
-payments-py = {path = "../../payments-py", extras = ["langsmith"], develop = true}
+payments-py = {version = "^1.9.0", extras = ["langsmith"]}
 
 [tool.poetry.group.dev.dependencies]
 langgraph-cli = {extras = ["inmem"], version = "*"}
