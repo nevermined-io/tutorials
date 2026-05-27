@@ -132,7 +132,7 @@ app = build_payment_app(
 )
 ```
 
-For single-plan deployments you can also omit `routes` entirely and set `NVM_PLAN_ID` / `NVM_CREDITS_PER_INVOKE` in `.env` - the middleware falls back to those env vars and gates every request.
+The middleware reads only the explicit `routes` dict — there is no implicit env-var fallback. If you want env-driven config, plumb it through `RouteConfig` yourself (`plan_id=os.environ["NVM_PLAN_ID"]`).
 
 ## Observability with LangSmith (optional)
 
