@@ -26,11 +26,6 @@ Failed agent runs do not bill the buyer. Settlement failures after a successful 
 - **Docker** (for `langgraph up` / hosted deployment)
 - A **Nevermined account** with an enrolled payment method and a plan to gate the agent. Create at [https://nevermined.app](https://nevermined.app).
 
-> **Heads-up: dependency on payments-py 1.9.0 (unreleased).** This tutorial currently uses a local **path dep** on `~/code/payments-py`. To deploy via `langgraph up` (Docker build), either wait for `payments-py 1.9.0` to ship on PyPI, or swap to a git dep in `pyproject.toml`:
-> ```toml
-> payments-py = {git = "https://github.com/nevermined-io/payments-py.git", branch = "feat/langsmith-deployment-middleware", extras = ["langsmith"]}
-> ```
-
 ## Quick start
 
 ```bash
@@ -99,8 +94,6 @@ poetry run langgraph up
 ```
 
 `langgraph up` builds a Docker image of the project, brings up postgres, redis, and the API server, and exposes the deployment locally. Once the local container is healthy, push to LangSmith Deployment per the [LangChain docs](https://docs.langchain.com/langsmith/deployment).
-
-> **Path dep caveat.** `langgraph up` builds a Docker image; the path dep on `../../payments-py` is NOT visible inside the build context. Swap to the git dep (see "Heads-up" above) or wait for `payments-py 1.9.0` to ship before running `langgraph up`.
 
 ## Files
 
