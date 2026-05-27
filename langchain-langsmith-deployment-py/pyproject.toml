@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "langchain-langsmith-deployment-py"
+version = "0.1.0"
+description = "Nevermined x402 + LangSmith Deployment tutorial. Sprint 3 of the LangChain integration epic (nvm-monorepo#1703, tracked at nvm-monorepo#1707)."
+authors = ["Nevermined <tech@nevermined.io>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+python-dotenv = "^1.0.0"
+langgraph = "*"
+httpx = "^0.28"
+# Local path dep while payments-py 1.9.0 is unreleased. Swap to
+#   payments-py = {version = "^1.9.0", extras = ["langsmith"]}
+# once it ships on PyPI. Path deps do NOT survive `langgraph up` Docker
+# builds - for hosted deployment, either wait for 1.9.0 or pin a git ref:
+#   payments-py = {git = "https://github.com/nevermined-io/payments-py.git", branch = "feat/langsmith-deployment-middleware", extras = ["langsmith"]}
+payments-py = {path = "../../payments-py", extras = ["langsmith"], develop = true}
+
+[tool.poetry.group.dev.dependencies]
+langgraph-cli = {extras = ["inmem"], version = "*"}
+
+[tool.poetry.scripts]
+buyer = "src.buyer:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
