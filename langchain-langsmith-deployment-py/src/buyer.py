@@ -36,6 +36,22 @@ ASSISTANT_ID = os.environ.get("ASSISTANT_ID", "echo")
 INPUT_VALUE = os.environ.get("INPUT", "hello from the buyer")
 
 
+def derive_provider_from_plan(plan: dict) -> str:
+    """Pick the payment-method provider key for a plan.
+
+    Fiat plans carry fiatPaymentProvider (e.g. "stripe", "braintree", "visa")
+    in metadata.plan. Crypto plans don't - for those we fall back to the
+    last segment of the x402 scheme (e.g. nvm:erc4337 -> erc4337) which
+    matches how erc4337 payment methods enroll.
+    """
+    plan_meta = plan.get("metadata", {}).get("plan", {})
+    fiat = plan_meta.get("fiatPaymentProvider")
+    if fiat:
+        return fiat
+    scheme = plan_meta.get("x402Scheme", "")
+    return scheme.split(":")[-1] if ":" in scheme else scheme
+
+
 def pick_payment_method(payments: Payments, provider: str):
     """Return the first enrolled payment method whose provider matches.
 
@@ -93,8 +109,14 @@ async def main() -> None:
         )
 
         # 3. Pick an enrolled payment method.
-        print(f"[3/5] Picking enrolled payment method matching {accept.network!r}...")
-        pm = pick_payment_method(payments, accept.network)
+        # The envelope's network is the blockchain network ("eip155:84532"),
+        # not the payment-method provider. Fetch the plan metadata to learn
+        # whether this is a fiat plan (stripe/braintree/visa) or a crypto
+        # plan (erc4337) and match against that.
+        plan = payments.plans.get_plan(accept.plan_id)
+        provider = derive_provider_from_plan(plan)
+        print(f"[3/5] Picking enrolled payment method matching {provider!r}...")
+        pm = pick_payment_method(payments, provider)
         if pm is None:
             return
         print(f"      {pm.brand} *{pm.last4}\n")
