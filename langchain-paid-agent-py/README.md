@@ -107,6 +107,54 @@ Expected output (truncated):
       payer: 0x...
 ```
 
+## Observability with LangSmith (optional)
+
+The tutorial works as-is without any observability, but every paid tool call can also surface as structured spans in [LangSmith](https://smith.langchain.com) — no code changes required.
+
+### 1. Install with the LangSmith extra
+
+The pyproject already pulls in `payments-py[langchain,langsmith]`, so a fresh `poetry install` is all that's needed. The `[langsmith]` extra adds the `langsmith` Python package and activates the span-emission bridge inside `@requires_payment`.
+
+### 2. Enable tracing
+
+In your `.env`, uncomment the LangSmith block (see [`.env.example`](./.env.example)):
+
+```bash
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=lsv2_pt_your-key
+LANGSMITH_PROJECT=nvm-langchain-sprint-1
+# Only needed if your LangSmith account is NOT in GCP US:
+# LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com
+```
+
+Get an API key at https://smith.langchain.com → Settings → API keys. Pick the matching `LANGSMITH_ENDPOINT` if your account isn't on GCP US — without it, the SDK posts to the wrong region and you'll see `403 Forbidden` on `/runs/multipart` (the payment flow still succeeds; only the trace upload fails).
+
+### 3. Re-run
+
+```bash
+poetry run buyer
+```
+
+### 4. What you should see
+
+Open the trace in the LangSmith UI. Under the tool span you'll find two dedicated Nevermined child spans:
+
+```text
+LangGraph
+└── tools
+    └── get_market_insight
+        ├── nvm:verify      0.28s   ← around payments.facilitator.verify_permissions
+        └── nvm:settlement  1.88s   ← around payments.facilitator.settle_permissions
+```
+
+Each carries `nvm.*` metadata: `nvm.plan_ids`, `nvm.scheme`, `nvm.payer`, `nvm.payment_token` (abbreviated), `nvm.credits_redeemed`, `nvm.tx_hash`, `nvm.balance.after`, `nvm.network`, `nvm.verify.duration_ms`, `nvm.settle.duration_ms`. The same metadata is also attached to the parent tool span so cmd-F finds it from either level.
+
+The **failed discovery probe** (the first invocation without a token) also produces an `nvm:verify` span — marked failed by the raised `PaymentRequiredError`, but carrying the static `nvm.plan_ids` / `nvm.scheme` / `nvm.network`. So in the LangSmith UI it's still filterable as "verify failure for plan X", not an opaque LangChain crash.
+
+### Privacy note
+
+The full x402 access token the buyer passes through `config["configurable"]["payment_token"]` is normally captured by LangChain into the parent tool span's metadata. `@requires_payment` proactively strips it before opening any `nvm:*` span, so the full credential never reaches a Nevermined-emitted attribute. Only an abbreviated `nvm.payment_token` (`<first 16>…<last 4>`) remains, for correlation purposes. For blanket coverage across other channels (custom callbacks, tool args, etc.), set `LANGSMITH_HIDE_INPUTS=true`.
+
 ## Code walkthrough
 
 ### Seller: protect the tool (`src/agent.py`)
