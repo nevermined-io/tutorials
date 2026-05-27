@@ -39,7 +39,7 @@ poetry install
 
 # 2. Configure
 cp .env.example .env
-$EDITOR .env   # fill in NVM_API_KEY, NVM_PLAN_ID, NVM_AGENT_ID
+$EDITOR .env   # fill in NVM_API_KEY, NVM_PLAN_ID
 
 # 3. Start the gated agent locally
 poetry run langgraph dev --no-browser --port 2024
@@ -123,16 +123,16 @@ app = build_payment_app(
     payments=payments,
     routes={
         "POST /threads/{thread_id}/runs/wait": RouteConfig(
-            plan_id="plan-cheap", credits=1, agent_id="agent-...",
+            plan_id="plan-cheap", credits=1,
         ),
         "POST /threads/{thread_id}/runs/stream": RouteConfig(
-            plan_id="plan-premium", credits=5, agent_id="agent-...",
+            plan_id="plan-premium", credits=5,
         ),
     },
 )
 ```
 
-For single-plan deployments you can also omit `routes` entirely and set `NVM_PLAN_ID` / `NVM_CREDITS_PER_INVOKE` / `NVM_AGENT_ID` in `.env` - the middleware falls back to those env vars and gates every request.
+For single-plan deployments you can also omit `routes` entirely and set `NVM_PLAN_ID` / `NVM_CREDITS_PER_INVOKE` in `.env` - the middleware falls back to those env vars and gates every request.
 
 ## Observability with LangSmith (optional)
 

@@ -25,7 +25,6 @@ NVM_API_KEY = os.environ.get("NVM_API_KEY")
 NVM_ENVIRONMENT = os.environ.get("NVM_ENVIRONMENT", "sandbox")
 NVM_PLAN_ID = os.environ.get("NVM_PLAN_ID")
 NVM_CREDITS_PER_INVOKE = int(os.environ.get("NVM_CREDITS_PER_INVOKE", "1"))
-NVM_AGENT_ID = os.environ.get("NVM_AGENT_ID")
 
 if not NVM_API_KEY or not NVM_PLAN_ID:
     raise RuntimeError(
@@ -42,7 +41,6 @@ app = build_payment_app(
         "POST /threads/{thread_id}/runs/wait": RouteConfig(
             plan_id=NVM_PLAN_ID,
             credits=NVM_CREDITS_PER_INVOKE,
-            agent_id=NVM_AGENT_ID,
         ),
     },
 )
