@@ -50,10 +50,6 @@ export function getNvmOrgId(): string {
   return required("NVM_ORG_ID");
 }
 
-export function getNvmPlanId(): string {
-  return required("NVM_PLAN_ID");
-}
-
 export function getLanggraphApiUrl(): string {
   return required("LANGGRAPH_API_URL").replace(/\/$/, "");
 }

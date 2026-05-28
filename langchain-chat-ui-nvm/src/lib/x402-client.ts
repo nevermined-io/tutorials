@@ -12,11 +12,27 @@ export const X402_STATE_KEY = "nvm:x402:state";
 export const POSTMESSAGE_TYPE_DELEGATION_CREATED = "nvm:x402:delegation-created";
 
 export interface X402Init {
-  planId: string;
-  scheme: string;
-  network: string;
   frontendUrl: string;
   hasToken: boolean;
+}
+
+/**
+ * Decoded `payment-required` envelope returned by `/api/x402/probe`.
+ * Wire shape matches `X402PaymentRequired` in `@nevermined-io/payments`.
+ */
+export interface X402Envelope {
+  x402Version: number;
+  accepts: X402PaymentAccepted[];
+  error?: string;
+  resource?: { url: string; description?: string; mimeType?: string };
+  extensions?: Record<string, unknown>;
+}
+
+export interface X402PaymentAccepted {
+  scheme: "nvm:erc4337" | "nvm:card-delegation";
+  network: string;
+  planId: string;
+  extra?: { version?: string; agentId?: string; httpVerb?: string };
 }
 
 export interface DelegationCreatedMessage {

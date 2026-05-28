@@ -25,6 +25,7 @@ import {
   buildEmbedUrl,
   isDelegationCreatedMessage,
   randomState,
+  type X402Envelope,
   type X402Init,
 } from "@/lib/x402-client";
 
@@ -80,6 +81,19 @@ export function useNvmPayment(): UseNvmPayment {
       setFlowState("running");
       setError(null);
       try {
+        // 1. Discover what the agent will charge — never assume scheme
+        //    or network from env. The 402 envelope is the only source
+        //    of truth (Stripe vs erc4337, plan id, network identifier).
+        const probeRes = await fetch("/api/x402/probe");
+        if (!probeRes.ok) {
+          throw new Error(`Failed to probe agent: HTTP ${probeRes.status} — ${await probeRes.text()}`);
+        }
+        const envelope = (await probeRes.json()) as X402Envelope;
+        const accept = envelope.accepts?.[0];
+        if (!accept) {
+          throw new Error("Agent envelope has no `accepts` entry.");
+        }
+
         const returnUrl = `${window.location.origin}/x402-callback`;
 
         const sessionRes = await fetch("/api/x402/session", {
@@ -113,11 +127,17 @@ export function useNvmPayment(): UseNvmPayment {
 
         const { paymentMethodId: _pm, delegationId } = await waitForCallback(popup);
 
+        // 2. Mint the access token using the scheme/network/planId from
+        //    the agent's envelope, not server-side guesses. The agent
+        //    is the source of truth for what it will accept.
         const tokenRes = await fetch("/api/x402/token", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            planId: init.planId,
+            planId: accept.planId,
+            scheme: accept.scheme,
+            network: accept.network,
+            agentId: accept.extra?.agentId,
             delegationId,
           }),
         });

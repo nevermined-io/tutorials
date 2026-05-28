@@ -6,34 +6,30 @@
  * The delegation was just created by the user in the white-label popup;
  * its UUID arrived via `postMessage` on the chat surface.
  *
- * The token is set on a **httpOnly** cookie. The browser never sees the
- * raw token — the catch-all proxy reads the cookie and forwards it as a
- * `payment-signature` header on outgoing LangGraph requests. This means
- * the token can't be exfiltrated by XSS in the chat UI's component tree.
+ * `planId`, `scheme`, and `network` all come from the **agent's 402
+ * envelope** (fetched server-side by `/api/x402/probe`), never from
+ * server-side env guesswork. The crypto vs card-delegation scheme
+ * mismatch is the kind of footgun the envelope is for — trust it.
  *
- * NVM_API_KEY stays server-side. The client passes only `planId` +
- * `delegationId`; both are echoed from `/api/x402/init` and the popup
- * callback, neither is a privileged secret.
+ * The minted token is set on a **httpOnly** cookie. The browser never
+ * sees the raw token — the catch-all proxy reads the cookie and forwards
+ * it as a `payment-signature` header on outgoing LangGraph requests.
+ * NVM_API_KEY stays server-side.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  Payments,
-  getDefaultNetwork,
-  type X402SchemeType,
-} from "@nevermined-io/payments";
+import { Payments, type X402SchemeType } from "@nevermined-io/payments";
 
-import {
-  getNvmApiKey,
-  getNvmEnvironment,
-} from "@/lib/env-server";
+import { getNvmApiKey, getNvmEnvironment } from "@/lib/env-server";
 import { NVM_X402_TOKEN_COOKIE } from "@/lib/x402-server";
 
 export const runtime = "nodejs";
 
 const RequestBody = z.object({
   planId: z.string().min(1),
+  scheme: z.enum(["nvm:erc4337", "nvm:card-delegation"]),
+  network: z.string().min(1),
   delegationId: z.string().min(1),
   agentId: z.string().min(1).optional(),
 });
@@ -52,13 +48,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const environment = getNvmEnvironment();
-  const scheme: X402SchemeType = "nvm:erc4337";
-  const network = getDefaultNetwork(scheme, environment);
-
   const payments = Payments.getInstance({
     nvmApiKey: getNvmApiKey(),
-    environment,
+    environment: getNvmEnvironment(),
   });
 
   let accessToken: string;
@@ -67,8 +59,8 @@ export async function POST(request: NextRequest) {
       body.planId,
       body.agentId,
       {
-        scheme,
-        network,
+        scheme: body.scheme as X402SchemeType,
+        network: body.network,
         delegationConfig: { delegationId: body.delegationId },
       },
     );
