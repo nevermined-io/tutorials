@@ -73,7 +73,15 @@ async def main() -> None:
         print(f"      thread_id = {thread_id}\n")
 
         run_path = f"/threads/{thread_id}/runs/wait"
-        run_body = {"assistant_id": ASSISTANT_ID, "input": {"input": INPUT_VALUE}}
+        # Standard LangGraph chat wire shape — one HumanMessage in the
+        # `messages` list. The echo graph appends an AIMessage with the
+        # same text. Matches what the chat UI submits.
+        run_body = {
+            "assistant_id": ASSISTANT_ID,
+            "input": {
+                "messages": [{"type": "human", "content": INPUT_VALUE}],
+            },
+        }
 
         # 2. First attempt - no payment signature, expect 402 with envelope.
         print("[2/5] Submitting run without payment-signature -> expecting 402...")
@@ -131,7 +139,19 @@ async def main() -> None:
             headers={"payment-signature": access_token},
         )
         second.raise_for_status()
-        print(f"      Agent output: {second.json()}\n")
+        state = second.json()
+        ai_message = next(
+            (
+                m
+                for m in reversed(state.get("messages", []) or [])
+                if m.get("type") == "ai"
+            ),
+            None,
+        )
+        if ai_message:
+            print(f"      Agent reply: {ai_message['content']}\n")
+        else:
+            print(f"      Final state: {state}\n")
 
         settlement_b64 = second.headers.get("payment-response")
         if settlement_b64:

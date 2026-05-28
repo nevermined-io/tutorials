@@ -82,7 +82,7 @@ You can verify the middleware is wired correctly without a real Nevermined accou
 # Should return 402 with payment-required header
 curl -i -X POST http://127.0.0.1:2024/threads/$(curl -s -X POST http://127.0.0.1:2024/threads -H 'content-type: application/json' -d '{}' | jq -r .thread_id)/runs/wait \
   -H 'content-type: application/json' \
-  -d '{"assistant_id":"echo","input":{"input":"hi"}}'
+  -d '{"assistant_id":"echo","input":{"messages":[{"type":"human","content":"hi"}]}}'
 ```
 
 The response should include `HTTP/1.1 402 Payment Required` and a `payment-required: <base64>` header.
