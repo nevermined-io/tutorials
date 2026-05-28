@@ -31,7 +31,9 @@ const RequestBody = z.object({
   scheme: z.enum(["nvm:erc4337", "nvm:card-delegation"]),
   network: z.string().min(1),
   delegationId: z.string().min(1),
-  agentId: z.string().min(1).optional(),
+  // Envelope's `extra.agentId` is often null rather than omitted, so
+  // accept both shapes and pass through only when truthy.
+  agentId: z.string().min(1).nullish(),
 });
 
 export async function POST(request: NextRequest) {
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
   try {
     const result = await payments.x402.getX402AccessToken(
       body.planId,
-      body.agentId,
+      body.agentId ?? undefined,
       {
         scheme: body.scheme as X402SchemeType,
         network: body.network,

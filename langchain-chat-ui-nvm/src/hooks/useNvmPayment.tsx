@@ -137,7 +137,12 @@ export function useNvmPayment(): UseNvmPayment {
             planId: accept.planId,
             scheme: accept.scheme,
             network: accept.network,
-            agentId: accept.extra?.agentId,
+            // Only include agentId when the envelope actually carries
+            // one — the server's Zod schema accepts null too, but
+            // omitting the key is cleaner.
+            ...(accept.extra?.agentId
+              ? { agentId: accept.extra.agentId }
+              : {}),
             delegationId,
           }),
         });
