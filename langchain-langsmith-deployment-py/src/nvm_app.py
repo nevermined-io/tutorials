@@ -35,12 +35,22 @@ payments = Payments.get_instance(
     PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
 )
 
+# Gate both the sync `/runs/wait` (used by the CLI buyer in this tutorial)
+# AND `/runs/stream` (used by the browser chat UI in
+# ../langchain-chat-ui-nvm/ — the LangGraph JS SDK's `useStream` hook
+# always streams). The middleware buffers SSE responses to attach the
+# settlement header at the end, so streaming becomes "blocking-then-bulk"
+# — fine for short replies, document the trade-off if you ship long
+# streamed outputs.
+ROUTE_CONFIG = RouteConfig(
+    plan_id=NVM_PLAN_ID,
+    credits=NVM_CREDITS_PER_INVOKE,
+)
+
 app = build_payment_app(
     payments=payments,
     routes={
-        "POST /threads/{thread_id}/runs/wait": RouteConfig(
-            plan_id=NVM_PLAN_ID,
-            credits=NVM_CREDITS_PER_INVOKE,
-        ),
+        "POST /threads/{thread_id}/runs/wait": ROUTE_CONFIG,
+        "POST /threads/{thread_id}/runs/stream": ROUTE_CONFIG,
     },
 )
