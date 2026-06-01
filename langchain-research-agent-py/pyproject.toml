@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "langchain-research-agent-py"
+version = "0.1.0"
+description = "Freemium LangGraph market-research agent gated by Nevermined x402 (in-tool @requires_payment). Companion to ../langchain-chat-ui-nvm."
+authors = ["Nevermined <tech@nevermined.io>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+python-dotenv = "^1.0.0"
+langgraph = ">=0.7"
+langchain-openai = "^0.3"
+httpx = "^0.28"
+# `[langsmith]` extra brings in fastapi/starlette — required transitively by
+# `payments_py.x402.langchain.requires_payment` (which imports the langsmith
+# spans module; the SDK package __init__ eagerly loads the middleware).
+payments-py = {version = "^1.9.0", extras = ["langsmith"]}
+
+[tool.poetry.group.dev.dependencies]
+langgraph-cli = {extras = ["inmem"], version = "*"}
+langgraph-api = "^0.8"
+
+[tool.poetry.scripts]
+buyer = "src.buyer:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

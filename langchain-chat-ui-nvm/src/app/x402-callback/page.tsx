@@ -3,7 +3,7 @@
  *
  * The chat UI opens
  *
- *   `{NVM_FRONTEND_URL}/embed/cards/setup?sessionToken=...&returnUrl=.../x402-callback&state=...`
+ *   `{NVM_EMBED_URL}/cards/setup?sessionToken=...&returnUrl=.../x402-callback&state=...`
  *
  * in a popup. The user enrols a card, picks a budget, and on success
  * Nevermined redirects the popup back here with the resulting IDs as

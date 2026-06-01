@@ -1,13 +1,16 @@
 /**
  * Drives the Nevermined x402 Pay flow from the chat UI:
  *
- *   1. On mount, fetch `/api/x402/init` to learn the planId + frontend host
- *      + whether a server-side token cookie is already present.
+ *   1. On mount, fetch `/api/x402/init` for the embed-app origin, the
+ *      plan metadata (scheme/network/planId resolved server-side from
+ *      `NVM_PLAN_ID`), and whether a token cookie is already set.
  *   2. `triggerPay()` opens the Nevermined white-label popup at
- *      `{frontendUrl}/embed/cards/setup` and resolves once `window.opener`
- *      receives the `delegation-created` postMessage from the callback
- *      page. The hook then asks the server to mint an x402 access token
- *      and store it in a httpOnly cookie.
+ *      `{embedUrl}/cards/setup` (standalone embed app — the webapp's
+ *      old `/embed/*` routes are gone, nvm-monorepo#1787 / #1816) and
+ *      resolves once `window.opener` receives the `delegation-created`
+ *      postMessage from the callback page. The hook then asks the
+ *      server to mint an x402 access token and store it in a httpOnly
+ *      cookie.
  *   3. `reset()` clears the cookie so the user can re-authorize a new
  *      delegation without restarting the server.
  *
@@ -25,7 +28,6 @@ import {
   buildEmbedUrl,
   isDelegationCreatedMessage,
   randomState,
-  type X402Envelope,
   type X402Init,
 } from "@/lib/x402-client";
 
@@ -81,17 +83,15 @@ export function useNvmPayment(): UseNvmPayment {
       setFlowState("running");
       setError(null);
       try {
-        // 1. Discover what the agent will charge — never assume scheme
-        //    or network from env. The 402 envelope is the only source
-        //    of truth (Stripe vs erc4337, plan id, network identifier).
-        const probeRes = await fetch("/api/x402/probe");
-        if (!probeRes.ok) {
-          throw new Error(`Failed to probe agent: HTTP ${probeRes.status} — ${await probeRes.text()}`);
-        }
-        const envelope = (await probeRes.json()) as X402Envelope;
-        const accept = envelope.accepts?.[0];
+        // 1. Use the plan metadata served by `/api/x402/init`. The agent
+        //    no longer emits a 402 envelope (gating happens inside the
+        //    tool), so the chat UI's server-side env (NVM_PLAN_ID) is the
+        //    source of truth — scheme + network are resolved from plan
+        //    metadata via the SDK so they stay correct for crypto and
+        //    fiat plans alike.
+        const accept = init.accepts?.[0];
         if (!accept) {
-          throw new Error("Agent envelope has no `accepts` entry.");
+          throw new Error("`/api/x402/init` returned no `accepts` entry.");
         }
 
         const returnUrl = `${window.location.origin}/x402-callback`;
@@ -113,7 +113,7 @@ export function useNvmPayment(): UseNvmPayment {
 
         const popup = window.open(
           buildEmbedUrl({
-            frontendUrl: init.frontendUrl,
+            embedUrl: init.embedUrl,
             sessionToken,
             returnUrl,
             state,

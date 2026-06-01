@@ -4,7 +4,8 @@
  * Mints a Nevermined widget session token bound to the server-side
  * `NVM_API_KEY` user, scoped to `NVM_ORG_ID`. The browser uses the returned
  * `sessionToken` to open the white-label card-delegation flow at
- * `{frontend}/embed/cards/setup?sessionToken=...&returnUrl=...&state=...`.
+ * `{embedUrl}/cards/setup?sessionToken=...&returnUrl=...&state=...` on
+ * the standalone embed app (`https://embed.<tier-host>`).
  *
  * Auth model: the NVM_API_KEY never leaves this server. Callers from the
  * browser see only the short-lived `sessionToken`.
