@@ -11,21 +11,21 @@ export const X402_STATE_KEY = "nvm:x402:state";
 
 export const POSTMESSAGE_TYPE_DELEGATION_CREATED = "nvm:x402:delegation-created";
 
-export interface X402Init {
-  frontendUrl: string;
-  hasToken: boolean;
-}
-
 /**
- * Decoded `payment-required` envelope returned by `/api/x402/probe`.
- * Wire shape matches `X402PaymentRequired` in `@nevermined-io/payments`.
+ * Bootstrap payload from `/api/x402/init`. The chat UI no longer probes
+ * the agent for a 402 envelope (gating moved into the tool), so plan
+ * metadata is resolved server-side from the operator-configured
+ * `NVM_PLAN_ID` and bundled into this single fetch.
+ *
+ * `embedUrl` is the standalone embed app's origin (e.g.
+ * `https://embed.nevermined.dev`). The popup navigates there with
+ * `/cards/setup` appended — the webapp's old `/embed/*` routes are
+ * gone (nvm-monorepo#1787 / #1816).
  */
-export interface X402Envelope {
-  x402Version: number;
+export interface X402Init {
+  embedUrl: string;
+  hasToken: boolean;
   accepts: X402PaymentAccepted[];
-  error?: string;
-  resource?: { url: string; description?: string; mimeType?: string };
-  extensions?: Record<string, unknown>;
 }
 
 export interface X402PaymentAccepted {
@@ -53,18 +53,20 @@ export function isDelegationCreatedMessage(
 }
 
 /**
- * Build the `/embed/cards/setup` URL the popup navigates to.
+ * Build the `/cards/setup` URL the popup navigates to on the standalone
+ * embed app. The whole app *is* the embed surface, so the path has no
+ * `/embed/` prefix — just `/cards/setup` on `https://embed.<tier-host>`.
  *
  * `provider` is intentionally omitted — for the MVP the embed page picks
  * the right provider from the plan; we don't need to hint.
  */
 export function buildEmbedUrl(args: {
-  frontendUrl: string;
+  embedUrl: string;
   sessionToken: string;
   returnUrl: string;
   state: string;
 }): string {
-  const url = new URL("/embed/cards/setup", args.frontendUrl);
+  const url = new URL("/cards/setup", args.embedUrl);
   url.searchParams.set("sessionToken", args.sessionToken);
   url.searchParams.set("returnUrl", args.returnUrl);
   url.searchParams.set("state", args.state);

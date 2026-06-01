@@ -435,11 +435,32 @@ export function Thread() {
               footer={
                 <div className="sticky bottom-0 flex flex-col items-center gap-8 bg-white">
                   {!chatStarted && (
-                    <div className="flex items-center gap-3">
-                      <LangGraphLogoSVG className="h-8 flex-shrink-0" />
-                      <h1 className="text-2xl font-semibold tracking-tight">
-                        Agent Chat
-                      </h1>
+                    <div className="flex flex-col items-center gap-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <LangGraphLogoSVG className="h-8 flex-shrink-0" />
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                          Market Research Agent
+                        </h1>
+                      </div>
+                      <div className="bg-muted/50 max-w-2xl rounded-xl border p-5 text-sm leading-relaxed text-gray-700">
+                        <p className="mb-3 font-medium text-gray-900">
+                          Hi — I&apos;m a market research agent on the
+                          Nevermined Payments network.
+                        </p>
+                        <p className="mb-2">
+                          Ask me what I can do and how I work — that&apos;s
+                          free. My one paid capability is{" "}
+                          <span className="font-mono text-xs">
+                            market_research(topic)
+                          </span>
+                          , which produces a concise analysis on any topic and
+                          charges credits via Nevermined x402.
+                        </p>
+                        <p>
+                          Click <span className="font-semibold">Authorize</span>{" "}
+                          at the top once before sending a research request.
+                        </p>
+                      </div>
                     </div>
                   )}
 
