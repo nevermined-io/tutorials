@@ -4,6 +4,8 @@
 
 A minimal MCP server demonstrating how to protect AI tools with Nevermined Payments. Exposes a `weather.today(city)` tool, a `weather://today` resource, and a `weather.ensureCity` prompt — all protected with credit-based access control.
 
+> **Requires the x402 v2 in-band MCP transport** (SDK PRs nevermined-io/payments#384 / nevermined-io/payments-py#228 — not yet released). The published `@nevermined-io/payments` / `payments-py` packages use the `Authorization`-header approach; the in-band `_meta["x402/payment"]` client examples below need the in-band-capable SDK version. The `Authorization: Bearer` header continues to work as a deprecated fallback.
+
 ## Documentation
 
 | Document | Description |
@@ -23,7 +25,7 @@ The **Model Context Protocol (MCP)** is a standardized communication layer for A
 
 While MCP defines *what* an agent can do, it doesn't specify *who* can access it or *how* to charge for it. **Nevermined Payments** adds:
 
-- **Authentication**: Validates user tokens via `Authorization` header
+- **Authentication**: Reads the payment in-band from the MCP request `_meta["x402/payment"]` (the `Authorization` header is still accepted as a deprecated fallback)
 - **Credit System**: Checks and deducts credits per request
 - **Automatic Setup**: Handles Express, sessions, OAuth endpoints
 
@@ -201,13 +203,15 @@ const { accessToken } = await payments.agents.getAgentAccessToken(
 
 ### Call Protected Tools
 
+Send the payment **in band** via the MCP request `_meta["x402/payment"]` field (x402 v2 MCP transport). The access token is a base64-encoded `PaymentPayload`; `decodeAccessToken` turns it back into the plain-JSON object the server reads from `_meta`:
+
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+import { decodeAccessToken } from "@nevermined-io/payments";
 
 const transport = new StreamableHTTPClientTransport(
-  new URL("http://localhost:3002/mcp"),
-  { requestInit: { headers: { Authorization: `Bearer ${accessToken}` } } }
+  new URL("http://localhost:3002/mcp")
 );
 
 const client = new Client({ name: "my-client" });
@@ -216,8 +220,14 @@ await client.connect(transport);
 const result = await client.callTool({
   name: "weather.today",
   arguments: { city: "London" },
+  // In-band payment (x402 v2 MCP transport): plain-JSON PaymentPayload, not base64.
+  _meta: { "x402/payment": decodeAccessToken(accessToken) },
 });
 ```
+
+When payment is required or settlement fails, the tool result comes back with `isError: true` and a `PaymentRequired` object in `structuredContent` (and JSON-stringified in `content[0].text`); on success the settlement receipt is returned in the response `_meta["x402/payment-response"]`.
+
+> **Deprecated fallback**: passing the token via `Authorization: Bearer ${accessToken}` on the transport (`{ requestInit: { headers: { ... } } }`) still works for one release, but the in-band `_meta` form above is the spec-aligned approach.
 
 ## Endpoints
 
@@ -236,6 +246,8 @@ const result = await client.callTool({
 |------|-------------|
 | `-32003` | Authorization required / Payment required / Insufficient credits |
 | `-32002` | Server error |
+
+> Under the in-band transport, **tool** calls signal payment-required/settlement-failure as a tool result with `isError: true` + a `PaymentRequired` object in `structuredContent` (not a JSON-RPC error). **Resources and prompts** — which have no tool-result error channel — still raise the `-32003` JSON-RPC error above.
 
 ## Environment Variables
 

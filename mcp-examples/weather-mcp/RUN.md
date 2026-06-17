@@ -148,17 +148,15 @@ console.log("Access Token:", accessToken);
 
 ### Calling a Tool
 
+Send the payment **in band** via the request `_meta["x402/payment"]` field (x402 v2 MCP transport). `decodeAccessToken` converts the access token into the plain-JSON `PaymentPayload` the server reads from `_meta`:
+
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+import { decodeAccessToken } from "@nevermined-io/payments";
 
 const transport = new StreamableHTTPClientTransport(
-  new URL("http://localhost:3000/mcp"),
-  {
-    requestInit: {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-  }
+  new URL("http://localhost:3000/mcp")
 );
 
 const client = new Client({ name: "weather-client" });
@@ -167,11 +165,15 @@ await client.connect(transport);
 const result = await client.callTool({
   name: "weather.today",
   arguments: { city: "London" },
+  // In-band payment (plain-JSON PaymentPayload, not base64).
+  _meta: { "x402/payment": decodeAccessToken(accessToken) },
 });
 
-console.log(result);
+console.log(result); // on success, result._meta["x402/payment-response"] holds the settlement receipt
 await client.close();
 ```
+
+**Deprecated fallback**: passing the token via the transport's `requestInit.headers.Authorization` (`Bearer <accessToken>`) still works for one release, but the in-band `_meta` form above is the spec-aligned approach.
 
 ## Testing with MCP Inspector
 
@@ -179,7 +181,7 @@ await client.close();
 npx @modelcontextprotocol/inspector connect http://localhost:3000/mcp
 ```
 
-**Note**: The inspector doesn't send `Authorization` headers, so paywall validation will fail. Use it only for testing the MCP protocol structure, not the full authentication flow.
+**Note**: The inspector can't attach the in-band `_meta["x402/payment"]` payload (nor an `Authorization` header), so paywall validation will fail. Use it only for testing the MCP protocol structure, not the full payment flow.
 
 ## Troubleshooting
 
@@ -201,21 +203,23 @@ Error: listen EADDRINUSE: address already in use :::3002
 
 ---
 
-### Authentication errors
+### Authentication / payment errors
 
-**Problem**: `-32003` Authorization required
+**Problem**: a **tool** call returns `isError: true` with a `PaymentRequired` object
 ```json
-{"jsonrpc":"2.0","error":{"code":-32003,"message":"Authorization required"}}
+{ "isError": true,
+  "structuredContent": { "x402Version": 2, "error": "payment required", "accepts": [ ... ] },
+  "content": [{ "type": "text", "text": "{\"x402Version\":2,...}" }] }
 ```
-**Solution**: Include `Authorization: Bearer <token>` header
+**Solution**: attach the payment in band via `_meta: { "x402/payment": decodeAccessToken(accessToken) }` and ensure the subscriber has a valid subscription with credits. (Under the in-band transport, tool payment-required/settlement-failure is signalled as this tool result, **not** a JSON-RPC error.)
 
 ---
 
-**Problem**: `-32003` Payment required
+**Problem**: a **resource/prompt** call rejects with `-32003`
 ```json
 {"jsonrpc":"2.0","error":{"code":-32003,"message":"Payment required"}}
 ```
-**Solution**: Ensure subscriber has valid subscription and credits
+**Solution**: Resources and prompts have no tool-result error channel, so they still surface the `-32003` JSON-RPC error — attach the in-band `_meta` payment and ensure valid subscription/credits.
 
 ---
 

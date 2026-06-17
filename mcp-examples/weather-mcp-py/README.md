@@ -6,6 +6,8 @@ A Model Context Protocol (MCP) server that provides weather information with Nev
 
 This is the Python equivalent of the TypeScript `weather-mcp` example.
 
+> **Requires the x402 v2 in-band MCP transport** (SDK PRs nevermined-io/payments#384 / nevermined-io/payments-py#228 — not yet released). The published `@nevermined-io/payments` / `payments-py` packages use the `Authorization`-header approach; the in-band `_meta["x402/payment"]` client example below needs the in-band-capable SDK version. The `Authorization: Bearer` header continues to work as a deprecated fallback.
+
 ## Features
 
 - **MCP Tools**: `weather.today` - Get current weather for any city
@@ -136,6 +138,41 @@ Static weather data for London (default city).
 Guides the LLM to call the weather.today tool with a city name.
 
 **Credits**: 1 per use
+
+## Client Usage
+
+Send the payment **in band** via the MCP request `_meta["x402/payment"]` field (x402 v2 MCP transport). The access token is a base64-encoded `PaymentPayload`; `decode_access_token` turns it back into the plain-JSON object the server reads from `_meta`:
+
+```python
+from datetime import timedelta
+
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+from payments_py import Payments, decode_access_token
+
+payments = Payments.get_instance({
+    "nvm_api_key": NVM_API_KEY,
+    "environment": "staging_sandbox",
+})
+
+access_token = payments.x402.get_x402_access_token(NVM_PLAN_ID, NVM_AGENT_ID)["accessToken"]
+
+async with streamablehttp_client("http://localhost:3002/mcp") as (read, write, _):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        result = await session.call_tool(
+            "weather.today",
+            {"city": "London"},
+            # In-band payment (plain-JSON PaymentPayload, not base64).
+            meta={"x402/payment": decode_access_token(access_token)},
+        )
+        # On success, the settlement receipt is in result.meta["x402/payment-response"].
+        print(result)
+```
+
+When payment is required or settlement fails, a **tool** result comes back with `isError=True` and a `PaymentRequired` object in `structuredContent` (and JSON-stringified in `content[0].text`). **Resources and prompts** have no tool-result error channel, so they still raise the `-32003` JSON-RPC error.
+
+> **Deprecated fallback**: passing the token via an `Authorization: Bearer <access_token>` header on the transport still works for one release, but the in-band `meta={"x402/payment": ...}` form above is the spec-aligned approach.
 
 ## Architecture
 
