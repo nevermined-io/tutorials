@@ -333,7 +333,7 @@ Make it informative but easy to understand, using natural language. Answer in En
 async function main() {
   const { info, stop } = await payments.mcp.start({
     port: PORT,
-    agentId: process.env.NVM_AGENT_ID!,
+    planId: process.env.NVM_PLAN_ID!,
     baseUrl: BASE_URL,
     serverName: "weather-mcp",
     version: "0.1.0",

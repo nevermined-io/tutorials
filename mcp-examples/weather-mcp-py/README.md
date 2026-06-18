@@ -50,7 +50,8 @@ Create a `.env` file with:
 # Nevermined Configuration
 NVM_API_KEY=your_nvm_api_key_here
 NVM_ENVIRONMENT=staging_sandbox
-NVM_AGENT_ID=your_agent_id_here
+NVM_PLAN_ID=your_plan_id_here
+# NVM_AGENT_ID=your_agent_id_here  # optional — informational only (plan-centric)
 
 # OpenAI Configuration (optional)
 OPENAI_API_KEY=your_openai_api_key_here
@@ -155,7 +156,8 @@ payments = Payments.get_instance({
     "environment": "staging_sandbox",
 })
 
-access_token = payments.x402.get_x402_access_token(NVM_PLAN_ID, NVM_AGENT_ID)["accessToken"]
+# agent_id is optional under the plan-centric model — the plan id is all you need
+access_token = payments.x402.get_x402_access_token(NVM_PLAN_ID)["accessToken"]
 
 async with streamablehttp_client("http://localhost:3002/mcp") as (read, write, _):
     async with ClientSession(read, write) as session:

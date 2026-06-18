@@ -48,14 +48,14 @@ from payments_py.mcp import PaymentsMCP
 
 NVM_API_KEY = os.getenv("NVM_API_KEY")
 NVM_ENVIRONMENT = os.getenv("NVM_ENVIRONMENT", "staging_sandbox")
-NVM_AGENT_ID = os.getenv("NVM_AGENT_ID")
+NVM_PLAN_ID = os.getenv("NVM_PLAN_ID")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.getenv("PORT", "3002"))
 
 if not NVM_API_KEY:
     raise ValueError("NVM_API_KEY environment variable is required")
-if not NVM_AGENT_ID:
-    raise ValueError("NVM_AGENT_ID environment variable is required")
+if not NVM_PLAN_ID:
+    raise ValueError("NVM_PLAN_ID environment variable is required")
 
 # Initialize Payments
 payments = Payments(
@@ -69,7 +69,7 @@ payments = Payments(
 mcp = PaymentsMCP(
     payments,
     name="weather-mcp-py",
-    agent_id=NVM_AGENT_ID,
+    plan_id=NVM_PLAN_ID,
     version="0.1.0",
     description="Weather MCP server with Nevermined Payments integration",
 )
@@ -268,7 +268,7 @@ async def main():
 Weather MCP Server with Nevermined Payments Integration (Python)
 
 Starting server on port {PORT}...
-Agent ID: {NVM_AGENT_ID}
+Plan ID: {NVM_PLAN_ID}
 Environment: {NVM_ENVIRONMENT}
 
 Registered handlers:

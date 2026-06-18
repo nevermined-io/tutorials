@@ -29,7 +29,8 @@ Create a `.env` file in the project root:
 ```bash
 # Required - Nevermined Configuration
 NVM_API_KEY=your_nevermined_api_key
-NVM_AGENT_ID=did:nv:your_agent_id
+NVM_PLAN_ID=your_nevermined_plan_id
+# NVM_AGENT_ID=did:nv:your_agent_id  # optional — informational only (plan-centric)
 NVM_ENVIRONMENT=sandbox
 
 # Required - OpenAI (for LLM forecasts)
@@ -125,7 +126,7 @@ To call the protected MCP server, you need a subscriber account with credits.
 ```bash
 export NVM_API_KEY=subscriber_api_key
 export NVM_PLAN_ID=plan_id_with_credits
-export NVM_AGENT_ID=did:nv:agent_id
+# export NVM_AGENT_ID=did:nv:agent_id  # optional — informational only (plan-centric)
 ```
 
 ### Getting an Access Token
@@ -138,9 +139,9 @@ const payments = Payments.getInstance({
   environment: "sandbox",
 });
 
+// agentId is optional under the plan-centric model — the plan id is all you need
 const { accessToken } = await payments.agents.getAgentAccessToken(
-  process.env.NVM_PLAN_ID!,
-  process.env.NVM_AGENT_ID!
+  process.env.NVM_PLAN_ID!
 );
 
 console.log("Access Token:", accessToken);
@@ -287,7 +288,7 @@ docker build -t weather-mcp .
 docker run -d \
   -p 3000:3000 \
   -e NVM_API_KEY=your_api_key \
-  -e NVM_AGENT_ID=your_agent_id \
+  -e NVM_PLAN_ID=your_plan_id \
   -e NVM_ENVIRONMENT=live \
   -e OPENAI_API_KEY=your_openai_key \
   -e BASE_URL=https://your-external-domain.com \

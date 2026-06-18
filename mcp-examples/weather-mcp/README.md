@@ -46,7 +46,7 @@ yarn install
 
 # Configure environment
 export NVM_API_KEY=...
-export NVM_AGENT_ID=...
+export NVM_PLAN_ID=...
 export NVM_ENVIRONMENT=sandbox
 export OPENAI_API_KEY=...
 
@@ -151,7 +151,7 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const { info, stop } = await payments.mcp.start({
   port: PORT,
   baseUrl: BASE_URL,  // External URL for OAuth metadata
-  agentId: process.env.NVM_AGENT_ID!,
+  planId: process.env.NVM_PLAN_ID!,  // required — the plan tool calls settle against
   serverName: "weather-mcp",
   version: "0.1.0",
 });
@@ -195,9 +195,9 @@ const payments = Payments.getInstance({
   environment: "sandbox",
 });
 
+// agentId is optional under the plan-centric model — the plan id is all you need
 const { accessToken } = await payments.agents.getAgentAccessToken(
-  process.env.NVM_PLAN_ID!,
-  process.env.NVM_AGENT_ID!
+  process.env.NVM_PLAN_ID!
 );
 ```
 
@@ -255,7 +255,8 @@ When payment is required or settlement fails, the tool result comes back with `i
 
 ```bash
 NVM_API_KEY=...            # Builder/agent owner API key
-NVM_AGENT_ID=...           # Agent ID registered in Nevermined
+NVM_PLAN_ID=...            # Plan tool calls settle against (required)
+# NVM_AGENT_ID=...         # Optional — informational only (plan-centric)
 NVM_ENVIRONMENT=sandbox    # sandbox, live
 PORT=3000                  # Optional, defaults to 3000
 OPENAI_API_KEY=...         # For LLM-enhanced forecasts
@@ -269,7 +270,7 @@ BASE_URL=...               # External URL (required for production/Docker)
 ```bash
 NVM_API_KEY=...            # Subscriber's API key
 NVM_PLAN_ID=...            # Subscription plan ID
-NVM_AGENT_ID=...           # Agent ID linked to plan
+# NVM_AGENT_ID=...         # Optional — informational only (plan-centric)
 ```
 
 ## Migration from Original MCP SDK
