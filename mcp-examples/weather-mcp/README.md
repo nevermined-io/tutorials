@@ -4,6 +4,8 @@
 
 A minimal MCP server demonstrating how to protect AI tools with Nevermined Payments. Exposes a `weather.today(city)` tool, a `weather://today` resource, and a `weather.ensureCity` prompt — all protected with credit-based access control.
 
+> Uses the **x402 v2 in-band MCP transport** with plan-centric config (`planId` required, `agentId` optional). Requires `@nevermined-io/payments` **≥ 1.9.0**. The `Authorization: Bearer` header authenticates the MCP session; a header-only payment (no `_meta`) still works as a deprecated fallback for one release.
+
 ## Documentation
 
 | Document | Description |
@@ -23,7 +25,7 @@ The **Model Context Protocol (MCP)** is a standardized communication layer for A
 
 While MCP defines *what* an agent can do, it doesn't specify *who* can access it or *how* to charge for it. **Nevermined Payments** adds:
 
-- **Authentication**: Validates user tokens via `Authorization` header
+- **Authentication**: The MCP session is OAuth-protected — the client authenticates with an `Authorization: Bearer <accessToken>` header — and the per-call payment is read in band from the MCP request `_meta["x402/payment"]` (a header-only payment, with no `_meta`, is still accepted as a deprecated fallback)
 - **Credit System**: Checks and deducts credits per request
 - **Automatic Setup**: Handles Express, sessions, OAuth endpoints
 
@@ -44,7 +46,7 @@ yarn install
 
 # Configure environment
 export NVM_API_KEY=...
-export NVM_AGENT_ID=...
+export NVM_PLAN_ID=...
 export NVM_ENVIRONMENT=sandbox
 export OPENAI_API_KEY=...
 
@@ -149,7 +151,7 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const { info, stop } = await payments.mcp.start({
   port: PORT,
   baseUrl: BASE_URL,  // External URL for OAuth metadata
-  agentId: process.env.NVM_AGENT_ID!,
+  planId: process.env.NVM_PLAN_ID!,  // required — the plan tool calls settle against
   serverName: "weather-mcp",
   version: "0.1.0",
 });
@@ -193,20 +195,26 @@ const payments = Payments.getInstance({
   environment: "sandbox",
 });
 
+// agentId is optional under the plan-centric model — the plan id is all you need
 const { accessToken } = await payments.agents.getAgentAccessToken(
-  process.env.NVM_PLAN_ID!,
-  process.env.NVM_AGENT_ID!
+  process.env.NVM_PLAN_ID!
 );
 ```
 
 ### Call Protected Tools
 
+Send the payment **in band** via the MCP request `_meta["x402/payment"]` field (x402 v2 MCP transport). The access token is a base64-encoded `PaymentPayload`; `decodeAccessToken` turns it back into the plain-JSON object the server reads from `_meta`:
+
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+import { decodeAccessToken } from "@nevermined-io/payments";
 
 const transport = new StreamableHTTPClientTransport(
   new URL("http://localhost:3002/mcp"),
+  // The MCP session is an OAuth-protected resource: authenticate it with the
+  // access token (without it, `initialize` returns 401). The per-call payment
+  // is sent in band via `_meta` below.
   { requestInit: { headers: { Authorization: `Bearer ${accessToken}` } } }
 );
 
@@ -216,8 +224,14 @@ await client.connect(transport);
 const result = await client.callTool({
   name: "weather.today",
   arguments: { city: "London" },
+  // In-band payment (x402 v2 MCP transport): plain-JSON PaymentPayload, not base64.
+  _meta: { "x402/payment": decodeAccessToken(accessToken) },
 });
 ```
+
+When payment is required or settlement fails, the tool result comes back with `isError: true` and a `PaymentRequired` object in `structuredContent` (and JSON-stringified in `content[0].text`); on success the settlement receipt is returned in the response `_meta["x402/payment-response"]`.
+
+> **Session auth vs. payment**: the `Authorization: Bearer ${accessToken}` header authenticates the MCP session (it's an OAuth-protected resource — `initialize` returns `401` without it), which is why it's set on the transport above. The **payment** is sent separately, in band, via `_meta["x402/payment"]`. Sending the token via the header *alone* (no `_meta`) also settles the payment for one release — a deprecated fallback — but `_meta` is the spec-aligned payment form.
 
 ## Endpoints
 
@@ -237,13 +251,16 @@ const result = await client.callTool({
 | `-32003` | Authorization required / Payment required / Insufficient credits |
 | `-32002` | Server error |
 
+> Under the in-band transport, **tool** calls signal payment-required/settlement-failure as a tool result with `isError: true` + a `PaymentRequired` object in `structuredContent` (not a JSON-RPC error). **Resources and prompts** — which have no tool-result error channel — still raise the `-32003` JSON-RPC error above.
+
 ## Environment Variables
 
 ### Server
 
 ```bash
 NVM_API_KEY=...            # Builder/agent owner API key
-NVM_AGENT_ID=...           # Agent ID registered in Nevermined
+NVM_PLAN_ID=...            # Plan tool calls settle against (required)
+# NVM_AGENT_ID=...         # Optional — informational only (plan-centric)
 NVM_ENVIRONMENT=sandbox    # sandbox, live
 PORT=3000                  # Optional, defaults to 3000
 OPENAI_API_KEY=...         # For LLM-enhanced forecasts
@@ -257,7 +274,7 @@ BASE_URL=...               # External URL (required for production/Docker)
 ```bash
 NVM_API_KEY=...            # Subscriber's API key
 NVM_PLAN_ID=...            # Subscription plan ID
-NVM_AGENT_ID=...           # Agent ID linked to plan
+# NVM_AGENT_ID=...         # Optional — informational only (plan-centric)
 ```
 
 ## Migration from Original MCP SDK

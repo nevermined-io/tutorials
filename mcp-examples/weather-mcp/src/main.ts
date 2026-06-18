@@ -245,6 +245,19 @@ async function generateWeatherForecast(
   weather: TodayWeather,
   agentRequest?: any
 ): Promise<string> {
+  // No OPENAI_API_KEY: skip the LLM and return the basic forecast. The OpenAI
+  // client throws "Missing credentials" at construction when the key is absent,
+  // which would otherwise escape this function and fail the whole tool call.
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("[forecast] OPENAI_API_KEY not set; using basic forecast");
+    return (
+      `Weather forecast for ${weather.city}, ${weather.country ?? ""} (timezone: ${weather.timezone})\n` +
+      `Maximum temperature: ${weather.tmaxC ?? "N/A"}°C, Minimum temperature: ${weather.tminC ?? "N/A"}°C\n` +
+      `Precipitation: ${weather.precipitationMm ?? "N/A"}mm\n` +
+      `Conditions: ${weather.weatherText ?? "N/A"}`
+    );
+  }
+
   // Create OpenAI client with Nevermined observability if agentRequest is available
   let openai: OpenAI;
   if (agentRequest) {
@@ -320,7 +333,7 @@ Make it informative but easy to understand, using natural language. Answer in En
 async function main() {
   const { info, stop } = await payments.mcp.start({
     port: PORT,
-    agentId: process.env.NVM_AGENT_ID!,
+    planId: process.env.NVM_PLAN_ID!,
     baseUrl: BASE_URL,
     serverName: "weather-mcp",
     version: "0.1.0",

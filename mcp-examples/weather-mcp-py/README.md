@@ -6,6 +6,8 @@ A Model Context Protocol (MCP) server that provides weather information with Nev
 
 This is the Python equivalent of the TypeScript `weather-mcp` example.
 
+> Uses the **x402 v2 in-band MCP transport** with plan-centric config (`plan_id` required, `agent_id` optional). Requires `payments-py[fastapi]` **≥ 1.15.0** (the `fastapi` extra provides the MCP server's fastapi/starlette deps; `uvicorn` is pulled in by this tutorial). The `Authorization: Bearer` header authenticates the MCP session; a header-only payment (no `_meta`) still works as a deprecated fallback for one release.
+
 ## Features
 
 - **MCP Tools**: `weather.today` - Get current weather for any city
@@ -48,7 +50,8 @@ Create a `.env` file with:
 # Nevermined Configuration
 NVM_API_KEY=your_nvm_api_key_here
 NVM_ENVIRONMENT=staging_sandbox
-NVM_AGENT_ID=your_agent_id_here
+NVM_PLAN_ID=your_plan_id_here
+# NVM_AGENT_ID=your_agent_id_here  # optional — informational only (plan-centric)
 
 # OpenAI Configuration (optional)
 OPENAI_API_KEY=your_openai_api_key_here
@@ -136,6 +139,46 @@ Static weather data for London (default city).
 Guides the LLM to call the weather.today tool with a city name.
 
 **Credits**: 1 per use
+
+## Client Usage
+
+Send the payment **in band** via the MCP request `_meta["x402/payment"]` field (x402 v2 MCP transport). The access token is a base64-encoded `PaymentPayload`; `decode_access_token` turns it back into the plain-JSON object the server reads from `_meta`:
+
+```python
+from datetime import timedelta
+
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+from payments_py import Payments, decode_access_token
+
+payments = Payments.get_instance({
+    "nvm_api_key": NVM_API_KEY,
+    "environment": "staging_sandbox",
+})
+
+# agent_id is optional under the plan-centric model — the plan id is all you need
+access_token = payments.x402.get_x402_access_token(NVM_PLAN_ID)["accessToken"]
+
+# The MCP session is an OAuth-protected resource: authenticate it with the
+# access token (without it, `initialize` returns 401). The per-call payment is
+# sent in band via meta= below.
+auth_headers = {"Authorization": f"Bearer {access_token}"}
+async with streamablehttp_client("http://localhost:3002/mcp", headers=auth_headers) as (read, write, _):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        result = await session.call_tool(
+            "weather.today",
+            {"city": "London"},
+            # In-band payment (plain-JSON PaymentPayload, not base64).
+            meta={"x402/payment": decode_access_token(access_token)},
+        )
+        # On success, the settlement receipt is in result.meta["x402/payment-response"].
+        print(result)
+```
+
+When payment is required or settlement fails, a **tool** result comes back with `isError=True` and a `PaymentRequired` object in `structuredContent` (and JSON-stringified in `content[0].text`). **Resources and prompts** have no tool-result error channel, so they still raise the `-32003` JSON-RPC error.
+
+> **Session auth vs. payment**: the `Authorization: Bearer <access_token>` header set on the transport authenticates the MCP session (it's an OAuth-protected resource — `initialize` returns `401` without it). The **payment** is sent separately, in band, via `meta={"x402/payment": ...}`. Sending the token via the header *alone* (no `meta`) also settles the payment for one release — a deprecated fallback — but the in-band `meta` form is the spec-aligned approach.
 
 ## Architecture
 

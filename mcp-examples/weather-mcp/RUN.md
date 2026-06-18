@@ -29,7 +29,8 @@ Create a `.env` file in the project root:
 ```bash
 # Required - Nevermined Configuration
 NVM_API_KEY=your_nevermined_api_key
-NVM_AGENT_ID=did:nv:your_agent_id
+NVM_PLAN_ID=your_nevermined_plan_id
+# NVM_AGENT_ID=did:nv:your_agent_id  # optional — informational only (plan-centric)
 NVM_ENVIRONMENT=sandbox
 
 # Required - OpenAI (for LLM forecasts)
@@ -125,7 +126,7 @@ To call the protected MCP server, you need a subscriber account with credits.
 ```bash
 export NVM_API_KEY=subscriber_api_key
 export NVM_PLAN_ID=plan_id_with_credits
-export NVM_AGENT_ID=did:nv:agent_id
+# export NVM_AGENT_ID=did:nv:agent_id  # optional — informational only (plan-centric)
 ```
 
 ### Getting an Access Token
@@ -138,9 +139,9 @@ const payments = Payments.getInstance({
   environment: "sandbox",
 });
 
+// agentId is optional under the plan-centric model — the plan id is all you need
 const { accessToken } = await payments.agents.getAgentAccessToken(
-  process.env.NVM_PLAN_ID!,
-  process.env.NVM_AGENT_ID!
+  process.env.NVM_PLAN_ID!
 );
 
 console.log("Access Token:", accessToken);
@@ -148,17 +149,19 @@ console.log("Access Token:", accessToken);
 
 ### Calling a Tool
 
+Send the payment **in band** via the request `_meta["x402/payment"]` field (x402 v2 MCP transport). `decodeAccessToken` converts the access token into the plain-JSON `PaymentPayload` the server reads from `_meta`:
+
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+import { decodeAccessToken } from "@nevermined-io/payments";
 
 const transport = new StreamableHTTPClientTransport(
   new URL("http://localhost:3000/mcp"),
-  {
-    requestInit: {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-  }
+  // The MCP session is an OAuth-protected resource: authenticate it with the
+  // access token (without it, `initialize` returns 401). The per-call payment
+  // is sent in band via `_meta` below.
+  { requestInit: { headers: { Authorization: `Bearer ${accessToken}` } } }
 );
 
 const client = new Client({ name: "weather-client" });
@@ -167,11 +170,15 @@ await client.connect(transport);
 const result = await client.callTool({
   name: "weather.today",
   arguments: { city: "London" },
+  // In-band payment (plain-JSON PaymentPayload, not base64).
+  _meta: { "x402/payment": decodeAccessToken(accessToken) },
 });
 
-console.log(result);
+console.log(result); // on success, result._meta["x402/payment-response"] holds the settlement receipt
 await client.close();
 ```
+
+**Session auth vs. payment**: the `Authorization: Bearer <accessToken>` header set on the transport authenticates the MCP session (it's an OAuth-protected resource — `initialize` returns `401` without it). The **payment** is sent separately, in band, via `_meta["x402/payment"]`. Sending the token via the header *alone* (no `_meta`) also settles the payment for one release — a deprecated fallback — but `_meta` is the spec-aligned payment form.
 
 ## Testing with MCP Inspector
 
@@ -179,7 +186,7 @@ await client.close();
 npx @modelcontextprotocol/inspector connect http://localhost:3000/mcp
 ```
 
-**Note**: The inspector doesn't send `Authorization` headers, so paywall validation will fail. Use it only for testing the MCP protocol structure, not the full authentication flow.
+**Note**: The inspector can't attach the in-band `_meta["x402/payment"]` payload (nor an `Authorization` header), so paywall validation will fail. Use it only for testing the MCP protocol structure, not the full payment flow.
 
 ## Troubleshooting
 
@@ -201,21 +208,23 @@ Error: listen EADDRINUSE: address already in use :::3002
 
 ---
 
-### Authentication errors
+### Authentication / payment errors
 
-**Problem**: `-32003` Authorization required
+**Problem**: a **tool** call returns `isError: true` with a `PaymentRequired` object
 ```json
-{"jsonrpc":"2.0","error":{"code":-32003,"message":"Authorization required"}}
+{ "isError": true,
+  "structuredContent": { "x402Version": 2, "error": "payment required", "accepts": [ ... ] },
+  "content": [{ "type": "text", "text": "{\"x402Version\":2,...}" }] }
 ```
-**Solution**: Include `Authorization: Bearer <token>` header
+**Solution**: attach the payment in band via `_meta: { "x402/payment": decodeAccessToken(accessToken) }` and ensure the subscriber has a valid subscription with credits. (Under the in-band transport, tool payment-required/settlement-failure is signalled as this tool result, **not** a JSON-RPC error.)
 
 ---
 
-**Problem**: `-32003` Payment required
+**Problem**: a **resource/prompt** call rejects with `-32003`
 ```json
 {"jsonrpc":"2.0","error":{"code":-32003,"message":"Payment required"}}
 ```
-**Solution**: Ensure subscriber has valid subscription and credits
+**Solution**: Resources and prompts have no tool-result error channel, so they still surface the `-32003` JSON-RPC error — attach the in-band `_meta` payment and ensure valid subscription/credits.
 
 ---
 
@@ -283,7 +292,7 @@ docker build -t weather-mcp .
 docker run -d \
   -p 3000:3000 \
   -e NVM_API_KEY=your_api_key \
-  -e NVM_AGENT_ID=your_agent_id \
+  -e NVM_PLAN_ID=your_plan_id \
   -e NVM_ENVIRONMENT=live \
   -e OPENAI_API_KEY=your_openai_key \
   -e BASE_URL=https://your-external-domain.com \

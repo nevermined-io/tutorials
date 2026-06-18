@@ -127,7 +127,7 @@ return {
 | Variable | Description |
 |----------|-------------|
 | `NVM_API_KEY` | Nevermined API key (builder/agent owner) |
-| `NVM_AGENT_ID` | Agent ID registered in Nevermined |
+| `NVM_PLAN_ID` | Plan the server's tool calls settle against |
 | `NVM_ENVIRONMENT` | Environment: `sandbox`, `live` |
 | `OPENAI_API_KEY` | OpenAI API key for LLM forecasts |
 
@@ -135,6 +135,7 @@ return {
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `NVM_AGENT_ID` | _(none)_ | Optional — informational only (plan-centric); not required to run the server |
 | `PORT` | `3000` | Server port |
 | `BASE_URL` | `http://localhost:PORT` | External URL for OAuth metadata. Required for production/Docker deployments (e.g., `https://weather-mcp-agent.nevermined.dev`) |
 
@@ -144,7 +145,7 @@ return {
 |----------|-------------|
 | `NVM_API_KEY` | Subscriber's API key |
 | `NVM_PLAN_ID` | Subscription plan ID |
-| `NVM_AGENT_ID` | Agent ID linked to plan |
+| `NVM_AGENT_ID` | _(optional)_ — informational only (plan-centric) |
 
 ## Endpoints
 
