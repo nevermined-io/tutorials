@@ -25,7 +25,7 @@ The **Model Context Protocol (MCP)** is a standardized communication layer for A
 
 While MCP defines *what* an agent can do, it doesn't specify *who* can access it or *how* to charge for it. **Nevermined Payments** adds:
 
-- **Authentication**: Reads the payment in-band from the MCP request `_meta["x402/payment"]` (the `Authorization` header is still accepted as a deprecated fallback)
+- **Authentication**: The MCP session is OAuth-protected — the client authenticates with an `Authorization: Bearer <accessToken>` header — and the per-call payment is read in band from the MCP request `_meta["x402/payment"]` (a header-only payment, with no `_meta`, is still accepted as a deprecated fallback)
 - **Credit System**: Checks and deducts credits per request
 - **Automatic Setup**: Handles Express, sessions, OAuth endpoints
 
@@ -211,7 +211,11 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { decodeAccessToken } from "@nevermined-io/payments";
 
 const transport = new StreamableHTTPClientTransport(
-  new URL("http://localhost:3002/mcp")
+  new URL("http://localhost:3002/mcp"),
+  // The MCP session is an OAuth-protected resource: authenticate it with the
+  // access token (without it, `initialize` returns 401). The per-call payment
+  // is sent in band via `_meta` below.
+  { requestInit: { headers: { Authorization: `Bearer ${accessToken}` } } }
 );
 
 const client = new Client({ name: "my-client" });
@@ -227,7 +231,7 @@ const result = await client.callTool({
 
 When payment is required or settlement fails, the tool result comes back with `isError: true` and a `PaymentRequired` object in `structuredContent` (and JSON-stringified in `content[0].text`); on success the settlement receipt is returned in the response `_meta["x402/payment-response"]`.
 
-> **Deprecated fallback**: passing the token via `Authorization: Bearer ${accessToken}` on the transport (`{ requestInit: { headers: { ... } } }`) still works for one release, but the in-band `_meta` form above is the spec-aligned approach.
+> **Session auth vs. payment**: the `Authorization: Bearer ${accessToken}` header authenticates the MCP session (it's an OAuth-protected resource — `initialize` returns `401` without it), which is why it's set on the transport above. The **payment** is sent separately, in band, via `_meta["x402/payment"]`. Sending the token via the header *alone* (no `_meta`) also settles the payment for one release — a deprecated fallback — but `_meta` is the spec-aligned payment form.
 
 ## Endpoints
 

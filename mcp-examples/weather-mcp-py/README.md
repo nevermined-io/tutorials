@@ -159,7 +159,11 @@ payments = Payments.get_instance({
 # agent_id is optional under the plan-centric model — the plan id is all you need
 access_token = payments.x402.get_x402_access_token(NVM_PLAN_ID)["accessToken"]
 
-async with streamablehttp_client("http://localhost:3002/mcp") as (read, write, _):
+# The MCP session is an OAuth-protected resource: authenticate it with the
+# access token (without it, `initialize` returns 401). The per-call payment is
+# sent in band via meta= below.
+auth_headers = {"Authorization": f"Bearer {access_token}"}
+async with streamablehttp_client("http://localhost:3002/mcp", headers=auth_headers) as (read, write, _):
     async with ClientSession(read, write) as session:
         await session.initialize()
         result = await session.call_tool(
@@ -174,7 +178,7 @@ async with streamablehttp_client("http://localhost:3002/mcp") as (read, write, _
 
 When payment is required or settlement fails, a **tool** result comes back with `isError=True` and a `PaymentRequired` object in `structuredContent` (and JSON-stringified in `content[0].text`). **Resources and prompts** have no tool-result error channel, so they still raise the `-32003` JSON-RPC error.
 
-> **Deprecated fallback**: passing the token via an `Authorization: Bearer <access_token>` header on the transport still works for one release, but the in-band `meta={"x402/payment": ...}` form above is the spec-aligned approach.
+> **Session auth vs. payment**: the `Authorization: Bearer <access_token>` header set on the transport authenticates the MCP session (it's an OAuth-protected resource — `initialize` returns `401` without it). The **payment** is sent separately, in band, via `meta={"x402/payment": ...}`. Sending the token via the header *alone* (no `meta`) also settles the payment for one release — a deprecated fallback — but the in-band `meta` form is the spec-aligned approach.
 
 ## Architecture
 

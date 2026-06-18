@@ -157,7 +157,11 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { decodeAccessToken } from "@nevermined-io/payments";
 
 const transport = new StreamableHTTPClientTransport(
-  new URL("http://localhost:3000/mcp")
+  new URL("http://localhost:3000/mcp"),
+  // The MCP session is an OAuth-protected resource: authenticate it with the
+  // access token (without it, `initialize` returns 401). The per-call payment
+  // is sent in band via `_meta` below.
+  { requestInit: { headers: { Authorization: `Bearer ${accessToken}` } } }
 );
 
 const client = new Client({ name: "weather-client" });
@@ -174,7 +178,7 @@ console.log(result); // on success, result._meta["x402/payment-response"] holds 
 await client.close();
 ```
 
-**Deprecated fallback**: passing the token via the transport's `requestInit.headers.Authorization` (`Bearer <accessToken>`) still works for one release, but the in-band `_meta` form above is the spec-aligned approach.
+**Session auth vs. payment**: the `Authorization: Bearer <accessToken>` header set on the transport authenticates the MCP session (it's an OAuth-protected resource — `initialize` returns `401` without it). The **payment** is sent separately, in band, via `_meta["x402/payment"]`. Sending the token via the header *alone* (no `_meta`) also settles the payment for one release — a deprecated fallback — but `_meta` is the spec-aligned payment form.
 
 ## Testing with MCP Inspector
 
