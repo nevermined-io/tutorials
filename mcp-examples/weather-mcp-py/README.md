@@ -6,7 +6,7 @@ A Model Context Protocol (MCP) server that provides weather information with Nev
 
 This is the Python equivalent of the TypeScript `weather-mcp` example.
 
-> **Requires the x402 v2 in-band MCP transport** (SDK PRs nevermined-io/payments#384 / nevermined-io/payments-py#228 — not yet released). The published `@nevermined-io/payments` / `payments-py` packages use the `Authorization`-header approach; the in-band `_meta["x402/payment"]` client example below needs the in-band-capable SDK version. The `Authorization: Bearer` header continues to work as a deprecated fallback.
+> Uses the **x402 v2 in-band MCP transport** with plan-centric config (`plan_id` required, `agent_id` optional). Requires `payments-py[fastapi]` **≥ 1.15.0** (the `fastapi` extra provides the MCP server's fastapi/starlette deps; `uvicorn` is pulled in by this tutorial). The `Authorization: Bearer` header authenticates the MCP session; a header-only payment (no `_meta`) still works as a deprecated fallback for one release.
 
 ## Features
 

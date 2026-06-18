@@ -4,7 +4,7 @@
 
 A minimal MCP server demonstrating how to protect AI tools with Nevermined Payments. Exposes a `weather.today(city)` tool, a `weather://today` resource, and a `weather.ensureCity` prompt — all protected with credit-based access control.
 
-> **Requires the x402 v2 in-band MCP transport** (SDK PRs nevermined-io/payments#384 / nevermined-io/payments-py#228 — not yet released). The published `@nevermined-io/payments` / `payments-py` packages use the `Authorization`-header approach; the in-band `_meta["x402/payment"]` client examples below need the in-band-capable SDK version. The `Authorization: Bearer` header continues to work as a deprecated fallback.
+> Uses the **x402 v2 in-band MCP transport** with plan-centric config (`planId` required, `agentId` optional). Requires `@nevermined-io/payments` **≥ 1.9.0**. The `Authorization: Bearer` header authenticates the MCP session; a header-only payment (no `_meta`) still works as a deprecated fallback for one release.
 
 ## Documentation
 
