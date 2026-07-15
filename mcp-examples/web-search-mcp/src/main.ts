@@ -23,6 +23,27 @@ const payments = Payments.getInstance({
 const PORT = parseInt(process.env.PORT || "3010", 10);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
+// Credit cost per paid tool call.
+const WEB_SEARCH_CREDITS = 1n;
+const COMPANY_LOOKUP_CREDITS = 2n;
+
+/**
+ * Representative settlement footer for the chat-visible text.
+ *
+ * Settlement is post-handler: the paywall verifies, runs this handler, THEN
+ * redeems credits and injects the real receipt (credits redeemed / remaining
+ * balance) into the result's `_meta["x402/payment-response"]`. Those values are
+ * not available here, and Fleet renders `content` (not `_meta`), so we surface a
+ * representative footer stating the tool's credit cost — enough to make the buy
+ * visible in the chat without inventing a balance we don't have.
+ */
+function settlementFooter(credits: bigint | number): string {
+  const n = Number(credits);
+  return `\n\n———\n✓ Purchased via Nevermined delegation · ${n} ${
+    n === 1 ? "credit" : "credits"
+  } charged`;
+}
+
 /*****************************************************************************
  * REGISTER PAID TOOLS
  *****************************************************************************/
@@ -40,7 +61,7 @@ payments.mcp.registerTool(
     inputSchema: webSearchSchema,
   },
   handleWebSearch,
-  { credits: 1n }
+  { credits: WEB_SEARCH_CREDITS }
 );
 
 const companyLookupSchema = z.object({
@@ -56,7 +77,7 @@ payments.mcp.registerTool(
     inputSchema: companyLookupSchema,
   },
   handleCompanyLookup,
-  { credits: 2n }
+  { credits: COMPANY_LOOKUP_CREDITS }
 );
 
 /*****************************************************************************
@@ -72,7 +93,8 @@ async function handleWebSearch(args: any, _extra?: any) {
     `Top results for "${query}":\n\n` +
     results
       .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}`)
-      .join("\n\n");
+      .join("\n\n") +
+    settlementFooter(WEB_SEARCH_CREDITS);
 
   return {
     content: [{ type: "text" as const, text }],
@@ -90,7 +112,8 @@ async function handleCompanyLookup(args: any, _extra?: any) {
     `- Registration: ${company.registrationNumber} (${company.jurisdiction})\n` +
     `- Status: ${company.status}\n` +
     `- Incorporated: ${company.incorporationDate}\n` +
-    `- Officers: ${company.officers.join(", ")}`;
+    `- Officers: ${company.officers.join(", ")}` +
+    settlementFooter(COMPANY_LOOKUP_CREDITS);
 
   return {
     content: [{ type: "text" as const, text }],
