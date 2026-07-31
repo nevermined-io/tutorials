@@ -164,6 +164,6 @@ Once you're ready for production, transition to the full agent implementation wi
 
 ## Learn More
 
-- [Nevermined Payments SDK Documentation](https://docs.nevermined.app)
-- [Observability Guide](https://docs.nevermined.app/docs/development-guide/observability)
+- [Nevermined Payments SDK Documentation](https://nevermined.ai/docs)
+- [Observability Guide](https://nevermined.ai/docs/development-guide/observability)
 - [Financial Agent Tutorial](../financial-agent) - Full production agent example

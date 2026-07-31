@@ -129,6 +129,6 @@ Please refer to the **[financial-agent tutorial](../financial-agent)**, which pr
 
 ## Learn More
 
-- [Nevermined Payments SDK Documentation](https://docs.nevermined.app)
-- [Observability Guide](https://docs.nevermined.app/docs/development-guide/observability)
+- [Nevermined Payments SDK Documentation](https://nevermined.ai/docs)
+- [Observability Guide](https://nevermined.ai/docs/development-guide/observability)
 - [Financial Agent Tutorial](../financial-agent) - Full agent example

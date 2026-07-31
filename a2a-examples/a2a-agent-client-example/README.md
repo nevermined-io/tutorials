@@ -212,6 +212,6 @@ node dist/client.js
 ---
 
 ## Further Reading
-- [Nevermined Documentation](https://docs.nevermined.app)
+- [Nevermined Documentation](https://nevermined.ai/docs)
 - [A2A Protocol Specification](https://a2aproject.github.io/A2A/latest)
 - [GitHub Repository](https://github.com/nevermined-io/payments) 
