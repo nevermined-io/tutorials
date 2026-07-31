@@ -209,7 +209,7 @@ For development and testing, use Stripe's test card:
 
 ## Documentation
 
-- [Nevermined Documentation](https://docs.nevermined.app)
+- [Nevermined Documentation](https://nevermined.ai/docs)
 - [A2A Protocol Specification](https://a2aproject.github.io/A2A/latest)
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io)
 - [Nevermined Payments SDK](https://github.com/nevermined-io/payments)
