@@ -1,0 +1,17 @@
+# {{SERVICE_NAME}}
+
+> {{ONE_SENTENCE_DESCRIPTION}}. AI agents can buy access autonomously via Nevermined — no human onboarding required.
+
+## Docs
+
+- [API reference]({{API_REFERENCE_URL}}): every endpoint, with request and response shapes.
+- [Getting started]({{QUICKSTART_URL}}): the human-facing onboarding path.
+
+## Integrations
+
+- [Nevermined]({{NEVERMINED_INTEGRATION_MD_URL}}): autonomous agent payments. A {{PRICE_USD}} purchase provisions or tops up a {{SERVICE_NAME}} API key with {{QUOTA_PER_PURCHASE}} requests. One endpoint, one card charge, no metering changes on the provider side.
+
+## Optional
+
+- [Pricing]({{PRICING_URL}})
+- [Status page]({{STATUS_URL}})
