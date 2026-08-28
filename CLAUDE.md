@@ -13,6 +13,10 @@ tutorials/
 ├── http-simple-agent-ts/   # Express.js agent with x402 payment middleware (TypeScript)
 ├── http-simple-agent-py/   # FastAPI agent with x402 payment middleware (Python)
 ├── langchain-paid-agent-py/# Minimal LangChain @requires_payment + LangGraph agent (Python)
+├── langchain-research-agent-py/  # Freemium in-tool gating on create_react_agent (Python)
+├── langchain-deep-agent-py/      # Same pattern on the Deep Agents harness; paid tool in a subagent
+├── langchain-langsmith-deployment-py/  # Route-level ASGI PaymentMiddleware (Python)
+├── langchain-chat-ui-nvm/  # Next.js browser chat UI with the x402 card-delegation popup
 ├── a2a-examples/           # Agent-to-Agent (A2A) protocol examples
 ├── mcp-examples/           # Model Context Protocol (MCP) examples
 │   ├── weather-mcp/        # TypeScript MCP server (has CLAUDE.md)

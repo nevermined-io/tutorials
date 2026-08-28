@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "langchain-deep-agent-py"
+version = "0.1.0"
+description = "Deep Agents market-research agent gated by Nevermined x402. The paid tool lives inside a subagent, proving the payment token survives task delegation. Companion to ../langchain-research-agent-py."
+authors = ["Nevermined <tech@nevermined.io>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+python-dotenv = "^1.0.0"
+# The Deep Agents harness. Pulls the LangChain v1 stack
+# (langchain>=1.3.18, langchain-core>=1.6.1) — which is why this tutorial
+# has its own virtualenv rather than sharing the sibling research agent's.
+deepagents = "^0.7.10"
+langchain-openai = "^1.6"
+httpx = "^0.28"
+# `[langsmith]` extra brings in fastapi/starlette — required transitively by
+# `payments_py.x402.langchain.requires_payment` (the SDK package __init__
+# eagerly loads the middleware module).
+payments-py = {version = "^1.16.1", extras = ["langsmith"]}
+
+[tool.poetry.group.dev.dependencies]
+langgraph-cli = {extras = ["inmem"], version = "*"}
+langgraph-api = "^0.8"
+
+[tool.poetry.scripts]
+buyer = "src.buyer:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
