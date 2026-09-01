@@ -95,6 +95,41 @@ app.use(paymentMiddleware(payments, {
 - **Test both agent and client** - Ensure the full payment flow works
 - **Check subdirectory CLAUDE.md files** - Some tutorials have specific instructions
 
+## LangChain tutorial family
+
+Four tutorials share one payment contract — the buyer puts an x402 access token at
+`config.configurable.payment_token` on the run, and the agent's tool reads it:
+
+| Tutorial | Harness | Gating |
+|---|---|---|
+| `langchain-paid-agent-py` | `create_react_agent` | in-tool, minimal |
+| `langchain-research-agent-py` | `create_react_agent` | in-tool, freemium |
+| `langchain-deep-agent-py` | `create_deep_agent` | in-tool, **inside a subagent** |
+| `langchain-langsmith-deployment-py` | — | route-level ASGI middleware |
+
+`langchain-chat-ui-nvm` (Next.js) is the browser buyer for any of them; its proxy
+injects the token into the run body, so pointing it at a different agent is a
+`LANGGRAPH_API_URL` + `NEXT_PUBLIC_ASSISTANT_ID` change only.
+
+**Gotchas:**
+
+- **`langchain-deep-agent-py` needs its own virtualenv.** `deepagents` requires the
+  LangChain v1 stack (`langchain-core>=1.6.1`); `langchain-research-agent-py`
+  resolves `langchain-core 1.4` with `langchain-openai 0.3`. They cannot share one.
+- **Only run one agent on port 2024 at a time.** `langgraph dev` does **not** fail
+  when the port is taken — it prints a warning and silently binds a random port,
+  after which the buyer 422s with "Invalid assistant". Check the startup banner's
+  `API:` line, not just "Application started up".
+- **Two payments-py call shapes are deprecated since 1.16** and still present in the
+  non-LangChain tutorials (`http-simple-agent-py`, `mcp-examples/weather-mcp-py`,
+  `pricing-simulation-py`, `http-simple-agent-ts`):
+  - `PaymentOptions(environment=...)` — now derived from the API-key prefix.
+  - passing `spending_limit_cents` / `provider_payment_method_id` straight to
+    `get_x402_access_token` — create the delegation first, then pass
+    `DelegationConfig(delegation_id=...)`.
+- The per-call credit price is **not** an env var in the research/deep tutorials —
+  it is read from the plan's `registry.credits.maxAmount` at import time.
+
 ## Subdirectory CLAUDE.md Files
 
 The following tutorials have their own CLAUDE.md with specific instructions:

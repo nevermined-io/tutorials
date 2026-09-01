@@ -16,7 +16,7 @@ httpx = "^0.28"
 # `[langsmith]` extra brings in fastapi/starlette — required transitively by
 # `payments_py.x402.langchain.requires_payment` (which imports the langsmith
 # spans module; the SDK package __init__ eagerly loads the middleware).
-payments-py = {version = "^1.9.0", extras = ["langsmith"]}
+payments-py = {version = "^1.16.1", extras = ["langsmith"]}
 
 [tool.poetry.group.dev.dependencies]
 langgraph-cli = {extras = ["inmem"], version = "*"}

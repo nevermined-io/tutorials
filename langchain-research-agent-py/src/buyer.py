@@ -25,13 +25,16 @@ import httpx
 from dotenv import load_dotenv
 from payments_py import PaymentOptions, Payments
 from payments_py.x402.resolve_scheme import resolve_network, resolve_scheme
-from payments_py.x402.types import DelegationConfig, X402TokenOptions
+from payments_py.x402.types import (
+    CreateDelegationPayload,
+    DelegationConfig,
+    X402TokenOptions,
+)
 
 load_dotenv()
 
 DEPLOYMENT_URL = os.environ.get("LANGSMITH_DEPLOYMENT_URL", "http://127.0.0.1:2024")
 NVM_API_KEY = os.environ["NVM_API_KEY"]
-NVM_ENVIRONMENT = os.environ.get("NVM_ENVIRONMENT", "sandbox")
 NVM_PLAN_ID = os.environ["NVM_PLAN_ID"]
 ASSISTANT_ID = os.environ.get("ASSISTANT_ID", "research")
 RESEARCH_TOPIC = os.environ.get("INPUT", "Research the electric vehicle market")
@@ -129,9 +132,8 @@ async def _run(
 
 async def main() -> None:
     print(f"Connecting to LangSmith Deployment at {DEPLOYMENT_URL}\n")
-    payments = Payments.get_instance(
-        PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
-    )
+    # `environment` is derived from the API-key prefix since payments-py 1.16.
+    payments = Payments.get_instance(PaymentOptions(nvm_api_key=NVM_API_KEY))
 
     async with httpx.AsyncClient(base_url=DEPLOYMENT_URL, timeout=120.0) as client:
         # --- Free path -------------------------------------------------------
@@ -153,16 +155,29 @@ async def main() -> None:
             return
         print(f"      Using payment method: {pm.brand} *{pm.last4}\n")
 
-        print("[3/4] Acquiring x402 access token from the plan...")
+        # Two steps, on purpose. Passing spending limits / a payment method
+        # straight to `get_x402_access_token` (inline "create-on-the-fly"
+        # delegation) is deprecated and emits a FutureWarning: create the
+        # delegation first, then reference it by id.
+        print("[3/4] Creating a spending delegation...")
+        delegation = payments.delegation.create_delegation(
+            CreateDelegationPayload(
+                provider=network,
+                provider_payment_method_id=pm.id,
+                spending_limit_cents=10000,
+                duration_secs=3600,
+                currency="usd",
+            )
+        )
+        print(f"      delegation = {delegation.delegation_id}")
+
+        print("      Acquiring x402 access token from the plan...")
         token_result = payments.x402.get_x402_access_token(
             NVM_PLAN_ID,
             token_options=X402TokenOptions(
                 scheme=scheme,
                 delegation_config=DelegationConfig(
-                    provider_payment_method_id=pm.id,
-                    spending_limit_cents=10000,
-                    duration_secs=3600,
-                    currency="usd",
+                    delegation_id=delegation.delegation_id
                 ),
             ),
         )

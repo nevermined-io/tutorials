@@ -2734,14 +2734,14 @@ re2 = ["google-re2 (>=1.1)"]
 
 [[package]]
 name = "payments-py"
-version = "1.9.0"
+version = "1.16.1"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "payments_py-1.9.0-py3-none-any.whl", hash = "sha256:3a2aaba9e33996ebed65ba2aa5545ef58f8b0854040fa7df4f3ef5f2b17b88d2"},
-    {file = "payments_py-1.9.0.tar.gz", hash = "sha256:8932f5aed3bc18c0f97a5bef49ce9eaba22be489d9b86a23003684ebbc7cb740"},
+    {file = "payments_py-1.16.1-py3-none-any.whl", hash = "sha256:a0ce39efaf480a0eaffee8f0f9d5d79570004596fdda587ed759ba8d3710a646"},
+    {file = "payments_py-1.16.1.tar.gz", hash = "sha256:026df30f95b3bc4909d275486720a82bf8a4582d1d4d86d89525244e4e6d3f89"},
 ]
 
 [package.dependencies]
@@ -2766,7 +2766,7 @@ starlette = {version = ">=0.49.1,<0.50.0", optional = true, markers = "extra == 
 websocket-client = ">=1.8.0,<2.0.0"
 
 [package.extras]
-fastapi = ["fastapi (>=0.120.0,<0.121.0)", "starlette (>=0.49.1,<0.50.0)"]
+fastapi = ["fastapi (>=0.120.0,<0.121.0)", "starlette (>=0.49.1,<0.50.0)", "uvicorn (>=0.31.1,<0.32.0)"]
 langchain = ["langchain-core (>=0.3.0)"]
 langsmith = ["fastapi (>=0.120.0,<0.121.0)", "langsmith (>=0.1.40,<1.0.0)", "starlette (>=0.49.1,<0.50.0)"]
 strands = ["strands-agents (>=1.0.0)"]
@@ -4996,4 +4996,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "bf4721f0f7dfc9b93d7a17f114352e1bfd4c4fdc61711616b548b51e5bd27502"
+content-hash = "7851ffe5df711c3cae8af127338e36159550b04d8d9a789c14845ff00c743aea"
