@@ -1,18 +1,20 @@
-"""CLI buyer for the in-tool x402 gating demo.
+"""CLI buyer for the Deep Agents x402 gating demo.
 
-The agent's `market_research` tool gates itself: it reads an x402 access
-token from `config.configurable.payment_token`, runs verify ->
-analyse -> settle, and returns either a market analysis (paid path) or
-a `PAYMENT_REQUIRED:` notice (free path) that the LLM relays back.
+Mirrors ``../langchain-research-agent-py/src/buyer.py`` — the buyer-side
+contract is identical, which is the point: swapping the agent harness
+does not change how a buyer pays. The x402 access token goes on
+``config.configurable.payment_token`` and the agent's tool reads it,
+whether that tool sits on the main agent or one delegation hop away
+inside a subagent.
 
-This buyer exercises both paths in sequence:
+Exercises both paths in sequence:
 
-  1. Free path  - ask "what can you do?" without any payment signature.
-     The agent describes its capabilities; no credits charged.
-  2. Pay path   - mint an x402 access token from `NVM_PLAN_ID`, attach
-     it to `config.configurable.payment_token`, ask the agent to
-     research a topic. The tool verifies the token, generates the
-     analysis, and settles credits on the way out.
+  1. Free path - ask "what can you do?" with no token. The supervisor
+     answers from its system prompt without delegating; no credits move.
+  2. Paid path - mint an x402 access token from ``NVM_PLAN_ID``, attach
+     it to the run, and ask for research. The supervisor delegates to
+     `research-sub`, whose `market_research` tool verifies, analyses,
+     and settles.
 
 Run with: `poetry run buyer`
 """
@@ -20,6 +22,7 @@ Run with: `poetry run buyer`
 import asyncio
 import os
 import re
+import uuid
 
 import httpx
 from dotenv import load_dotenv
@@ -36,7 +39,7 @@ load_dotenv()
 DEPLOYMENT_URL = os.environ.get("LANGSMITH_DEPLOYMENT_URL", "http://127.0.0.1:2024")
 NVM_API_KEY = os.environ["NVM_API_KEY"]
 NVM_PLAN_ID = os.environ["NVM_PLAN_ID"]
-ASSISTANT_ID = os.environ.get("ASSISTANT_ID", "research")
+ASSISTANT_ID = os.environ.get("ASSISTANT_ID", "deep_research")
 RESEARCH_TOPIC = os.environ.get("INPUT", "Research the electric vehicle market")
 
 
@@ -83,7 +86,13 @@ def _last_ai_text(state: dict) -> str:
 
 
 def _last_tool_text(state: dict) -> str | None:
-    """Pull the last ToolMessage content - this is the raw tool output."""
+    """Pull the last ToolMessage content.
+
+    On a deep agent this is the `task` tool's return value — i.e. the
+    subagent's final answer, which should carry the paid tool's output
+    verbatim. It is closer to the source of truth than the supervisor's
+    own reply, which may paraphrase.
+    """
     tool = next(
         (
             m
@@ -114,16 +123,26 @@ async def _run(
 ) -> dict:
     """Submit one run to the agent.
 
-    Putting the payment signature on `config.configurable.payment_token`
-    is the contract the tool reads from. The header form used by the
-    route-level middleware is not used here; the HTTP route is ungated.
+    Putting the token on `config.configurable.payment_token` is the whole
+    contract. LangGraph propagates `configurable` into the subagent, so
+    the paid tool sees it without the buyer knowing the agent's internal
+    topology.
+
+    We also send a fresh `nvm_run_id`. LangGraph does not inject a run id
+    into `configurable` — a tool sees only `thread_id`, which is stable
+    for the whole conversation — so without this the agent's paid-call cap
+    would apply per conversation rather than per request. The caller is
+    the only party that knows where one run ends and the next begins.
     """
+    configurable: dict = {"nvm_run_id": str(uuid.uuid4())}
+    if payment_token:
+        configurable["payment_token"] = payment_token
+
     body: dict = {
         "assistant_id": ASSISTANT_ID,
         "input": {"messages": [{"type": "human", "content": user_text}]},
+        "config": {"configurable": configurable},
     }
-    if payment_token:
-        body["config"] = {"configurable": {"payment_token": payment_token}}
 
     response = await client.post(f"/threads/{thread_id}/runs/wait", json=body)
     response.raise_for_status()
@@ -135,7 +154,7 @@ async def main() -> None:
     # `environment` is derived from the API-key prefix since payments-py 1.16.
     payments = Payments.get_instance(PaymentOptions(nvm_api_key=NVM_API_KEY))
 
-    async with httpx.AsyncClient(base_url=DEPLOYMENT_URL, timeout=120.0) as client:
+    async with httpx.AsyncClient(base_url=DEPLOYMENT_URL, timeout=300.0) as client:
         # --- Free path -------------------------------------------------------
         print("[1/4] Asking the agent what it can do (free, no token)...")
         thread_id = await _create_thread(client)
@@ -145,8 +164,8 @@ async def main() -> None:
         print(f"      Agent reply:\n      {_last_ai_text(free_state)}\n")
 
         # --- Acquire token ---------------------------------------------------
-        # Use the same scheme/network resolution the agent uses so we mint
-        # the correct token kind for whichever plan you configured.
+        # Same scheme/network resolution the agent uses, so we mint the
+        # correct token kind for whichever plan you configured.
         scheme = resolve_scheme(payments, NVM_PLAN_ID)
         network = resolve_network(payments, NVM_PLAN_ID) or "erc4337"
         print(f"[2/4] Plan resolves to scheme={scheme}, provider={network}")
@@ -185,16 +204,16 @@ async def main() -> None:
         print(f"      token = {access_token[:24]}...  (truncated)\n")
 
         # --- Paid path -------------------------------------------------------
-        print(f"[4/4] Running research request with token: {RESEARCH_TOPIC!r}\n")
+        print(f"[4/4] Running research request with token: {RESEARCH_TOPIC!r}")
+        print("      (supervisor -> task() -> research-sub -> market_research)\n")
         paid_state = await _run(
             client, thread_id, RESEARCH_TOPIC, payment_token=access_token
         )
-        # Prefer the raw ToolMessage if available — the outer LLM may
-        # paraphrase and drop the settlement footer; the tool's own
-        # output is the source of truth.
+        # Prefer the raw ToolMessage: two LLM layers sit between the paid
+        # tool and the final reply, and either may paraphrase.
         tool_text = _last_tool_text(paid_state)
         if tool_text:
-            print("Agent reply (raw tool output):\n")
+            print("Agent reply (raw subagent output):\n")
             print(_strip_settlement_footer(tool_text))
             match = re.search(r"_💳[^_]*_", tool_text)
             if match:

@@ -6,15 +6,16 @@
  * The delegation was just created by the user in the white-label popup;
  * its UUID arrived via `postMessage` on the chat surface.
  *
- * `planId`, `scheme`, and `network` all come from the **agent's 402
- * envelope** (fetched server-side by `/api/x402/probe`), never from
- * server-side env guesswork. The crypto vs card-delegation scheme
- * mismatch is the kind of footgun the envelope is for — trust it.
+ * `planId`, `scheme`, and `network` come from `/api/x402/init`, which
+ * resolves them server-side from plan metadata via the SDK rather than
+ * from env guesswork. The agent gates inside its tool, so there is no
+ * 402 envelope to discover them from; the crypto vs card-delegation
+ * scheme mismatch is the footgun that resolution exists to avoid.
  *
  * The minted token is set on a **httpOnly** cookie. The browser never
- * sees the raw token — the catch-all proxy reads the cookie and forwards
- * it as a `payment-signature` header on outgoing LangGraph requests.
- * NVM_API_KEY stays server-side.
+ * sees the raw token — the catch-all proxy reads the cookie and injects
+ * it into the run body at `config.configurable.payment_token`, which is
+ * what the agent's tool reads. NVM_API_KEY stays server-side.
  */
 
 import { NextRequest, NextResponse } from "next/server";

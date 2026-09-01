@@ -7,8 +7,8 @@
  *   - **Unauthorized** — no token cookie yet. The "Authorize" button opens
  *     the white-label popup; on success the banner flips to authorized.
  *   - **Authorized** — token cookie present, the proxy will inject
- *     `payment-signature` on outgoing requests until the on-chain budget
- *     runs out. A "Reset" link clears the cookie so the user can swap
+ *     `config.configurable.payment_token` into outgoing runs until the
+ *     on-chain budget runs out. A "Reset" link clears the cookie so the user can swap
  *     delegations without restarting the server.
  *
  * For the MVP we render this preemptively (so the user knows what to do

@@ -46,7 +46,6 @@ from payments_py.x402.langchain import (
 load_dotenv()
 
 NVM_API_KEY = os.environ["NVM_API_KEY"]
-NVM_ENVIRONMENT = os.environ.get("NVM_ENVIRONMENT", "sandbox")
 NVM_PLAN_ID = os.environ["NVM_PLAN_ID"]
 NVM_AGENT_ID = os.environ.get("NVM_AGENT_ID") or None
 
@@ -54,9 +53,10 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 logger = logging.getLogger(__name__)
 
-_payments = Payments.get_instance(
-    PaymentOptions(nvm_api_key=NVM_API_KEY, environment=NVM_ENVIRONMENT)
-)
+# `environment` is intentionally omitted: since payments-py 1.16 it is
+# derived from the API-key prefix (`sandbox:` / `live:`) and passing it
+# emits a FutureWarning.
+_payments = Payments.get_instance(PaymentOptions(nvm_api_key=NVM_API_KEY))
 
 
 def _resolve_plan_price() -> int:

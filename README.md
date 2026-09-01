@@ -165,6 +165,26 @@ Python implementation of the Weather MCP server, demonstrating Nevermined Paymen
 
 ---
 
+### 7. Deep Agents Market Research (Python)
+
+**Location**: `langchain-deep-agent-py/`
+
+A freemium market-research agent on LangChain's [Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview) harness, where the paid capability lives **inside a subagent**. Users chat with the supervisor for free; only the delegated research tool charges credits. Demonstrates that the x402 token a buyer puts on the run survives the `task()` delegation hop, so `@requires_payment` needs no changes.
+
+**Technologies**:
+- Python 3.11+
+- Deep Agents (`create_deep_agent`) on the LangChain v1 stack
+- Nevermined Payments SDK (`payments-py[langsmith]`)
+- OpenAI GPT-4o-mini
+
+**What You'll Learn**:
+- Put a paid tool behind a `task()` delegation and keep the payment lifecycle intact
+- Cap paid calls per run — a deep agent decides for itself how many subagent hops a request warrants
+- Guard against the supervisor answering a paid question from its own knowledge
+- Compare harnesses side by side with the sibling `langchain-research-agent-py`
+
+---
+
 ## Quick Start
 
 Each tutorial includes detailed instructions for:
