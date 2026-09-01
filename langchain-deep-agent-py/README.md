@@ -40,7 +40,17 @@ These are properties of the harness, not bugs, and both are worth designing arou
 NVM_MAX_PAID_CALLS_PER_RUN=3   # in .env
 ```
 
-The cap is keyed by run, and an attempt that returns `PAYMENT_REQUIRED` is refunded — a user who authorizes mid-run still gets the calls they paid for.
+**The caller has to say where a run begins.** LangGraph does *not* put a run id in `config.configurable` — verified against langgraph 1.2 / deepagents 0.7, where a tool sees only `thread_id`, checkpoint bookkeeping, and whatever the caller passed. `thread_id` is stable for a whole conversation, so keying a "per-run" cap on it silently makes it per-*conversation*: after N paid calls the tool refuses forever, however many new questions you ask.
+
+So `src/buyer.py` sends a fresh `nvm_run_id` alongside the token:
+
+```python
+"config": {"configurable": {"payment_token": token, "nvm_run_id": str(uuid.uuid4())}}
+```
+
+Without it the agent still works and still caps — it just reports the honest scope (`"This conversation already performed N paid research call(s)"`) instead of claiming a new request will reset the count. An attempt that returns `PAYMENT_REQUIRED` is refunded, so a user who authorizes mid-run keeps the calls they paid for, and the counter map evicts least-recently-used keys so a long-running server does not grow without bound.
+
+The browser chat UI does not send `nvm_run_id` — its proxy injects only the token — so against the chat UI the cap is per conversation. That is the safe direction to fail: it under-spends, never over-spends.
 
 **2. Two LLM layers can paraphrase the tool's output.** The subagent relays to the supervisor, which relays to the user. Both are instructed to pass text through verbatim; neither is guaranteed to. The plain ReAct sibling has one such layer, so this is strictly worse here. Treat the tool's return value as the source of truth — `src/buyer.py` prints the raw `ToolMessage`, not the chat reply, for exactly this reason.
 

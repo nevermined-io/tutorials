@@ -22,6 +22,7 @@ Run with: `poetry run buyer`
 import asyncio
 import os
 import re
+import uuid
 
 import httpx
 from dotenv import load_dotenv
@@ -126,13 +127,22 @@ async def _run(
     contract. LangGraph propagates `configurable` into the subagent, so
     the paid tool sees it without the buyer knowing the agent's internal
     topology.
+
+    We also send a fresh `nvm_run_id`. LangGraph does not inject a run id
+    into `configurable` — a tool sees only `thread_id`, which is stable
+    for the whole conversation — so without this the agent's paid-call cap
+    would apply per conversation rather than per request. The caller is
+    the only party that knows where one run ends and the next begins.
     """
+    configurable: dict = {"nvm_run_id": str(uuid.uuid4())}
+    if payment_token:
+        configurable["payment_token"] = payment_token
+
     body: dict = {
         "assistant_id": ASSISTANT_ID,
         "input": {"messages": [{"type": "human", "content": user_text}]},
+        "config": {"configurable": configurable},
     }
-    if payment_token:
-        body["config"] = {"configurable": {"payment_token": payment_token}}
 
     response = await client.post(f"/threads/{thread_id}/runs/wait", json=body)
     response.raise_for_status()

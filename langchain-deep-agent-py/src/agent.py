@@ -35,6 +35,7 @@ Two consequences worth understanding before you ship something like this:
 import logging
 import os
 import threading
+from collections import OrderedDict
 
 from deepagents import create_deep_agent
 from dotenv import load_dotenv
@@ -101,50 +102,104 @@ _PAYMENT_REQUIRED_NOTICE = (
     "Please authorize and ask again."
 )
 
-_BUDGET_EXHAUSTED_NOTICE = (
+# The buyer's per-run nonce. LangGraph does **not** put a run id in
+# `config["configurable"]` — verified against langgraph 1.2 / deepagents
+# 0.7, where a tool sees only `thread_id`, checkpoint bookkeeping, and
+# whatever the caller put there. So a genuinely per-run cap needs the
+# caller to say which run this is; `src/buyer.py` sends a fresh value on
+# every run, exactly as it sends `payment_token`.
+RUN_ID_KEY = "nvm_run_id"
+
+# Bound on distinct budget keys held in memory. The agent is a
+# long-running server, so without eviction the counter map grows for the
+# life of the process — one entry per run (or per conversation), forever.
+_MAX_TRACKED_KEYS = 1024
+
+_BUDGET_EXHAUSTED_PER_RUN = (
     "BUDGET_EXHAUSTED: This run already performed {limit} paid research "
-    "call(s), the per-run cap. Returning without charging again. Ask a "
-    "follow-up question to start a new run, or raise "
-    "NVM_MAX_PAID_CALLS_PER_RUN."
+    "call(s), the per-run cap. Returning without charging again. Send a new "
+    "request to get a fresh allowance, or raise NVM_MAX_PAID_CALLS_PER_RUN."
+)
+
+# Different text on purpose: when the caller does not supply a run id the
+# budget is per CONVERSATION, and telling the user to "ask a follow-up"
+# would be a lie — a follow-up on the same thread reuses the same counter.
+_BUDGET_EXHAUSTED_PER_THREAD = (
+    "BUDGET_EXHAUSTED: This conversation already performed {limit} paid "
+    "research call(s). The caller did not supply a `{run_id_key}` in "
+    "`config.configurable`, so the cap applies to the whole conversation "
+    "rather than to one request. Start a new conversation, pass a per-run "
+    "`{run_id_key}`, or raise NVM_MAX_PAID_CALLS_PER_RUN."
 )
 
 
 class _RunBudget:
-    """Counts paid calls per run so one turn cannot bill without bound.
+    """Caps paid calls so one request cannot bill without bound.
 
     Deep agents may fan out to several subagent calls for a single user
-    message. The counter is keyed by the LangGraph thread/run so
-    concurrent runs in the same process do not share a budget.
+    message, and each one that reaches the paid tool settles credits.
+
+    **Scope depends on what the caller supplies.** Keyed on
+    ``configurable[RUN_ID_KEY]`` when present — that is a true per-run
+    cap. Absent it, the only stable identity a tool can see is
+    ``thread_id``, which persists across every run on that thread, so the
+    cap becomes per-conversation. That is a safe direction to fail (it
+    under-spends, never over-spends) but it is a different promise, so
+    ``scope_of`` reports which one is in force and the caller is told
+    plainly in the exhausted notice.
+
+    Counting in this process rather than in graph state is deliberate: a
+    subagent's ``InjectedState`` is its own isolated conversation, reset
+    on every ``task()`` hop, so it cannot see sibling delegations within
+    the same turn — which is precisely what this cap is for.
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._counts: dict[str, int] = {}
+        self._counts: OrderedDict[str, int] = OrderedDict()
 
     @staticmethod
-    def _key(config: RunnableConfig | None) -> str:
+    def key_and_scope(config: RunnableConfig | None) -> tuple[str, str]:
+        """Return the budget key and whether it scopes a run or a thread."""
         configurable = (config or {}).get("configurable") or {}
-        return str(
-            configurable.get("run_id")
-            or configurable.get("thread_id")
-            or "default"
-        )
+        run_id = configurable.get(RUN_ID_KEY)
+        if run_id:
+            return str(run_id), "run"
+        thread_id = configurable.get("thread_id")
+        if thread_id:
+            return str(thread_id), "thread"
+        return "default", "thread"
+
+    def scope_of(self, config: RunnableConfig | None) -> str:
+        return self.key_and_scope(config)[1]
 
     def try_consume(self, config: RunnableConfig | None) -> bool:
-        """Reserve one paid call. False when the run is already at its cap."""
-        key = self._key(config)
+        """Reserve one paid call. False when the budget is already spent."""
+        key, _ = self.key_and_scope(config)
         with self._lock:
             used = self._counts.get(key, 0)
             if used >= MAX_PAID_CALLS_PER_RUN:
+                self._counts.move_to_end(key)
                 return False
             self._counts[key] = used + 1
+            self._counts.move_to_end(key)
+            while len(self._counts) > _MAX_TRACKED_KEYS:
+                # Evict least-recently-used. Dropping a key only refills
+                # that budget, so the worst case is a long-idle caller
+                # getting a fresh allowance — never an over-charge.
+                self._counts.popitem(last=False)
             return True
 
     def refund(self, config: RunnableConfig | None) -> None:
         """Give the reservation back when the call did not settle."""
-        key = self._key(config)
+        key, _ = self.key_and_scope(config)
         with self._lock:
-            self._counts[key] = max(0, self._counts.get(key, 0) - 1)
+            remaining = self._counts.get(key, 0) - 1
+            if remaining > 0:
+                self._counts[key] = remaining
+            else:
+                # Back to zero: drop the key instead of storing a 0.
+                self._counts.pop(key, None)
 
 
 _budget = _RunBudget()
@@ -198,8 +253,15 @@ def market_research(topic: str, config: RunnableConfig) -> str:
     plan_id_short = f"{NVM_PLAN_ID[:24]}..." if len(NVM_PLAN_ID) > 24 else NVM_PLAN_ID
 
     if not _budget.try_consume(config):
-        logger.info("per-run paid-call cap reached (%s)", MAX_PAID_CALLS_PER_RUN)
-        return _BUDGET_EXHAUSTED_NOTICE.format(limit=MAX_PAID_CALLS_PER_RUN)
+        scope = _budget.scope_of(config)
+        logger.info(
+            "paid-call cap reached (%s, scope=%s)", MAX_PAID_CALLS_PER_RUN, scope
+        )
+        if scope == "run":
+            return _BUDGET_EXHAUSTED_PER_RUN.format(limit=MAX_PAID_CALLS_PER_RUN)
+        return _BUDGET_EXHAUSTED_PER_THREAD.format(
+            limit=MAX_PAID_CALLS_PER_RUN, run_id_key=RUN_ID_KEY
+        )
 
     try:
         analysis = _market_research_paid(topic, config=config)
