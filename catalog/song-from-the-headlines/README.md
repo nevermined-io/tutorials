@@ -11,6 +11,10 @@ That's this demo.
 🎧 **The song it made:** [`song.mp3`](./song.mp3)
 🎬 **Watch it happen:** [`song-from-the-headlines.mp4`](./song-from-the-headlines.mp4) — a ~70-second walkthrough (English + Spanish subtitles included)
 
+🖥️ **Explore it interactively:** two web recaps of this same run, in two different flavours —
+- [**The interactive showcase**](https://claude.ai/code/artifact/160b776a-65c5-4059-be76-e8972190df89) — the album cover, the playable song, the prompt, and the on-chain receipt on one page.
+- [**An alternative take, by Rod**](https://claude.ai/code/artifact/0a515c41-79e5-4a12-bd60-fe7805ffba25) — the same story, a different design.
+
 > From our run on 2026-09-02 — headline: *"Whatever the AI Future Is, We're in It Right Now"* (The Atlantic). Total cost: **about 16 cents**. Human clicks: **zero**.
 
 ---
