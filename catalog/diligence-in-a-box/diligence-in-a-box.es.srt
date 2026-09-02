@@ -1,0 +1,48 @@
+1
+00:00:03,200 --> 00:00:10,810
+Un solo prompt en Claude Code. Redacta un memo de inversión
+sobre Perplexity, en manos de un agente con su presupuesto.
+
+2
+00:00:11,600 --> 00:00:19,607
+Primero encuentra sus fuentes. Datos de empresa, fundadores,
+contrataciones y noticias, informes SEC, un scrape web.
+
+3
+00:00:20,500 --> 00:00:28,433
+Luego empieza a pagar. La financiación y los fundadores
+de Perplexity, y detecta al director general, Aravind Srinivas.
+
+4
+00:00:29,200 --> 00:00:36,717
+El análisis del fundador corre en un segundo raíl de pago,
+en Base, un proceso que el agente consulta hasta que llega.
+
+5
+00:00:37,500 --> 00:00:45,145
+Impulso de contratación, el rastro de noticias, informes SEC
+y un scrape en vivo del sitio, cada uno hallado y pagado.
+
+6
+00:00:45,900 --> 00:00:54,238
+Cinco fuentes, siete pagos, dos raíles, dos cadenas, cada
+uno liquidado on-chain con un presupuesto. Cero clics.
+
+7
+00:00:56,000 --> 00:00:57,427
+Y este es el memo que escribió.
+
+8
+00:00:58,300 --> 00:01:06,097
+Empresa, fundadores, impulso, hasta la señal de la SEC,
+una empresa privada con fuerte demanda, en una página.
+
+9
+00:01:07,000 --> 00:01:13,211
+Cinco fuentes, dos raíles, dos cadenas, unos cincuenta
+centavos, y ni un solo clic.
+
+10
+00:01:14,300 --> 00:01:18,372
+Esto es comercio listo para agentes.
+Explora el catálogo de Nevermined.
