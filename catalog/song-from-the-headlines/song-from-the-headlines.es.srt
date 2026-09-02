@@ -1,0 +1,42 @@
+1
+00:00:03,000 --> 00:00:09,700
+Esto es Claude Code. Un solo prompt: convierte el titular
+del día en un agente que puede pagar lo que necesita.
+
+2
+00:00:10,500 --> 00:00:16,519
+Primero descubre los proveedores por sí mismo:
+búsqueda, letra, música, arte, en el catálogo de Nevermined.
+
+3
+00:00:17,300 --> 00:00:22,223
+Luego empieza a comprar: el titular y una letra
+pop de los noventa, pagando cada uno por el Router.
+
+4
+00:00:22,800 --> 00:00:27,663
+La canción se genera de forma asíncrona: cerca de un
+minuto, acelerado aquí, mientras el agente sigue pagando.
+
+5
+00:00:28,300 --> 00:00:31,424
+Canción, lista. Después la portada: una compra más.
+
+6
+00:00:32,200 --> 00:00:38,011
+Cuatro proveedores, dos raíles, dos cadenas: cada compra
+liquidada on-chain, con un solo presupuesto. Cero clics.
+
+7
+00:00:45,000 --> 00:00:45,913
+Y esto es lo que creó.
+
+8
+00:00:51,500 --> 00:00:56,074
+Cuatro proveedores, dos raíles, dos cadenas,
+dieciséis centavos, y ni un solo clic.
+
+9
+00:01:04,800 --> 00:01:08,676
+Esto es comercio listo para agentes.
+Explora el catálogo de Nevermined.
