@@ -17,78 +17,11 @@ Nevermined Payments is a platform that enables developers to monetize AI agents 
 - **Authentication & Authorization**: Secure access control with API keys and access tokens
 - **Credit Management**: Blockchain-based credit purchases and consumption tracking
 - **Payment Integration**: Seamless Stripe checkout for credit purchases
-- **Multiple Protocols**: Support for HTTP REST, A2A (Agent2Agent), and MCP (Model Context Protocol)
+- **Multiple Protocols**: Support for HTTP REST (x402) and MCP (Model Context Protocol)
 
 ## Tutorials Overview
 
-### 1. Agent-to-Agent (A2A) Payments Example
-
-**Location**: `a2a-examples/a2a-agent-client-example/`
-
-Demonstrates the Agent2Agent (A2A) protocol with Nevermined payments integration, including bearer token authentication, asynchronous task management, and push notifications.
-
-**Technologies**:
-- TypeScript
-- Node.js & Express
-- Nevermined Payments SDK (`@nevermined-io/payments`)
-- A2A Protocol
-
-**Key Features**:
-- Bearer token authentication with credit validation
-- Asynchronous task handling with streaming support
-- Push notification configuration and delivery
-- Credit burning on successful execution
-
----
-
-### 2. Financial Agent Tutorial
-
-**Location**: `financial-agent/`
-
-A step-by-step tutorial showing how to transform an unprotected financial advice agent into a paid service using Nevermined Payments.
-
-**Technologies**:
-- TypeScript
-- Node.js & Express
-- LangChain
-- OpenAI GPT-4
-- Nevermined Payments SDK
-
-**What You'll Learn**:
-- Convert a free API endpoint to a paid service
-- Implement credit-based access control
-- Handle authorization and token validation
-- Redeem credits on successful requests
-- Build a client that purchases plans and obtains access tokens
-
-**Includes**: Both unprotected and protected versions for comparison
-
----
-
-### 3. Medical Agent Tutorial
-
-**Location**: `medical-agent/`
-
-Similar to the financial agent, this tutorial demonstrates protecting a medical advice agent with Nevermined Payments.
-
-**Technologies**:
-- TypeScript
-- Node.js & Express
-- LangChain
-- OpenAI GPT-4
-- Nevermined Payments SDK
-
-**What You'll Learn**:
-- Add Nevermined authorization to existing agents
-- Implement session-based conversation memory
-- Handle payment-required scenarios (HTTP 402)
-- Build subscriber clients with plan management
-
-**Includes**: Side-by-side unprotected and protected implementations
-
----
-
-### 4. LangChain Paid Agent (Python)
+### 1. LangChain Paid Agent (Python)
 
 **Location**: `langchain-paid-agent-py/`
 
@@ -109,7 +42,7 @@ A deliberately minimal LangChain + LangGraph tutorial showing how to gate a sing
 
 ---
 
-### 5. Weather MCP Server (TypeScript)
+### 2. Weather MCP Server (TypeScript)
 
 **Location**: `mcp-examples/weather-mcp/`
 
@@ -137,7 +70,7 @@ A reference implementation of the Model Context Protocol (MCP) with Nevermined p
 
 ---
 
-### 6. Weather MCP Server (Python)
+### 3. Weather MCP Server (Python)
 
 **Location**: `mcp-examples/weather-mcp-py/`
 
@@ -165,7 +98,7 @@ Python implementation of the Weather MCP server, demonstrating Nevermined Paymen
 
 ---
 
-### 7. Deep Agents Market Research (Python)
+### 4. Deep Agents Market Research (Python)
 
 **Location**: `langchain-deep-agent-py/`
 
@@ -230,7 +163,6 @@ For development and testing, use Stripe's test card:
 ## Documentation
 
 - [Nevermined Documentation](https://nevermined.ai/docs)
-- [A2A Protocol Specification](https://a2aproject.github.io/A2A/latest)
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io)
 - [Nevermined Payments SDK](https://github.com/nevermined-io/payments)
 

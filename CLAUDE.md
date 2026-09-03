@@ -17,15 +17,10 @@ tutorials/
 ├── langchain-deep-agent-py/      # Same pattern on the Deep Agents harness; paid tool in a subagent
 ├── langchain-langsmith-deployment-py/  # Route-level ASGI PaymentMiddleware (Python)
 ├── langchain-chat-ui-nvm/  # Next.js browser chat UI with the x402 card-delegation popup
-├── a2a-examples/           # Agent-to-Agent (A2A) protocol examples
-├── mcp-examples/           # Model Context Protocol (MCP) examples
-│   ├── weather-mcp/        # TypeScript MCP server (has CLAUDE.md)
-│   └── weather-mcp-py/     # Python MCP server
-├── financial-agent/        # LangChain financial advisor (has CLAUDE.md)
-├── medical-agent/          # LangChain medical advisor (has CLAUDE.md)
-├── pricing-simulation/     # Pricing model simulation (TypeScript)
-├── pricing-simulation-py/  # Pricing model simulation (Python)
-└── async-logger/           # Async logging utilities
+├── catalog/                # Video showcase demos (song-from-the-headlines, diligence-in-a-box)
+└── mcp-examples/           # Model Context Protocol (MCP) examples
+    ├── weather-mcp/        # TypeScript MCP server (has CLAUDE.md)
+    └── weather-mcp-py/     # Python MCP server
 ```
 
 ## Common Commands
@@ -69,7 +64,6 @@ PORT=3000
 | Protocol | Description | Example Location |
 |----------|-------------|------------------|
 | **x402** | HTTP 402 payment protocol | `http-simple-agent-ts/` (TS), `http-simple-agent-py/` (Python) |
-| **A2A** | Agent-to-Agent protocol | `a2a-examples/` |
 | **MCP** | Model Context Protocol | `mcp-examples/` |
 
 ## x402 Protocol (v2)
@@ -122,7 +116,7 @@ injects the token into the run body, so pointing it at a different agent is a
   `API:` line, not just "Application started up".
 - **Two payments-py call shapes are deprecated since 1.16** and still present in the
   non-LangChain tutorials (`http-simple-agent-py`, `mcp-examples/weather-mcp-py`,
-  `pricing-simulation-py`, `http-simple-agent-ts`):
+  `http-simple-agent-ts`):
   - `PaymentOptions(environment=...)` — now derived from the API-key prefix.
   - passing `spending_limit_cents` / `provider_payment_method_id` straight to
     `get_x402_access_token` — create the delegation first, then pass
@@ -133,8 +127,6 @@ injects the token into the run body, so pointing it at a different agent is a
 ## Subdirectory CLAUDE.md Files
 
 The following tutorials have their own CLAUDE.md with specific instructions:
-- `financial-agent/CLAUDE.md`
-- `medical-agent/CLAUDE.md`
 - `mcp-examples/weather-mcp/CLAUDE.md`
 
 Always check for a subdirectory CLAUDE.md when working on a specific tutorial.
