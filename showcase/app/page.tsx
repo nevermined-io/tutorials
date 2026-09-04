@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { groupedTutorials, tutorials } from "@/content/tutorials";
-import { LANGUAGE_LABEL } from "@/lib/types";
+import { languageTags } from "@/lib/types";
 import { repoUrl } from "@/lib/repo";
 import HeroHandshake from "@/components/HeroHandshake";
 import { ArrowRight, GitHub, Spark } from "@/components/icons";
@@ -85,7 +85,11 @@ export default function HomePage() {
                     <div className="idx-desc">{t.tagline}</div>
                   </div>
                   <div className="idx-meta">
-                    <span className="t-lang">{LANGUAGE_LABEL[t.language]}</span>
+                    {languageTags(t.language).map((tag) => (
+                      <span key={tag} className="t-lang">
+                        {tag}
+                      </span>
+                    ))}
                     <span className={`tier ${t.tier}`}>{t.tier}</span>
                     <a
                       className="idx-gh"

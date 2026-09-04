@@ -137,22 +137,6 @@ export default function DiscoverPanel({ run }: { run: DiscoverRun }) {
 
   return (
     <div className="dsc">
-      {/* guided-tour video — watch the concept, then run it live below */}
-      {run.video ? (
-        <div className="videowrap" style={{ marginBottom: "22px" }}>
-          <video controls preload="metadata" playsInline>
-            <source src={run.video.src} type="video/mp4" />
-            {(run.video.subtitles ?? []).map((s) => (
-              <track key={s.srcLang} kind="subtitles" src={s.src} srcLang={s.srcLang} label={s.label} default={s.default} />
-            ))}
-            Your browser can&apos;t play this video — see {run.video.caption}.
-          </video>
-          <div className="vidcap">
-            {run.video.caption} · {run.video.duration}
-          </div>
-        </div>
-      ) : null}
-
       {/* readout */}
       <div className="dsc-readout">
         <Stat value={stats?.total} label="agents" />

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Language, Tier, Protocol } from "@/lib/types";
+import { languageTags } from "@/lib/types";
 import {
   Menu,
   Chevron,
@@ -107,7 +108,7 @@ export default function AppShell({
                         <span className={`tdot ${it.tier}`} aria-hidden="true" />
                         <span className="label">{it.title}</span>
                         {it.featured ? <Spark className="spark" size={12} /> : null}
-                        <span className="lang">{it.language}</span>
+                        <span className="lang">{languageTags(it.language).join(" · ")}</span>
                       </Link>
                     );
                   })}

@@ -568,7 +568,7 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
     tagline:
       "The half that comes before payment: the same live catalog of pay-per-use AI agents, read three ways — by eye, by an agent, and by a crawler. Public, unauthenticated, and free to read.",
     protocol: "catalog",
-    language: "ts",
+    language: "agnostic",
     tier: "discover",
     repoPath: "catalog/discover-the-catalog/",
     learn: {
