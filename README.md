@@ -118,6 +118,36 @@ A freemium market-research agent on LangChain's [Deep Agents](https://docs.langc
 
 ---
 
+### 5. MPP Seller — a paid agent bought by a second account (JavaScript)
+
+**Location**: `mpp-examples/mpp-seller/`
+
+A two-account, end-to-end run of the **Machine Payments Protocol (MPP)**: an ordinary
+Express service becomes a paid agent with one middleware, is published to the Nevermined
+catalog, and is then bought and called by a **different** account. Nothing is mocked — it
+publishes a real plan and a real agent and burns real credits, on a free plan, so no
+testnet USDC is needed.
+
+**Technologies**:
+- Node.js 20+ (plain ESM, no build step)
+- Express
+- Nevermined Payments SDK (`@nevermined-io/payments`, `paymentMiddleware`)
+
+**What You'll Learn**:
+- Protect a route with `paymentMiddleware` and `mpp: { bindBody: true }`
+- Answer a `402` `WWW-Authenticate: Payment` challenge with a credential, by hand
+- Do the same in one call with `payments.mpp.fetch`
+- See why a credential is single-use and cannot be moved to another request body
+- Tell your account address from your spend address, and know which one holds credits
+
+**Features**:
+- The seller holds no MPP secret — the middleware forwards opaque strings to the API
+- Negative cases included: a replayed credential and a swapped body, both refused
+- A spend-capped delegation, revoked at the end of every run
+- Offline self-check (`npm run selfcheck`) and a recorded [transcript](./mpp-examples/mpp-seller/TRANSCRIPT.md)
+
+---
+
 ## Quick Start
 
 Each tutorial includes detailed instructions for:

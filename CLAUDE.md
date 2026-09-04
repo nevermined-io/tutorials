@@ -18,9 +18,11 @@ tutorials/
 ├── langchain-langsmith-deployment-py/  # Route-level ASGI PaymentMiddleware (Python)
 ├── langchain-chat-ui-nvm/  # Next.js browser chat UI with the x402 card-delegation popup
 ├── catalog/                # Video showcase demos (song-from-the-headlines, diligence-in-a-box)
-└── mcp-examples/           # Model Context Protocol (MCP) examples
-    ├── weather-mcp/        # TypeScript MCP server (has CLAUDE.md)
-    └── weather-mcp-py/     # Python MCP server
+├── mcp-examples/           # Model Context Protocol (MCP) examples
+│   ├── weather-mcp/        # TypeScript MCP server (has CLAUDE.md)
+│   └── weather-mcp-py/     # Python MCP server
+└── mpp-examples/           # Machine Payments Protocol (MPP) examples
+    └── mpp-seller/         # Two-account seller/buyer run (JavaScript)
 ```
 
 ## Common Commands
@@ -65,6 +67,7 @@ PORT=3000
 |----------|-------------|------------------|
 | **x402** | HTTP 402 payment protocol | `http-simple-agent-ts/` (TS), `http-simple-agent-py/` (Python) |
 | **MCP** | Model Context Protocol | `mcp-examples/` |
+| **MPP** | Machine Payments Protocol — 402 challenge/credential over `WWW-Authenticate` | `mpp-examples/mpp-seller/` |
 
 ## x402 Protocol (v2)
 
@@ -123,6 +126,23 @@ injects the token into the run body, so pointing it at a different agent is a
     `DelegationConfig(delegation_id=...)`.
 - The per-call credit price is **not** an env var in the research/deep tutorials —
   it is read from the plan's `registry.credits.maxAmount` at import time.
+
+## MPP tutorial
+
+`mpp-examples/mpp-seller/` is the only tutorial that needs **two** accounts, and it
+refuses to run when the two API keys are identical — MPP is about one account buying from
+another. Three things about it that are not obvious from the code:
+
+- **The API base is derived from the key prefix** (`sandbox:` maps to
+  `api.sandbox.nevermined.app`), so no environment variable selects it. `NVM_API_BASE`
+  only overrides.
+- **A live key is refused outright**, and so is a live API base. The tutorial publishes
+  real rows and creates a real spend mandate.
+- **`captureRawBody` is load-bearing** whenever `mpp: { bindBody: true }` is set:
+  re-serializing `req.body` does not reproduce the bytes the buyer signed over, so the
+  digest never matches and every paid request is re-challenged.
+
+Run `npm run selfcheck` (offline, no credentials) before touching the guards.
 
 ## Subdirectory CLAUDE.md Files
 
