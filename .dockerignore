@@ -1,0 +1,15 @@
+# Docker build context is this repo root (docker build -f showcase/Dockerfile .).
+# Keep it small: drop dependencies, build output, VCS, secrets, logs.
+**/node_modules
+**/.next
+**/out
+**/.git
+**/.env
+**/.env.*
+**/*.log
+**/.DS_Store
+**/coverage
+# Python tutorials leave these locally (Poetry venvs, bytecode) — never needed in context.
+**/.venv
+**/__pycache__
+**/*.pyc

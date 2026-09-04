@@ -1,0 +1,16 @@
+# deps / build
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+
+# env
+.env
+.env*.local
+
+# large demo video — pull with `npm run sync:media` (kept out of git)
+public/media/**/*.mp4
+
+# internal design-review snapshots (Impeccable)
+.impeccable/
