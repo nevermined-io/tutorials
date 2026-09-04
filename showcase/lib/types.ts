@@ -3,7 +3,7 @@
 
 export type Protocol = "x402" | "mcp" | "langchain" | "catalog";
 export type Language = "ts" | "py" | "autonomous";
-export type Tier = "live" | "recap";
+export type Tier = "live" | "recap" | "discover";
 
 export interface CodeSample {
   caption?: string;
@@ -92,6 +92,29 @@ export interface RecapRun {
   takes?: { label: string; byline?: string; embedHref: string }[];
 }
 
+/** A captioned video block (WebVTT tracks — HTML5 <track> only accepts .vtt). */
+export interface VideoBlock {
+  src: string;
+  caption: string;
+  duration: string;
+  subtitles?: { src: string; srcLang: string; label: string; default?: boolean }[];
+}
+
+/** Section 4 (discover) — a functional, read-only discovery panel. Unlike `live` (which
+ * runs the x402 payment handshake against a sandbox), this queries the real, public catalog
+ * live through /api/catalog (a same-origin proxy) — no credentials, no payment, ever. The
+ * panel (components/DiscoverPanel) fetches everything else; only these editorial bits live here. */
+export interface DiscoverRun {
+  kind: "discover";
+  /** guided-tour video shown above the live panel */
+  video?: VideoBlock;
+  /** the hero question, auto-run on load so the panel is populated on first paint */
+  question: string;
+  /** preset chips offered under the query box */
+  presets: string[];
+  note: string;
+}
+
 export interface Tutorial {
   slug: string;
   title: string;
@@ -104,7 +127,7 @@ export interface Tutorial {
   learn: LearnSection;
   how: HowSection;
   tech: TechSection;
-  run: LiveRun | RecapRun;
+  run: LiveRun | RecapRun | DiscoverRun;
 }
 
 export const PROTOCOL_LABEL: Record<Protocol, string> = {

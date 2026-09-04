@@ -71,9 +71,13 @@ Each tutorial declares a **tier**:
   200 + settlement` — with a real per-session credit balance that decrements per call and
   responses that react to what you type. It talks to a **local sandbox agent**
   (`lib/demo-agent.mjs`), so it spends no real money and needs no credentials or backend.
-- **`recap`** — the two `catalog/` demos spend real crypto autonomously across chains, so they are
+- **`recap`** — the two paid `catalog/` demos spend real crypto autonomously across chains, so they are
   **watch-only**: embedded video, playable outputs, the on-chain receipt, and a "run it locally"
   note.
+- **`discover`** — the catalog *discovery* demo (`discover-the-catalog`) is read-only and free, so its
+  `See it run` panel is **functional in the browser**: it queries the real, public catalog live (REST,
+  the Catalog MCP, and the ARD registry) through the `/api/catalog` same-origin proxy — no credentials,
+  no payment, ever. See `components/DiscoverPanel.tsx` + `app/api/catalog/route.ts`.
 
 ## The sandbox agent, and going fully real
 
@@ -108,13 +112,16 @@ showcase/
 │   ├── page.tsx              # overview — intro + grouped index of all tutorials
 │   ├── t/[slug]/page.tsx     # tutorial page — the 4 normalized sections
 │   ├── api/agent/route.ts    # the "see it run" endpoint (cookie state → sandbox agent)
+│   ├── api/catalog/route.ts  # same-origin proxy for live catalog discovery (discover tier)
 │   └── globals.css           # the light, docs-style design system (tokens)
 ├── components/
 │   ├── AppShell.tsx          # persistent left sidebar + mobile drawer + active state
 │   ├── LiveRunPanel.tsx      # the interactive "see it run" panel (real fetches → /api/agent)
+│   ├── DiscoverPanel.tsx     # functional catalog discovery panel (real fetches → /api/catalog)
 │   └── RecapPanel.tsx        # video + outputs + receipt (recap tier)
 ├── content/tutorials.ts      # ← all tutorial content + sidebar grouping live here
 └── lib/
     ├── types.ts              # the normalized content model
-    └── demo-agent.mjs        # sandbox agent logic (x402 handshake) + `node` self-test
+    ├── demo-agent.mjs        # sandbox agent logic (x402 handshake) + `node` self-test
+    └── catalog-discovery.mjs # discovery request builders + parsers + `node` self-test
 ```

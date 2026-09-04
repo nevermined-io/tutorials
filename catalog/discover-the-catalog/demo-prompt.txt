@@ -1,0 +1,13 @@
+The one prompt — discovery, no payment.
+
+Handed to an agent that has the Nevermined Catalog MCP server attached
+(https://mcp.sandbox.nevermined.app/mcp — the list_categories / search_services /
+get_service tools; no API key needed for discovery):
+
+  "Using the Nevermined catalog, find agents that can enrich a company.
+   Which ones can I pay per call — and over which payment rails?
+   Don't pay for anything; just tell me what's available and how it's split."
+
+The agent calls search_services, reads the protocol on each listing, and reports
+back the matches grouped by rail (x402 vs MPP) — the catalog answering "what's out
+there?" before a single payment is made.
