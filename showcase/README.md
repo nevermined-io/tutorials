@@ -1,9 +1,11 @@
 # Nevermined Tutorials — Showcase
 
-A visual showcase of the Nevermined Payments tutorials. Every tutorial in this repo is
-presented in one normalized shape — **what you'll learn · how it works · under the hood ·
-see it run** — behind a persistent left sidebar that lists every tutorial, with an
-individual page for each.
+A visual showcase of the Nevermined Payments tutorials. Every paid-agent and catalog
+tutorial in this repo is presented in one normalized shape — **what you'll learn · how it
+works · under the hood · see it run** — behind a persistent left sidebar, with an
+individual page for each. (`langchain-chat-ui-nvm` is the browser *buyer* front-end for the
+LangChain agents rather than a paid agent itself, so it's referenced inside those pages
+instead of getting its own entry.)
 
 Built with Next.js (App Router) + TypeScript. Clean, light, docs-style UI on a white
 ground with a restrained Nevermined-teal accent. Intended to become the canonical

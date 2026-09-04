@@ -52,8 +52,8 @@ export interface TechSection {
 /** Section 4 (live) — a runnable panel. The panel (components/LiveRunPanel) is
  * API-driven: it talks to /api/agent, whose per-tutorial behavior lives in
  * lib/demo-agent.mjs (real x402 round-trips against a local sandbox — no real money).
- * Only `paymentPill` (an initial hint before the intro loads) and `note` are read
- * from here now; the other fields are legacy editorial kept for reference. */
+ * Only `note` is read from here now (the pill shown in the panel comes from the intro
+ * response, not `paymentPill`); the other fields are legacy editorial kept for reference. */
 export interface LiveRun {
   kind: "live";
   present: "chat" | "transcript";
@@ -73,7 +73,13 @@ export interface LiveRun {
 /** Section 4 (recap) — watch it run; no live backend (real money / autonomy). */
 export interface RecapRun {
   kind: "recap";
-  video?: { src: string; caption: string; duration: string; subtitles?: string };
+  video?: {
+    src: string;
+    caption: string;
+    duration: string;
+    /** WebVTT tracks (HTML5 <track> only accepts .vtt, not .srt) */
+    subtitles?: { src: string; srcLang: string; label: string; default?: boolean }[];
+  };
   outputs?: {
     cover?: { src?: string; label: string };
     audio?: { src?: string; label: string };

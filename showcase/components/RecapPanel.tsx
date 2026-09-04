@@ -14,9 +14,16 @@ export default function RecapPanel({ run }: { run: RecapRun }) {
         <div className="videowrap">
           <video controls preload="metadata" playsInline>
             <source src={run.video.src} type="video/mp4" />
-            {run.video.subtitles ? (
-              <track kind="subtitles" src={run.video.subtitles} srcLang="en" label="English" default />
-            ) : null}
+            {(run.video.subtitles ?? []).map((s) => (
+              <track
+                key={s.srcLang}
+                kind="subtitles"
+                src={s.src}
+                srcLang={s.srcLang}
+                label={s.label}
+                default={s.default}
+              />
+            ))}
             Your browser can&apos;t play this video — see {run.video.caption}.
           </video>
           <div className="vidcap">

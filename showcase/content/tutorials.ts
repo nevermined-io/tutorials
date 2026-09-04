@@ -90,7 +90,7 @@ export const tutorials: Tutorial[] = [
       settle: "settled 5 credits · balance 95 · analysis below",
       paidAnswer:
         "## Market size — Europe's EV market reached ~2.0M new BEV units in 2024, led by Germany, the UK and France; charging density and fleet electrification are the fastest-moving segments…",
-      note: "Live in the real showcase: the agent runs on a hosted LangGraph deployment; Authorize opens the Nevermined card-delegation popup and the token never leaves the server. If the backend is unreachable, this panel falls back to a recorded run.",
+      note: "Freemium: chatting is free; a research request runs the paid tool (5 credits) via the 402 → authorize → settle handshake. See the README to point this at a hosted LangGraph deployment with real card delegation.",
     },
   },
 
@@ -159,7 +159,7 @@ app.use(paymentMiddleware(payments, {
         { t: "← 200 OK   payment-response: settled", kind: "r200" },
         { t: "1 credit burned · agent answered", kind: "settle" },
       ],
-      note: "Live in the real showcase: the browser mints a token via the SDK against a configured plan and calls a hosted instance of this agent. Without a reachable backend, this is a recorded round-trip.",
+      note: "The buyer mints an x402 access token via the SDK and sends it as `payment-signature`; the sandbox runs that round-trip locally. See the README to point this at a hosted instance of the agent.",
     },
   },
 
@@ -226,7 +226,7 @@ app.use(paymentMiddleware(payments, {
         { t: "← 200 OK   payment-response (base64)", kind: "r200" },
         { t: "1 credit burned · agent answered", kind: "settle" },
       ],
-      note: "Live in the real showcase: the browser mints a token via the payments-py flow and calls a hosted instance. Without a reachable backend, this is a recorded round-trip.",
+      note: "Same x402 flow via payments-py; the sandbox runs the round-trip locally. See the README to point this at a hosted instance of the agent.",
     },
   },
 
@@ -366,7 +366,7 @@ app.use(paymentMiddleware(payments, {
       settle: "settled · raw ToolMessage is the source of truth",
       paidAnswer:
         "research-sub returned a structured market analysis; the buyer prints the raw ToolMessage, not the chat paraphrase, so nothing gets lost between the two LLM layers.",
-      note: "Deep Agents needs its own virtualenv (LangChain v1). Live in the real showcase this runs on a hosted deployment; otherwise it's a recorded run.",
+      note: "Deep Agents needs its own virtualenv (LangChain v1); the paid tool sits one task() hop away in a subagent, and the token survives the delegation. See the README to run it against a hosted deployment.",
     },
   },
 
@@ -429,7 +429,7 @@ GET  /assistants/search, /info, /ok → pass through`,
         { t: "← 200  {output: 'echo: hello from the buyer'}", kind: "r200" },
         { t: "settlement receipt returned", kind: "settle" },
       ],
-      note: "Live in the real showcase this calls a hosted LangSmith deployment. Without one reachable, this is a recorded round-trip.",
+      note: "The runs/wait route is gated by route-level ASGI middleware; the sandbox runs the 402 round-trip locally. See the README to call a hosted LangSmith deployment.",
     },
   },
 
@@ -494,7 +494,7 @@ weather.ensureCity          # prompt`,
         { t: "← result  { tempC: 21, summary: \"clear\" }", kind: "r200" },
         { t: "credits deducted · call authorized", kind: "settle" },
       ],
-      note: "Live in the real showcase this connects to a hosted weather-mcp over Streamable HTTP; compatible with MCP Inspector. Without a reachable server, this is a recorded exchange.",
+      note: "Streamable-HTTP MCP, compatible with MCP Inspector; the sandbox runs the gated tool call locally. See the README to connect a hosted weather-mcp server.",
     },
   },
 
@@ -557,7 +557,7 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
         { t: "← result  { tempC: 28, summary: \"sunny\" }", kind: "r200" },
         { t: "credits deducted · call authorized", kind: "settle" },
       ],
-      note: "Live in the real showcase this connects to a hosted weather-mcp-py. Without a reachable server, this is a recorded exchange.",
+      note: "Same MCP flow on FastMCP (Python); the sandbox runs the exchange locally. See the README to connect a hosted weather-mcp-py server.",
     },
   },
 
@@ -611,7 +611,10 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
       kind: "recap",
       video: {
         src: "/media/song-from-the-headlines/song-from-the-headlines.mp4",
-        subtitles: "/media/song-from-the-headlines/song-from-the-headlines.en.srt",
+        subtitles: [
+          { src: "/media/song-from-the-headlines/song-from-the-headlines.en.vtt", srcLang: "en", label: "English", default: true },
+          { src: "/media/song-from-the-headlines/song-from-the-headlines.es.vtt", srcLang: "es", label: "Español" },
+        ],
         caption: "song-from-the-headlines.mp4 · EN/ES subtitles",
         duration: "~70s",
       },
@@ -686,7 +689,10 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
       kind: "recap",
       video: {
         src: "/media/diligence-in-a-box/diligence-in-a-box.mp4",
-        subtitles: "/media/diligence-in-a-box/diligence-in-a-box.en.srt",
+        subtitles: [
+          { src: "/media/diligence-in-a-box/diligence-in-a-box.en.vtt", srcLang: "en", label: "English", default: true },
+          { src: "/media/diligence-in-a-box/diligence-in-a-box.es.vtt", srcLang: "es", label: "Español" },
+        ],
         caption: "diligence-in-a-box.mp4 · EN/ES subtitles",
         duration: "~80s",
       },

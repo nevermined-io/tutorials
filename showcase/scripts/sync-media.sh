@@ -13,6 +13,12 @@ copy() { # src-dir  slug
   mkdir -p "$out"
   # shellcheck disable=SC2086
   cp -f "$src"/*.mp4 "$src"/*.mp3 "$src"/*.jpg "$src"/*.srt "$out"/ 2>/dev/null || true
+  # HTML5 <track> only accepts WebVTT, so derive .vtt from each .srt
+  # (WEBVTT header + comma→dot in the timestamps).
+  for srt in "$out"/*.srt; do
+    [ -e "$srt" ] || continue
+    { printf 'WEBVTT\n\n'; sed 's/\r$//; s/\([0-9:][0-9:]*\),\([0-9][0-9][0-9]\)/\1.\2/g' "$srt"; } > "${srt%.srt}.vtt"
+  done
   echo "synced $2 → $(ls "$out" | tr '\n' ' ')"
 }
 
