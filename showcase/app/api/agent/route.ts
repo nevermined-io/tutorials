@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 // plain-JS sandbox logic (unit-tested via `node lib/demo-agent.mjs`)
 import { respond } from "@/lib/demo-agent.mjs";
+// real x402/MPP buyer against a deployed agent, enabled per-slug when env is present
+import { isLiveSlug, liveRespond } from "@/lib/live-agent.mjs";
 
 const COOKIE = "nvm_demo";
 
@@ -39,11 +41,17 @@ export async function POST(req: NextRequest) {
     all = {};
   }
 
-  const result = respond(all[slug], {
+  const agentReq = {
     slug,
     action: (payload.action ?? "ask") as "intro" | "ask" | "authorize" | "reset",
     message: payload.message,
-  });
+  };
+  // Live slugs hit the real deployed agent (server-side buyer); everything else uses the
+  // in-process simulator. isLiveSlug is false unless WEATHER_AGENT_URL + NVM_API_KEY + a plan id
+  // are configured, so the site stays a pure simulator when unconfigured.
+  const result = isLiveSlug(slug)
+    ? await liveRespond(all[slug], agentReq)
+    : respond(all[slug], agentReq);
 
   const res = NextResponse.json(result.body, { status: result.status });
   res.cookies.set(COOKIE, JSON.stringify({ ...all, [slug]: result.state }), {
