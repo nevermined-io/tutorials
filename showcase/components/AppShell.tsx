@@ -12,6 +12,7 @@ import {
   External,
   Spark,
   Bolt,
+  Signal,
   Plug,
   Layers,
   Book,
@@ -44,7 +45,7 @@ export interface NavGroup {
 const GLYPH: Record<Protocol, React.ReactNode> = {
   catalog: <Layers size={13} />,
   x402: <Bolt size={13} />,
-  mpp: <Spark size={13} />,
+  mpp: <Signal size={13} />,
   mcp: <Plug size={13} />,
   langchain: <LinkIcon size={13} />,
 };
