@@ -1,0 +1,12 @@
+# Docker build context is this repo root (docker build -f showcase/Dockerfile .).
+# Keep it small: drop dependencies, build output, VCS, secrets, logs.
+**/node_modules
+**/.next
+**/out
+**/.git
+.git
+**/.env
+**/.env.*
+**/*.log
+**/.DS_Store
+**/coverage

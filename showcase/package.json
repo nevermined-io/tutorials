@@ -1,0 +1,27 @@
+{
+  "name": "nevermined-tutorials-showcase",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Visual showcase of the Nevermined Payments tutorials — gallery + normalized per-tutorial pages with live and recap demos.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "sync:media": "bash scripts/sync-media.sh"
+  },
+  "dependencies": {
+    "next": "^15.5.25",
+    "prismjs": "^1.30.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/prismjs": "^1.26.6",
+    "@types/react": "19.1.1",
+    "@types/react-dom": "19.1.1",
+    "typescript": "5.7.2"
+  }
+}

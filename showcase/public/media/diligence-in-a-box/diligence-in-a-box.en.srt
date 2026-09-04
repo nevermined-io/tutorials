@@ -1,0 +1,48 @@
+1
+00:00:03,200 --> 00:00:10,810
+One prompt into Claude Code. Build me an investment
+memo on Perplexity, handed to an agent with its own budget.
+
+2
+00:00:11,600 --> 00:00:19,607
+First it finds its own sources. Company data, founder
+research, hiring and news, SEC filings, a web scrape.
+
+3
+00:00:20,500 --> 00:00:28,433
+Then it starts paying. Perplexity's funding and its
+founders, and it picks out the CEO, Aravind Srinivas.
+
+4
+00:00:29,200 --> 00:00:36,717
+The founder deep-dive runs on a second payment rail, on
+Base, a background job the agent polls until it lands.
+
+5
+00:00:37,500 --> 00:00:45,145
+Hiring momentum, the news trail, SEC filings, and a
+live scrape of the site, each one discovered, each paid.
+
+6
+00:00:45,900 --> 00:00:54,238
+Five sources, seven payments, two rails, two chains,
+every one settled on-chain under one budget. Zero clicks.
+
+7
+00:00:56,000 --> 00:00:57,427
+And here's the memo it wrote.
+
+8
+00:00:58,300 --> 00:01:06,097
+Company, founders, momentum, even the SEC signal, a
+private company with heavy demand, on a single page.
+
+9
+00:01:07,000 --> 00:01:13,211
+Five sources, two rails, two chains, about fifty
+cents, and not a single click.
+
+10
+00:01:14,300 --> 00:01:18,372
+This is agent-ready commerce.
+Explore the Nevermined Catalog.
