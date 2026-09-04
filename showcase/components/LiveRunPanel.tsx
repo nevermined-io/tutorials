@@ -19,8 +19,9 @@ interface Intro {
   greeting: string;
   suggestions: string[];
   authorized: boolean;
-  balance: number;
+  balance?: number;
   live?: boolean;
+  payg?: boolean;
   code?: CodeLink[];
 }
 
@@ -64,6 +65,7 @@ export default function LiveRunPanel({
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [codeLinks, setCodeLinks] = useState<CodeLink[]>([]);
+  const [payg, setPayg] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   // On mount: capture an nvm_api_key returned by the Nevermined App callback (query string),
@@ -105,9 +107,10 @@ export default function LiveRunPanel({
       setItems([{ type: "msg", role: "agent", text: intro.greeting }]);
       setSuggestions(intro.suggestions ?? []);
       setAuthorized(intro.authorized);
-      setBalance(intro.balance);
+      setBalance(typeof intro.balance === "number" ? intro.balance : null);
       setLive(!!intro.live);
       setCodeLinks(intro.code ?? []);
+      setPayg(!!intro.payg);
     });
     return () => {
       alive = false;
@@ -161,12 +164,14 @@ export default function LiveRunPanel({
       } else if (body.kind === "free") {
         setItems((x) => [...x, { type: "msg", role: "agent", text: body.answer, tag: "free" }]);
       } else if (body.kind === "paid") {
-        tickBalance(body.balance);
+        if (typeof body.balance === "number") tickBalance(body.balance);
         setItems((x) => [
           ...x,
           {
             type: "settle",
-            text: `200 OK · settled ${body.credits} credit(s)${body.payg ? " (pay-as-you-go)" : ""} · balance ${body.balance}`,
+            text: body.payg
+              ? "200 OK · paid · pay-as-you-go"
+              : `200 OK · settled ${body.credits} credit(s) · balance ${body.balance}`,
           },
           { type: "msg", role: "agent", text: body.answer, tag: "paid" },
         ]);
@@ -255,7 +260,7 @@ export default function LiveRunPanel({
                   <span className="stamp">402</span>
                   <span className="txt">
                     {it.payg
-                      ? `Pay-as-you-go · ${it.credits} credit(s) for this request`
+                      ? "Payment required · pay-as-you-go"
                       : `Payment required · ${it.credits} credit(s)`}
                   </span>
                   <button
@@ -363,7 +368,11 @@ export default function LiveRunPanel({
       <p className="runnote">
         {live ? (
           apiKey ? (
-            <>Live agent — real x402/MPP payments on Nevermined sandbox, paid with your connected key. </>
+            payg ? (
+              <>Live agent — pay-as-you-go: each request is paid on its own against Nevermined sandbox, no credit balance. </>
+            ) : (
+              <>Live agent — real x402/MPP payments on Nevermined sandbox, paid with your connected key. </>
+            )
           ) : (
             <>Live agent — connect once to pay real x402/MPP requests on Nevermined sandbox. </>
           )

@@ -99,13 +99,6 @@ function daysOf(message) {
   return m ? Math.max(1, Math.min(7, parseInt(m[1], 10))) : undefined;
 }
 
-// Pay-as-you-go price for a request: 1 credit for today, up to 7 for a forecast.
-// Mirrors the agent's priceForRequest so the UI can show the real, variable cost.
-function paygCost(body) {
-  const d = body.days;
-  return typeof d === "number" && d > 1 ? Math.min(7, Math.trunc(d)) : 1;
-}
-
 function formatWeather(w) {
   const place = w.country ? `${w.city}, ${w.country}` : w.city;
   // multi-day forecast (pay-as-you-go /weather/payg with days > 1)
@@ -174,12 +167,13 @@ export async function liveRespond(state, req) {
         greeting: cfg.greeting,
         suggestions: cfg.suggestions,
         pill: cfg.pill,
-        credits: cfg.credits,
         hasFreeTier: false,
         connected: !!key,
         authorized: s.authorized,
-        balance: s.balance,
         code: AGENT_CODE, // links to the deployed agent (server) source
+        // Pay-as-you-go pays a fixed price per request — no credit pool, so no
+        // credits/balance are surfaced. Fixed-credit plans report both.
+        ...(cfg.payg ? { payg: true } : { credits: cfg.credits, balance: s.balance }),
       },
       state: s,
     };
@@ -196,7 +190,11 @@ export async function liveRespond(state, req) {
     } catch (e) {
       return { status: 502, body: { error: `could not create delegation: ${e.message}` }, state: s };
     }
-    return { status: 200, body: { ok: true, method: "erc4337 delegation", balance: s.balance }, state: { authorized: true, balance: s.balance } };
+    return {
+      status: 200,
+      body: { ok: true, method: "erc4337 delegation", ...(cfg.payg ? {} : { balance: s.balance }) },
+      state: { authorized: true, balance: s.balance },
+    };
   }
 
   if (req.action === "reset") {
@@ -208,26 +206,26 @@ export async function liveRespond(state, req) {
     if (!message) return { status: 400, body: { error: "empty message" }, state: s };
     const days = daysOf(message);
     const body = { city: cityOf(message), ...(days ? { days } : {}) };
-    // Pay-as-you-go: the real cost depends on the request (1..7). Fixed plans use cfg.credits.
-    const cost = cfg.payg ? paygCost(body) : cfg.credits;
     if (!s.authorized) {
+      // Pay-as-you-go: fixed price per request, no credit count. Fixed plans quote credits.
       return {
         status: 402,
-        body: { kind: "payment_required", credits: cost, payg: !!cfg.payg, method: cfg.protocol },
+        body: { kind: "payment_required", method: cfg.protocol, ...(cfg.payg ? { payg: true } : { credits: cfg.credits }) },
         state: s,
       };
     }
-    if (s.balance < cost) {
+    if (!cfg.payg && s.balance < cfg.credits) {
       return { status: 402, body: { kind: "insufficient", balance: s.balance }, state: s };
     }
     try {
       const { weather, note } = cfg.protocol === "mpp" ? await buyMpp(key, cfg, body) : await buyX402(key, cfg, body);
-      const next = { authorized: true, balance: s.balance - cost };
-      return {
-        status: 200,
-        body: { kind: "paid", answer: `${formatWeather(weather)}\n\n(${note})`, credits: cost, payg: !!cfg.payg, balance: next.balance },
-        state: next,
-      };
+      const answer = `${formatWeather(weather)}\n\n(${note})`;
+      if (cfg.payg) {
+        // paid per request — no credits, no balance
+        return { status: 200, body: { kind: "paid", payg: true, answer }, state: { authorized: true, balance: s.balance } };
+      }
+      const next = { authorized: true, balance: s.balance - cfg.credits };
+      return { status: 200, body: { kind: "paid", answer, credits: cfg.credits, balance: next.balance }, state: next };
     } catch (e) {
       return { status: 502, body: { kind: "error", error: `live agent call failed: ${e.message}` }, state: s };
     }
