@@ -40,12 +40,20 @@ at it.
 
 ### CI → Artifact Registry
 
-`.github/workflows/showcase-image.yml` builds this image on every push to `main` that
-touches `showcase/**` (and on manual dispatch) and pushes it to
-`europe-west3-docker.pkg.dev/nevermined-eu-dev/nevermined-io/tutorials-showcase`
-(keyless, via Workload Identity Federation). Tags: an immutable `sha-<short>` per build
-(**pin this in ArgoCD for production**), `latest` on `main`, and an optional semver when
-dispatched with a `version` input.
+`.github/workflows/showcase-image.yml` has two jobs:
+
+- **`verify`** runs on every **pull request** (and every push): `npm ci`, the sandbox
+  self-check (`node lib/demo-agent.mjs`), and `npm run build` — which type-checks
+  `content/tutorials.ts`. It needs no credentials, so a broken change fails the PR
+  instead of landing on `main` and breaking the image build.
+- **`build-push`** runs only on **push to `main`** touching `showcase/**` (and on manual
+  dispatch), never on a PR. It builds the image and pushes it to
+  `europe-west3-docker.pkg.dev/nevermined-eu-dev/nevermined-io/tutorials-showcase`
+  (keyless, via Workload Identity Federation).
+
+Tags: an immutable `sha-<short>` per build (**pin this in ArgoCD for production**) and an
+optional semver when dispatched with a `version` input. There is no moving `latest` tag —
+the registry has `immutableTags=true`, which would reject a second `latest` push.
 
 ## How content works
 

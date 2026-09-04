@@ -8,7 +8,10 @@ const COOKIE = "nvm_demo";
 // real x402 shape (402 → authorize → 200 + settlement) with a real per-session credit
 // balance kept in an httpOnly cookie, but calls no external service and spends no real
 // money. To make a tutorial genuinely live, proxy to its hosted backend here instead
-// (inject the buyer's x402 token server-side; see langchain-chat-ui-nvm's api routes).
+// (inject the buyer's x402 token server-side; see langchain-chat-ui-nvm's api routes)
+// AND move `authorized`/`balance` server-side in the same change: this cookie is
+// client-supplied and unsigned (httpOnly is not integrity), so it must never gate real
+// spend — a raw `Cookie: nvm_demo={"authorized":true,"balance":1e9}` would otherwise pass.
 export async function POST(req: NextRequest) {
   let payload: { slug?: string; action?: string; message?: string };
   try {

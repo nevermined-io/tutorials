@@ -4,9 +4,12 @@
 **/.next
 **/out
 **/.git
-.git
 **/.env
 **/.env.*
 **/*.log
 **/.DS_Store
 **/coverage
+# Python tutorials leave these locally (Poetry venvs, bytecode) — never needed in context.
+**/.venv
+**/__pycache__
+**/*.pyc
