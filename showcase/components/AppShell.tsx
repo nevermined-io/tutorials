@@ -108,7 +108,7 @@ export default function AppShell({
                         <span className={`tdot ${it.tier}`} aria-hidden="true" />
                         <span className="label">{it.title}</span>
                         {it.featured ? <Spark className="spark" size={12} /> : null}
-                        <span className="lang">{languageTags(it.language).join(" ")}</span>
+                        <span className="lang">{languageTags(it.language).join(" · ")}</span>
                       </Link>
                     );
                   })}

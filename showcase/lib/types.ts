@@ -141,8 +141,9 @@ export const LANGUAGE_LABEL: Record<Language, string> = {
   ts: "ts",
   py: "py",
   autonomous: "autonomous",
-  // discovery is language-agnostic — surfaced as separate interface tags, see languageTags()
-  agnostic: "mcp + api",
+  // Required (Record is total) but unreachable for chips: languageTags() returns
+  // LANGUAGE_TAGS["agnostic"] instead. The rendered text lives there, not here.
+  agnostic: "agnostic",
 };
 
 // A tutorial's language, as the chip(s) to show. Most languages are one chip; a
