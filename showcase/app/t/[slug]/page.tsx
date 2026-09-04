@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { tutorials, getTutorial } from "@/content/tutorials";
-import { PROTOCOL_LABEL, LANGUAGE_LABEL } from "@/lib/types";
+import { PROTOCOL_LABEL, languageTags } from "@/lib/types";
 import { repoUrl, repoFileUrl } from "@/lib/repo";
 import LiveRunPanel from "@/components/LiveRunPanel";
 import RecapPanel from "@/components/RecapPanel";
@@ -31,6 +31,8 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
   if (!t) notFound();
 
   const isRecap = t.tier === "recap";
+  // discover tutorials keep the demo (§4) and the video in a separate §5
+  const discoverVideo = t.run.kind === "discover" ? t.run.video : undefined;
 
   return (
     <div className="container">
@@ -46,7 +48,11 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
 
         <div className="tut-taglist">
           <span className="t-proto">{PROTOCOL_LABEL[t.protocol]}</span>
-          <span className="t-lang">{LANGUAGE_LABEL[t.language]}</span>
+          {languageTags(t.language).map((tag) => (
+            <span key={tag} className="t-lang">
+              {tag}
+            </span>
+          ))}
           <span className={`tier ${t.tier}`}>
             {t.tier === "recap"
               ? "recap · watch it run"
@@ -168,6 +174,34 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
             <RecapPanel run={t.run} />
           )}
         </section>
+
+        {/* 5 — Catalog video (discover tutorials only) */}
+        {discoverVideo ? (
+          <section className="block wide" id="video">
+            <div className="h2">
+              <span className="num">5</span> Catalog video
+            </div>
+            <div className="videowrap">
+              <video controls preload="metadata" playsInline>
+                <source src={discoverVideo.src} type="video/mp4" />
+                {(discoverVideo.subtitles ?? []).map((s) => (
+                  <track
+                    key={s.srcLang}
+                    kind="subtitles"
+                    src={s.src}
+                    srcLang={s.srcLang}
+                    label={s.label}
+                    default={s.default}
+                  />
+                ))}
+                Your browser can&apos;t play this video — see {discoverVideo.caption}.
+              </video>
+              <div className="vidcap">
+                {discoverVideo.caption} · {discoverVideo.duration}
+              </div>
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

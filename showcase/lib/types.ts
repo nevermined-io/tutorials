@@ -141,6 +141,16 @@ export const LANGUAGE_LABEL: Record<Language, string> = {
   ts: "ts",
   py: "py",
   autonomous: "autonomous",
-  // discovery is language-agnostic (curl / MCP / REST) — label by interface, not language
+  // discovery is language-agnostic — surfaced as separate interface tags, see languageTags()
   agnostic: "mcp + api",
 };
+
+// A tutorial's language, as the chip(s) to show. Most languages are one chip; a
+// language-agnostic tutorial is labelled by the interfaces it teaches instead — its own
+// chip each (e.g. "mcp", "api"). Single source of truth for every render site.
+const LANGUAGE_TAGS: Partial<Record<Language, string[]>> = {
+  agnostic: ["mcp", "api"],
+};
+export function languageTags(language: Language): string[] {
+  return LANGUAGE_TAGS[language] ?? [LANGUAGE_LABEL[language]];
+}
