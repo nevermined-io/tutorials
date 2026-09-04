@@ -17,7 +17,8 @@ copy() { # src-dir  slug
   # (WEBVTT header + comma→dot in the timestamps).
   for srt in "$out"/*.srt; do
     [ -e "$srt" ] || continue
-    { printf 'WEBVTT\n\n'; sed 's/\r$//; s/\([0-9:][0-9:]*\),\([0-9][0-9][0-9]\)/\1.\2/g' "$srt"; } > "${srt%.srt}.vtt"
+    # only cue-timing lines contain "-->", so anchor the comma→dot there — never touch dialogue
+    { printf 'WEBVTT\n\n'; sed 's/\r$//; /-->/ s/,\([0-9][0-9][0-9]\)/.\1/g' "$srt"; } > "${srt%.srt}.vtt"
   done
   echo "synced $2 → $(ls "$out" | tr '\n' ' ')"
 }
