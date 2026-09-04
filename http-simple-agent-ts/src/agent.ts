@@ -18,6 +18,7 @@ import { Payments, EnvironmentName } from "@nevermined-io/payments";
 import { paymentMiddleware, X402_HEADERS, MPP_HEADERS } from "@nevermined-io/payments/express";
 import { getTodayWeather, getForecast, CityNotFoundError } from "./services/weather.service.js";
 import { priceForRequest } from "./pricing.js";
+import { parseWeatherRequest, BadRequestError } from "./request.js";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const NVM_API_KEY = process.env.NVM_API_KEY ?? "";
@@ -62,10 +63,10 @@ app.use(
 
 async function handleToday(req: Request, res: Response) {
   try {
-    const { city } = req.body as { city?: string };
-    if (!city) return res.status(400).json({ error: "Missing 'city'" });
+    const { city } = parseWeatherRequest(req.body);
     return res.json(await getTodayWeather(city));
   } catch (err) {
+    if (err instanceof BadRequestError) return res.status(400).json({ error: err.message });
     if (err instanceof CityNotFoundError) return res.status(404).json({ error: err.message });
     console.error(err);
     return res.status(502).json({ error: "weather upstream failed" });
@@ -77,10 +78,10 @@ app.post("/weather/subscription", handleToday);
 
 app.post("/weather/payg", async (req: Request, res: Response) => {
   try {
-    const { city, days } = req.body as { city?: string; days?: number };
-    if (!city) return res.status(400).json({ error: "Missing 'city'" });
+    const { city, days } = parseWeatherRequest(req.body);
     return res.json(days && days > 1 ? await getForecast(city, days) : await getTodayWeather(city));
   } catch (err) {
+    if (err instanceof BadRequestError) return res.status(400).json({ error: err.message });
     if (err instanceof CityNotFoundError) return res.status(404).json({ error: err.message });
     console.error(err);
     return res.status(502).json({ error: "weather upstream failed" });

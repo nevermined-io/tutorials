@@ -11,6 +11,7 @@
     "register-plans": "tsx scripts/register-plans.ts",
     "smoke": "tsx scripts/smoke.ts",
     "pricing:selfcheck": "tsx src/pricing.selfcheck.ts",
+    "request:selfcheck": "tsx src/request.selfcheck.ts",
     "build": "tsc",
     "start": "node dist/agent.js"
   },
