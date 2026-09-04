@@ -349,8 +349,22 @@ table.dt tr.total td:last-child { color: var(--paid); }
 .settle.err { border-color: var(--danger); background: var(--danger-wash); }
 .settle.err .stamp { background: var(--danger); }
 .settle.err .txt { color: var(--danger-ink); }
+/* compact 402 row — same footprint as .settle (the PAID line), not the big paycard */
+.payline { align-self: stretch; display: flex; align-items: center; gap: 11px; border: 1.5px solid var(--pay);
+  background: var(--pay-wash); border-radius: 12px; padding: 12px 14px; }
+.payline .stamp { font-family: var(--mono); font-weight: 500; font-size: 12px; color: #fff; background: var(--pay);
+  padding: 4px 9px; border-radius: 6px; flex: none; }
+.payline .txt { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+.cta.sm { margin-left: auto; padding: 6px 12px; font-size: 12.5px; border-radius: 9px; flex: none; }
 .notice { align-self: stretch; font-size: 12.5px; color: var(--muted); border: 1px solid var(--border);
   background: var(--bg); border-radius: 10px; padding: 10px 13px; }
+/* spinner for in-flight requests */
+.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border-strong);
+  border-top-color: var(--accent-ink); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.cta .spinner, .rp-input button .spinner { border-color: rgba(0,0,0,0.25); border-top-color: currentColor; }
+.working { align-self: flex-start; display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px;
+  padding: 4px 2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .rp-suggest { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 14px; background: var(--bg-tint); }
 .rp-suggest .schip { cursor: pointer; background: var(--bg); }

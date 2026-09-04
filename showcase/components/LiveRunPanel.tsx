@@ -56,6 +56,7 @@ export default function LiveRunPanel({
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   // On mount: capture an nvm_api_key returned by the Nevermined App callback (query string),
@@ -111,6 +112,7 @@ export default function LiveRunPanel({
   }, [items]);
 
   function connect() {
+    setConnecting(true);
     const url = `${APP_URL}/auth/cli?callback_url=${encodeURIComponent(
       cleanCallbackUrl(),
     )}&key_name=${encodeURIComponent("Nevermined Tutorials")}`;
@@ -235,21 +237,16 @@ export default function LiveRunPanel({
             }
             if (it.type === "pay") {
               return (
-                <div className="paycard" key={i}>
-                  <div className="big402">
-                    402 <span>Payment Required</span>
-                  </div>
-                  <p>
-                    This capability costs {it.credits} credit(s). Authorize a spending delegation once and
-                    the agent pays per call — you&apos;re not asked again this session.
-                  </p>
+                <div className="payline" key={i}>
+                  <span className="stamp">402</span>
+                  <span className="txt">Payment required · {it.credits} credit(s)</span>
                   <button
-                    className="cta"
+                    className="cta sm"
                     onClick={() => authorize(it.pending, i)}
                     disabled={busy || it.resolved}
                   >
-                    {it.resolved ? "Authorized" : "Authorize delegation"}
-                    {!it.resolved ? <ArrowRight size={16} /> : null}
+                    {it.resolved ? "Authorized" : "Authorize"}
+                    {!it.resolved ? (busy ? <span className="spinner" /> : <ArrowRight size={14} />) : null}
                   </button>
                 </div>
               );
@@ -268,6 +265,11 @@ export default function LiveRunPanel({
               </div>
             );
           })}
+          {busy ? (
+            <div className="working">
+              <span className="spinner" /> contacting the agent…
+            </div>
+          ) : null}
         </div>
 
         {needsConnect ? (
@@ -277,8 +279,9 @@ export default function LiveRunPanel({
               Nevermined account to get a sandbox API key — you&apos;ll be sent to the Nevermined App to log
               in and returned here automatically.
             </p>
-            <button className="cta" onClick={connect} disabled={busy}>
-              Connect with Nevermined <ArrowRight size={16} />
+            <button className="cta" onClick={connect} disabled={busy || connecting}>
+              {connecting ? "Redirecting to Nevermined…" : "Connect with Nevermined"}
+              {connecting ? <span className="spinner" /> : <ArrowRight size={16} />}
             </button>
           </div>
         ) : (
@@ -311,7 +314,7 @@ export default function LiveRunPanel({
                 aria-label="Message the agent"
               />
               <button type="submit" disabled={busy || !input.trim()}>
-                Send
+                {busy ? <span className="spinner" /> : "Send"}
               </button>
             </form>
           </>
