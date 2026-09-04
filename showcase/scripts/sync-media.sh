@@ -28,6 +28,7 @@ if [ ! -d "$catalog" ]; then
   exit 1
 fi
 
+copy catalog discover-the-catalog
 copy catalog song-from-the-headlines
 copy catalog diligence-in-a-box
 echo "done."

@@ -561,6 +561,82 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
     },
   },
 
+  // ───────────────────── Catalog · discovery (functional, free) ──────────────
+  {
+    slug: "discover-the-catalog",
+    title: "What's in the Catalog?",
+    tagline:
+      "The half that comes before payment: the same live catalog of pay-per-use AI agents, read three ways — by eye, by an agent, and by a crawler. Public, unauthenticated, and free to read.",
+    protocol: "catalog",
+    language: "ts",
+    tier: "discover",
+    repoPath: "catalog/discover-the-catalog/",
+    learn: {
+      lead: "Before an agent can pay for a service, it has to find it — so the catalog is built to be discovered by machines, not just browsed by people.",
+      bullets: [
+        "Browse the catalog by eye on the website — filter by category and by payment rail",
+        "Query it as an agent over REST, the Catalog MCP (search_services), and the ARD registry",
+        "Ingest the whole catalog as a crawler from one standards-compliant feed (/.well-known/ard.json)",
+        "Read the structure behind an answer with ARD /explore — the rails, media types and tags, not just names",
+        "Every discovery call is read-only and needs no API key, no wallet, and no payment — ever",
+      ],
+    },
+    how: {
+      paragraphs: [
+        'One question — "which agents can enrich a company?" — answered at three altitudes over the same data: a website a person browses, an API (and an MCP tool) an agent queries at runtime, and a single feed any registry or crawler can ingest.',
+        "REST and MCP search is naive substring matching, so it takes a keyword; ARD /search ranks the whole natural-language question. That difference is the lesson, not a bug — and ARD /explore turns the same query into a live histogram of the catalog's shape.",
+      ],
+      table: {
+        head: ["Altitude", "Who it's for", "Surface"],
+        rows: [
+          ["By eye", "a person", "nevermined.app/catalog"],
+          ["By an agent", "your code / your agent", "REST · Catalog MCP · ARD /search + /explore"],
+          ["By a crawler", "any registry / the open web", "GET /.well-known/ard.json"],
+        ],
+      },
+    },
+    tech: {
+      stack: ["REST catalog API", "Catalog MCP", "ARD registry", "/.well-known/ard.json", "public · no key"],
+      samples: [
+        {
+          caption: "ARD /search ranks the whole question — the body is NESTED (a bare {text:…} 500s)",
+          lang: "bash",
+          code: `curl -s -X POST "$API/api/v1/ard/search" \\
+  -H 'content-type: application/json' -d '{
+    "query": { "text": "which agents can enrich a company?",
+               "filter": { "pay:protocol": ["x402"] } },
+    "pageSize": 5 }'`,
+        },
+        {
+          caption: "point any MCP client at the hosted server — no key needed for discovery",
+          lang: "bash",
+          code: `claude mcp add --transport http nevermined \\
+  https://mcp.live.nevermined.app/mcp`,
+        },
+      ],
+      files: [
+        { path: "README.md", desc: "the layered tutorial — every curl / MCP / ARD example, verified live" },
+        { path: "run-demo.sh", desc: "a free, no-key discovery tour of every surface from your terminal" },
+        { path: "playground/", desc: "the standalone, zero-dependency version of the panel on this page" },
+      ],
+    },
+    run: {
+      kind: "discover",
+      video: {
+        src: "/media/discover-the-catalog/discover-the-catalog.mp4",
+        subtitles: [
+          { src: "/media/discover-the-catalog/discover-the-catalog.en.vtt", srcLang: "en", label: "English", default: true },
+          { src: "/media/discover-the-catalog/discover-the-catalog.es.vtt", srcLang: "es", label: "Español" },
+        ],
+        caption: "discover-the-catalog.mp4 · EN/ES subtitles",
+        duration: "~57s",
+      },
+      question: "which agents can enrich a company?",
+      presets: ["enrich a company", "weather", "crypto prices", "web scraping", "person research"],
+      note: "The same three-altitude discovery runs live in the panel below; the standalone playground (catalog/discover-the-catalog/playground) is the runnable reference you can host yourself.",
+    },
+  },
+
   // ─────────────────────────────── 9. Song (recap) ──────────────────────────
   {
     slug: "song-from-the-headlines",

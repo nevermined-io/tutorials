@@ -6,6 +6,7 @@ import { PROTOCOL_LABEL, LANGUAGE_LABEL } from "@/lib/types";
 import { repoUrl, repoFileUrl } from "@/lib/repo";
 import LiveRunPanel from "@/components/LiveRunPanel";
 import RecapPanel from "@/components/RecapPanel";
+import DiscoverPanel from "@/components/DiscoverPanel";
 import CodeBlock from "@/components/CodeBlock";
 import { ArrowRight, ArrowLeft, GitHub, External } from "@/components/icons";
 
@@ -47,7 +48,11 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           <span className="t-proto">{PROTOCOL_LABEL[t.protocol]}</span>
           <span className="t-lang">{LANGUAGE_LABEL[t.language]}</span>
           <span className={`tier ${t.tier}`}>
-            {isRecap ? "recap · watch it run" : "live · you pay per call"}
+            {t.tier === "recap"
+              ? "recap · watch it run"
+              : t.tier === "discover"
+                ? "discover · free & live"
+                : "live · you pay per call"}
           </span>
         </div>
         <h1>{t.title}</h1>
@@ -157,6 +162,8 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           </div>
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />
+          ) : t.run.kind === "discover" ? (
+            <DiscoverPanel run={t.run} />
           ) : (
             <RecapPanel run={t.run} />
           )}

@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What's in the Catalog?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#0E1526; --panel:#16203A; --panel-2:#111a30; --line:#26324F; --line-soft:#1d2942;
+    --ink:#E7ECF5; --muted:#8A97B2; --muted-2:#5f6d8c;
+    --x402:#3BE3C7; --mpp:#F2A93B;               /* payment rails, used as data encoding */
+    --x402-dim:rgba(59,227,199,.14); --mpp-dim:rgba(242,169,59,.14);
+    --focus:#7aa2ff;
+    --pane-pad:18px;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Space Grotesk", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 82% -10%, rgba(59,227,199,.08), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(242,169,59,.06), transparent 55%),
+      var(--ground);
+    color:var(--ink); font-family:var(--sans);
+    font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  a{color:var(--x402); text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1280px; margin:0 auto; padding:28px 22px 60px}
+
+  /* ---- masthead / hero ---- */
+  .mast{display:flex; flex-wrap:wrap; align-items:flex-end; gap:18px 28px; justify-content:space-between; margin-bottom:22px}
+  .mast h1{font-size:clamp(26px,3.4vw,40px); font-weight:600; letter-spacing:-.02em; margin:0; line-height:1.05; max-width:16ch}
+  .mast h1 em{font-style:normal; color:var(--x402)}
+  .mast p{margin:.5em 0 0; color:var(--muted); max-width:52ch}
+  .readout{display:flex; gap:22px; align-items:flex-end}
+  .stat{display:flex; flex-direction:column; gap:2px}
+  .stat b{font-family:var(--mono); font-weight:600; font-size:clamp(22px,2.6vw,30px); line-height:1; color:var(--ink)}
+  .stat span{font-size:12.5px; color:var(--muted)}
+  .stat.rails b{display:flex; gap:8px; align-items:baseline}
+  .stat.rails .r-x{color:var(--x402)} .stat.rails .r-m{color:var(--mpp)}
+
+  /* ---- command bar ---- */
+  .command{position:relative; margin:10px 0 12px}
+  .command form{display:flex; gap:10px; align-items:stretch}
+  .qbox{flex:1; display:flex; align-items:center; gap:12px; background:var(--panel);
+    border:1px solid var(--line); border-radius:12px; padding:0 16px; min-height:56px;
+    transition:border-color .15s, box-shadow .15s}
+  .qbox:focus-within{border-color:var(--focus); box-shadow:0 0 0 3px rgba(122,162,255,.18)}
+  .qbox .glyph{font-family:var(--mono); color:var(--x402); font-size:18px}
+  .qbox input{flex:1; background:none; border:0; outline:0; color:var(--ink);
+    font-family:var(--sans); font-size:17px; padding:0}
+  .qbox input::placeholder{color:var(--muted-2)}
+  .run{background:var(--x402); color:#04231d; border:0; border-radius:12px; padding:0 22px;
+    font-family:var(--sans); font-weight:600; font-size:15px; cursor:pointer; min-height:56px}
+  .run:hover{filter:brightness(1.06)} .run:active{transform:translateY(1px)}
+  .tier{font-family:var(--mono); font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; padding:0 4px}
+  .tier .dot{width:7px; height:7px; border-radius:50%; background:var(--x402); box-shadow:0 0 8px var(--x402)}
+
+  /* ---- chips ---- */
+  .chips{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 18px}
+  .chips .label{font-size:12.5px; color:var(--muted-2); margin-right:2px}
+  .chip{font-family:var(--mono); font-size:12.5px; color:var(--ink); background:var(--panel);
+    border:1px solid var(--line); border-radius:999px; padding:5px 11px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:7px; transition:border-color .12s, background .12s}
+  .chip:hover{border-color:var(--muted)}
+  .chip .cnt{color:var(--muted); font-size:11.5px}
+  .chip[data-on="1"]{border-color:currentColor}
+  .chip.x402[data-on="1"]{color:var(--x402); background:var(--x402-dim)}
+  .chip.mpp[data-on="1"]{color:var(--mpp); background:var(--mpp-dim)}
+  .chip .swatch{width:8px;height:8px;border-radius:2px}
+  .chip.x402 .swatch{background:var(--x402)} .chip.mpp .swatch{background:var(--mpp)}
+  .presets .chip{border-style:dashed}
+
+  /* ---- three panes ---- */
+  .altitudes{display:grid; grid-template-columns:1fr 1.15fr 1fr; gap:14px}
+  .pane{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+    display:flex; flex-direction:column; min-height:420px; max-height:660px; position:relative}
+  .pane.pulse{animation:pulse .5s ease}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(122,162,255,.0)}30%{box-shadow:0 0 0 2px rgba(122,162,255,.35)}100%{box-shadow:0 0 0 0 rgba(122,162,255,0)}}
+  .pane > header{display:flex; align-items:baseline; gap:10px; padding:14px var(--pane-pad) 10px; border-bottom:1px solid var(--line-soft)}
+  .pane > header .k{font-weight:600; font-size:15px}
+  .pane > header .sub{font-size:12.5px; color:var(--muted)}
+  .pane .body{padding:var(--pane-pad); flex:1; min-height:0; display:flex; flex-direction:column}
+  #pane-human{overflow:auto}
+  .pane.agent .body, #pane-feed{overflow:hidden}
+  #pane-human .svc{flex:0 0 auto}
+  #agent-res, #pane-feed pre.json{flex:1 1 auto; max-height:none; min-height:0}
+  /* altitude tick: a rising elevation mark, left edge */
+  .pane::before{content:""; position:absolute; left:0; top:14px; bottom:14px; width:3px; border-radius:3px;
+    background:linear-gradient(var(--tick,#2b3a5e), transparent)}
+  .pane.eye{--tick:#33507a} .pane.agent{--tick:#3BE3C7} .pane.crawler{--tick:#7c6cff}
+
+  /* human cards */
+  .svc{padding:12px 0; border-bottom:1px solid var(--line-soft)}
+  .svc:last-child{border-bottom:0}
+  .svc .top{display:flex; justify-content:space-between; gap:10px; align-items:baseline}
+  .svc h4{margin:0; font-size:15px; font-weight:600}
+  .svc .prov{font-size:12.5px; color:var(--muted)}
+  .svc .desc{font-size:13px; color:#c3ccdd; margin:5px 0 8px; line-height:1.45}
+  .svc .meta{display:flex; flex-wrap:wrap; gap:7px; align-items:center}
+  .rail{font-family:var(--mono); font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; border:1px solid currentColor}
+  .rail.x402{color:var(--x402)} .rail.mpp{color:var(--mpp)}
+  .tagpill{font-family:var(--mono); font-size:11px; color:var(--muted); background:var(--panel-2); border:1px solid var(--line-soft); padding:2px 7px; border-radius:6px}
+  .price{font-family:var(--mono); font-size:12px; color:var(--ink)}
+
+  /* agent tabs + console */
+  .tabs{display:flex; gap:4px; margin-bottom:10px}
+  .tab{font-family:var(--mono); font-size:12px; color:var(--muted); background:var(--panel-2);
+    border:1px solid var(--line-soft); border-radius:8px 8px 0 0; padding:6px 12px; cursor:pointer; border-bottom:0}
+  .tab[data-on="1"]{color:var(--ink); background:var(--ground); border-color:var(--line)}
+  .req{font-family:var(--mono); font-size:12px; color:var(--muted); background:var(--ground);
+    border:1px solid var(--line-soft); border-radius:8px; padding:10px 12px; margin-bottom:8px; white-space:pre-wrap; word-break:break-word}
+  .req .verb{color:var(--x402); font-weight:600}
+  pre.json{font-family:var(--mono); font-size:12px; line-height:1.5; margin:0; color:#cdd6e8;
+    background:var(--ground); border:1px solid var(--line-soft); border-radius:8px; padding:12px; overflow:auto; max-height:300px;
+    white-space:pre-wrap; word-break:break-word}
+  .jkey{color:#8fb7ff} .jstr{color:#8ee9d3} .jnum{color:var(--mpp)} .jnull{color:var(--muted)} .jbool{color:#e58fce}
+
+  /* facet strip */
+  .facets{margin-top:16px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
+  .facets h3{margin:0 0 3px; font-size:15px; font-weight:600}
+  .facets .lead{color:var(--muted); font-size:13px; margin:0 0 14px; max-width:70ch}
+  .facet-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px}
+  .facet h5{margin:0 0 9px; font-family:var(--mono); font-size:12px; color:var(--muted); font-weight:500}
+  .bar{display:grid; grid-template-columns:120px 1fr auto; gap:10px; align-items:center; margin:5px 0; font-size:12.5px}
+  .bar .name{font-family:var(--mono); color:#c3ccdd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .bar .track{height:9px; background:var(--panel-2); border-radius:6px; overflow:hidden}
+  .bar .fill{height:100%; border-radius:6px; width:0; transition:width .5s cubic-bezier(.2,.7,.2,1); background:var(--muted-2)}
+  .bar .fill.x402{background:var(--x402)} .bar .fill.mpp{background:var(--mpp)}
+  .bar .val{font-family:var(--mono); color:var(--ink); font-variant-numeric:tabular-nums}
+
+  .empty{color:var(--muted); font-size:13px; padding:14px 0}
+  .err{color:#ff9d9d; font-family:var(--mono); font-size:12.5px}
+  footer{margin-top:30px; color:var(--muted-2); font-size:12.5px; display:flex; flex-wrap:wrap; gap:6px 16px}
+  footer a{color:var(--muted)}
+
+  @media (max-width:960px){
+    .altitudes{grid-template-columns:1fr}
+    .facet-grid{grid-template-columns:1fr}
+    .readout{width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){ .pane.pulse{animation:none} .bar .fill{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <h1>What's in the <em>Catalog</em>?</h1>
+      <p>One question, answered by eye, by an agent, and by a crawler — over the same live, machine-payable catalog. No signup.</p>
+    </div>
+    <div class="readout" id="readout">
+      <div class="stat"><b id="n-agents">—</b><span>agents</span></div>
+      <div class="stat"><b id="n-cats">—</b><span>categories</span></div>
+      <div class="stat rails"><b><span class="r-x" id="n-x402">—</span><span class="r-m" id="n-mpp">—</span></b><span>x402 / MPP rails</span></div>
+    </div>
+  </header>
+
+  <div class="command">
+    <form id="qform">
+      <div class="qbox">
+        <span class="glyph">&gt;_</span>
+        <input id="q" autocomplete="off" spellcheck="false"
+          placeholder="which agents can enrich a company?">
+      </div>
+      <button class="run" type="submit">Discover</button>
+    </form>
+  </div>
+
+  <div class="chips">
+    <span class="tier"><span class="dot"></span><span id="tier">live</span></span>
+    <span class="label">rails</span>
+    <button class="chip x402" data-rail="x402"><span class="swatch"></span>x402 <span class="cnt" id="chip-x402"></span></button>
+    <button class="chip mpp" data-rail="mpp"><span class="swatch"></span>MPP <span class="cnt" id="chip-mpp"></span></button>
+    <span class="label" style="margin-left:8px">try</span>
+    <span class="presets" id="presets"></span>
+  </div>
+
+  <div class="altitudes">
+    <section class="pane eye">
+      <header><span class="k">By eye</span><span class="sub">what a person browses</span></header>
+      <div class="body" id="pane-human"><div class="empty">Ask a question to see matching agents.</div></div>
+    </section>
+
+    <section class="pane agent">
+      <header><span class="k">By an agent</span><span class="sub">the live API call it makes</span></header>
+      <div class="body">
+        <div class="tabs" id="tabs">
+          <button class="tab" data-tab="mcp">MCP tool</button>
+          <button class="tab" data-tab="ard">ARD /search</button>
+          <button class="tab" data-tab="rest">REST</button>
+        </div>
+        <div class="req" id="agent-req">The request appears here.</div>
+        <pre class="json" id="agent-res">// response</pre>
+      </div>
+    </section>
+
+    <section class="pane crawler">
+      <header><span class="k">By a crawler</span><span class="sub">.well-known/ard.json</span></header>
+      <div class="body" id="pane-feed"><div class="empty">The open-web feed entry for the top match.</div></div>
+    </section>
+  </div>
+
+  <section class="facets">
+    <h3>What's in this answer</h3>
+    <p class="lead">The same query, run through ARD <code>/explore</code> — a live histogram of the protocols, media types and tags behind your results. This is how you discover the catalog's <em>structure</em>, not just its listings.</p>
+    <div class="facet-grid" id="facet-grid">
+      <div class="empty">Run a query to see its facets.</div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Live against the Nevermined Agent Services Catalog.</span>
+    <a href="https://nevermined.app/catalog/" target="_blank" rel="noopener">Browse the catalog</a>
+    <a href="https://nevermined.ai/docs/products/catalog/overview" target="_blank" rel="noopener">Docs</a>
+    <span id="foot-tier"></span>
+  </footer>
+
+</div>
+
+<script type="module">
+const $ = (s,r=document)=>r.querySelector(s)
+const el = (t,c,txt)=>{const e=document.createElement(t); if(c)e.className=c; if(txt!=null)e.textContent=txt; return e}
+const railClass = p => p==='x402'?'x402':p==='mpp'?'mpp':''
+
+// tiny JSON syntax highlighter (data is the content here — make it readable)
+function hl(obj){
+  const j = JSON.stringify(obj, null, 2)
+  return j.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/"(\\.|[^"\\])*"(\s*:)?/g,(m,_,colon)=> colon ? `<span class="jkey">${m}</span>` : `<span class="jstr">${m}</span>`)
+    .replace(/\b(-?\d+\.?\d*)\b/g,'<span class="jnum">$1</span>')
+    .replace(/\b(true|false)\b/g,'<span class="jbool">$1</span>')
+    .replace(/\bnull\b/g,'<span class="jnull">null</span>')
+}
+
+let TIER='live', activeTab='mcp', rails=new Set(), feedIndex=null
+const state = { human:[], mcp:null, ard:null, rest:null }
+
+// The catalog's REST/MCP search is naive substring matching — it wants a keyword, not a sentence.
+// ARD /search is a lexical ranker and takes the whole question. So the "By eye" (website) and MCP
+// panes search by the salient keyword; the ARD pane gets the full natural-language text. That
+// difference is the lesson, not a bug.
+const STOP = new Set(('which what who whom whose a an the can could would will to for of in on at and '
+  +'or is are be do does me my i you your with that this these those find show get list any all '
+  +'agent agents tool tools service services api apis paid pay please help need want').split(/\s+/))
+function keyword(text){
+  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>2 && !STOP.has(w))
+  if(!words.length) return text.trim().replace(/[^a-z0-9\s]/gi,'').trim()
+  return words.sort((a,b)=>b.length-a.length)[0]  // the longest salient word is usually the domain noun
+}
+
+async function jget(url){ const r=await fetch(url); return r.json() }
+async function jpost(url, body, extra){ const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json',accept:'application/json, text/event-stream',...(extra||{})},body:JSON.stringify(body)}); return r.json() }
+
+// ---------- boot: live stats + facets seed + presets ----------
+async function boot(){
+  try{
+    const cfg = await jget('/config.json'); TIER=cfg.tier
+    $('#tier').textContent=TIER; $('#foot-tier').textContent = `Tier: ${TIER}.`
+  }catch{}
+  try{
+    const cats = await jget('/api/v1/catalog/categories')
+    const total = cats.reduce((s,c)=>s+(c.count||0),0)
+    $('#n-agents').textContent = total
+    $('#n-cats').textContent = cats.length
+  }catch(e){}
+  try{
+    const [x,m] = await Promise.all([
+      jget('/api/v1/catalog/services?protocol=x402&offset=1'),
+      jget('/api/v1/catalog/services?protocol=mpp&offset=1'),
+    ])
+    $('#n-x402').textContent = x.total; $('#chip-x402').textContent = x.total
+    $('#n-mpp').textContent = m.total; $('#chip-mpp').textContent = m.total
+  }catch(e){}
+  // presets that demo well
+  ;['enrich a company','weather','crypto prices','web scraping','person research'].forEach(p=>{
+    const b=el('button','chip',p); b.onclick=()=>{ $('#q').value=p; run() }; $('#presets').append(b)
+  })
+  // deep-link a demo state: ?q=…&tab=mcp|ard|rest&rails=x402,mpp — shareable + used for capture
+  const params = new URLSearchParams(location.search)
+  if(['mcp','ard','rest'].includes(params.get('tab'))) activeTab = params.get('tab')
+  ;(params.get('rails')||'').split(',').filter(Boolean).forEach(r=>{
+    if(r==='x402'||r==='mpp'){ rails.add(r); const c=document.querySelector(`.chip[data-rail="${r}"]`); if(c) c.dataset.on='1' }
+  })
+  if(params.get('q')){ $('#q').value = params.get('q'); run() }
+}
+
+// ---------- the one query, three altitudes ----------
+async function run(){
+  const text = $('#q').value.trim() || $('#q').placeholder
+  const protoFilter = [...rails]
+  pulse()
+  await Promise.all([ runHumanAndAgent(text, protoFilter), runFeed(text), runFacets(text) ])
+}
+
+function pulse(){ document.querySelectorAll('.pane').forEach(p=>{p.classList.remove('pulse'); void p.offsetWidth; p.classList.add('pulse')}) }
+
+async function runHumanAndAgent(text, proto){
+  const kw = keyword(text)  // website/naive search wants a keyword; ARD gets the whole question
+  // REST (drives the human cards + the REST tab)
+  const restQS = new URLSearchParams({ search:kw, offset:'8' })
+  if(proto.length===1) restQS.set('protocol', proto[0])
+  const restUrl = `/api/v1/catalog/services?${restQS}`
+  const rest = await jget(restUrl)
+  state.rest = { req:`GET ${restUrl}`, res:rest }
+  renderHuman(rest.services||[])
+
+  // ARD /search (the ARD tab)
+  const filter = {}; if(proto.length) filter['pay:protocol']=proto
+  const ardBody = { query:{ text, ...(proto.length?{filter}:{}) }, pageSize:6 }
+  const ard = await jpost('/api/v1/ard/search', ardBody)
+  state.ard = { req:`POST /api/v1/ard/search\n${JSON.stringify(ardBody)}`, res:ard }
+
+  // MCP search_services (the MCP tab) — same naive catalog search, so also keyworded
+  const mcpArgs = { query:kw, offset:6, ...(proto.length===1?{protocol:proto[0]}:{}) }
+  const rpc = { jsonrpc:'2.0', id:Date.now(), method:'tools/call', params:{ name:'search_services', arguments:mcpArgs } }
+  const mcpRaw = await jpost('/mcp', rpc)
+  let mcpParsed = mcpRaw
+  try{ mcpParsed = JSON.parse(mcpRaw.result.content[0].text) }catch{}
+  state.mcp = { req:`search_services(${JSON.stringify(mcpArgs)})`, res:mcpParsed }
+
+  renderAgent()
+}
+
+function renderHuman(services){
+  const box = $('#pane-human'); box.innerHTML=''
+  if(!services.length){ box.append(el('div','empty','No matching agents. Try another query or clear the rail filter.')); return }
+  services.slice(0,8).forEach(s=>{
+    const card = el('div','svc')
+    const top = el('div','top')
+    const h = el('h4',null,s.title||s.slug); top.append(h)
+    if(s.provider) top.append(el('span','prov',s.provider))
+    card.append(top)
+    if(s.shortDescription) card.append(el('div','desc', s.shortDescription))
+    const meta = el('div','meta')
+    if(s.protocol==='x402'||s.protocol==='mpp'){ const r=el('span','rail '+s.protocol, s.protocol==='x402'?'x402':'MPP'); meta.append(r) }
+    if(s.category) meta.append(el('span','tagpill', s.category))
+    const price = s.priceLabel || (s.endpoints&&s.endpoints[0]&&s.endpoints[0].priceLabel)
+    if(price) meta.append(el('span','price', price))
+    card.append(meta); box.append(card)
+  })
+}
+
+function renderAgent(){
+  document.querySelectorAll('.tab').forEach(t=>t.dataset.on = t.dataset.tab===activeTab ? '1':'0')
+  const s = state[activeTab]
+  if(!s){ return }
+  const req = $('#agent-req')
+  req.innerHTML = s.req.replace(/^(GET|POST)/,'<span class="verb">$1</span>').replace(/^search_services/,'<span class="verb">search_services</span>')
+  $('#agent-res').innerHTML = hl(s.res)
+}
+
+async function runFeed(text){
+  const box = $('#pane-feed')
+  if(!feedIndex){
+    try{ const feed = await jget('/.well-known/ard.json'); feedIndex = feed.entries||[] }catch{ feedIndex=[] }
+  }
+  // match the top human/ARD result against the feed by displayName
+  const top = (state.rest?.res?.services?.[0]?.title) || (state.ard?.res?.results?.[0]?.displayName)
+  let entry = null
+  if(top) entry = feedIndex.find(e => (e.displayName||'').toLowerCase() === top.toLowerCase())
+  if(!entry && state.ard?.res?.results?.[0]){
+    const id = state.ard.res.results[0].identifier
+    entry = feedIndex.find(e=>e.identifier===id)
+  }
+  box.innerHTML=''
+  if(!entry){ box.append(el('div','empty','No feed entry matched. The crawler feed lists every listed agent at /.well-known/ard.json.')); return }
+  // show the agent-ready shape, trimmed to the meaningful terms
+  const shown = {
+    identifier: entry.identifier, displayName: entry.displayName, type: entry.type,
+    url: entry.url, description: entry.description, tags: entry.tags,
+    representativeQueries: entry.representativeQueries,
+    'nvm:catalog': entry['nvm:catalog'], trustManifest: entry.trustManifest,
+  }
+  const pre = el('pre','json'); pre.innerHTML = hl(shown); box.append(pre)
+}
+
+async function runFacets(text){
+  const body = { query:{ text }, resultType:{ facets:[
+    { field:'pay:protocol' }, { field:'type' }, { field:'tags', limit:6 } ] } }
+  let data
+  try{ data = await jpost('/api/v1/ard/explore', body) }catch(e){ $('#facet-grid').innerHTML=`<div class="err">explore failed: ${e}</div>`; return }
+  const facets = data.facets||{}
+  const grid = $('#facet-grid'); grid.innerHTML=''
+  const spec = [
+    ['pay:protocol','payment rail', v=>railClass(v), v=>v==='x402'?'x402':v==='mpp'?'MPP':v],
+    ['type','media type', ()=> '', v=>v.replace('application/','')],
+    ['tags','top tags', ()=> '', v=>v],
+  ]
+  for(const [field,label,fill,fmt] of spec){
+    const f = facets[field]; if(!f) continue
+    const col = el('div','facet'); col.append(el('h5',null,label))
+    const max = Math.max(1,...f.buckets.map(b=>b.count))
+    f.buckets.forEach(b=>{
+      const row = el('div','bar')
+      row.append(el('div','name', fmt(b.value)))
+      const track=el('div','track'); const fillEl=el('div','fill '+fill(b.value)); track.append(fillEl); row.append(track)
+      row.append(el('div','val', String(b.count)))
+      col.append(row)
+      requestAnimationFrame(()=>{ fillEl.style.width = (b.count/max*100)+'%' })
+    })
+    grid.append(col)
+  }
+}
+
+// ---------- wire up ----------
+$('#qform').addEventListener('submit', e=>{ e.preventDefault(); run() })
+document.querySelectorAll('.tab').forEach(t=> t.addEventListener('click', ()=>{ activeTab=t.dataset.tab; renderAgent() }))
+document.querySelectorAll('.chip[data-rail]').forEach(c=> c.addEventListener('click', ()=>{
+  const r=c.dataset.rail; if(rails.has(r)) rails.delete(r); else rails.add(r)
+  c.dataset.on = rails.has(r)?'1':'0'; run()
+}))
+$('#tabs').firstElementChild.dataset.on='1'
+boot()
+</script>
+</body>
+</html>

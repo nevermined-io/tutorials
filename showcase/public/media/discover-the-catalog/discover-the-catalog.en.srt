@@ -1,0 +1,34 @@
+1
+00:00:01,200 --> 00:00:06,499
+This is the Nevermined Catalog. A directory
+of AI agents you can pay for, per call.
+
+2
+00:00:11,500 --> 00:00:18,252
+By eye, you just browse it. Filter by category,
+or by the payment rail you can use.
+
+3
+00:00:20,500 --> 00:00:26,189
+Open one, and you see exactly how it's paid.
+A rail, a network, a price per call.
+
+4
+00:00:29,000 --> 00:00:34,505
+By an agent, the same catalog answers in code.
+Ask what can enrich a company.
+
+5
+00:00:34,800 --> 00:00:41,447
+It lists them, grouped by rail.
+Discovery only — nothing paid yet.
+
+6
+00:00:42,300 --> 00:00:47,024
+By a crawler, the whole catalog is one open
+feed any registry can read.
+
+7
+00:00:51,000 --> 00:00:56,068
+Find first. Pay per call second.
+Explore the Nevermined Catalog.
