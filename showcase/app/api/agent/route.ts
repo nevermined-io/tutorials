@@ -19,7 +19,7 @@ type Sub = { authorized: boolean; balance: number };
 // and unsigned (httpOnly is not integrity), so it must never gate real spend — a raw
 // `Cookie: nvm_demo={"x":{"authorized":true,"balance":1e9}}` would otherwise pass.
 export async function POST(req: NextRequest) {
-  let payload: { slug?: string; action?: string; message?: string };
+  let payload: { slug?: string; action?: string; message?: string; apiKey?: string };
   try {
     payload = await req.json();
   } catch {
@@ -45,10 +45,13 @@ export async function POST(req: NextRequest) {
     slug,
     action: (payload.action ?? "ask") as "intro" | "ask" | "authorize" | "reset",
     message: payload.message,
+    // The viewer's Nevermined key (from localStorage via the Connect flow); used server-side to
+    // mint tokens on their behalf. Only forwarded to the live buyer, never to the simulator.
+    apiKey: payload.apiKey,
   };
   // Live slugs hit the real deployed agent (server-side buyer); everything else uses the
-  // in-process simulator. isLiveSlug is false unless WEATHER_AGENT_URL + NVM_API_KEY + a plan id
-  // are configured, so the site stays a pure simulator when unconfigured.
+  // in-process simulator. isLiveSlug is false unless WEATHER_AGENT_URL + a plan id are configured,
+  // so the site stays a pure simulator when unconfigured.
   const result = isLiveSlug(slug)
     ? await liveRespond(all[slug], agentReq)
     : respond(all[slug], agentReq);

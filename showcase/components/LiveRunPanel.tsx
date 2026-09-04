@@ -15,6 +15,27 @@ interface Intro {
   suggestions: string[];
   authorized: boolean;
   balance: number;
+  live?: boolean;
+}
+
+// The Nevermined App host for the "Connect" (CLI-auth) flow. Sandbox vs live is chosen inside the
+// App; this is just the frontend host. Override per-deployment via NEXT_PUBLIC_NVM_APP_URL.
+const APP_URL = process.env.NEXT_PUBLIC_NVM_APP_URL || "https://nevermined.app";
+const KEY_STORAGE = "nvm_api_key";
+
+function readStoredKey(): string | null {
+  try {
+    return localStorage.getItem(KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+
+// Current page URL with any nvm_api_key param stripped — used as the callback target.
+function cleanCallbackUrl(): string {
+  const u = new URL(window.location.href);
+  u.searchParams.delete(KEY_STORAGE);
+  return u.toString();
 }
 
 export default function LiveRunPanel({
@@ -33,13 +54,31 @@ export default function LiveRunPanel({
   const [flash, setFlash] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState(false);
+  const [apiKey, setApiKey] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
+
+  // On mount: capture an nvm_api_key returned by the Nevermined App callback (query string),
+  // persist it, and clean the URL — otherwise fall back to a previously stored key.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const returned = params.get(KEY_STORAGE);
+      if (returned) {
+        localStorage.setItem(KEY_STORAGE, returned);
+        window.history.replaceState({}, "", cleanCallbackUrl());
+      }
+    } catch {
+      /* private mode / no storage — connect flow just won't persist */
+    }
+    setApiKey(readStoredKey());
+  }, []);
 
   async function call(action: string, message?: string) {
     const res = await fetch("/api/agent", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ slug, action, message }),
+      body: JSON.stringify({ slug, action, message, apiKey: readStoredKey() ?? undefined }),
     });
     return { status: res.status, body: await res.json() };
   }
@@ -51,17 +90,18 @@ export default function LiveRunPanel({
   }
 
   useEffect(() => {
-    let live = true;
+    let alive = true;
     call("intro").then(({ body }) => {
-      if (!live) return;
+      if (!alive) return;
       const intro = body as Intro;
       setItems([{ type: "msg", role: "agent", text: intro.greeting }]);
       setSuggestions(intro.suggestions ?? []);
       setAuthorized(intro.authorized);
       setBalance(intro.balance);
+      setLive(!!intro.live);
     });
     return () => {
-      live = false;
+      alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
@@ -70,6 +110,24 @@ export default function LiveRunPanel({
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [items]);
 
+  function connect() {
+    const url = `${APP_URL}/auth/cli?callback_url=${encodeURIComponent(
+      cleanCallbackUrl(),
+    )}&key_name=${encodeURIComponent("Nevermined Tutorials")}`;
+    window.location.href = url;
+  }
+
+  function disconnect() {
+    try {
+      localStorage.removeItem(KEY_STORAGE);
+    } catch {
+      /* ignore */
+    }
+    setApiKey(null);
+    setAuthorized(false);
+    setItems((x) => [...x, { type: "notice", text: "Disconnected — your Nevermined key was removed from this browser." }]);
+  }
+
   async function ask(text: string) {
     const message = text.trim();
     if (!message || busy) return;
@@ -77,7 +135,9 @@ export default function LiveRunPanel({
     setItems((x) => [...x, { type: "msg", role: "user", text: message }]);
     try {
       const { status, body } = await call("ask", message);
-      if (status === 402 && body.kind === "payment_required") {
+      if (status === 401 && body.kind === "not_connected") {
+        setItems((x) => [...x, { type: "notice", text: "Connect with Nevermined first to make paid requests." }]);
+      } else if (status === 402 && body.kind === "payment_required") {
         setItems((x) => [...x, { type: "pay", credits: body.credits, pending: message }]);
       } else if (status === 402 && body.kind === "insufficient") {
         setBalance(body.balance);
@@ -95,7 +155,10 @@ export default function LiveRunPanel({
           { type: "msg", role: "agent", text: body.answer, tag: "paid" },
         ]);
       } else {
-        setItems((x) => [...x, { type: "settle", text: "the agent returned an error", error: true }]);
+        setItems((x) => [
+          ...x,
+          { type: "settle", text: body.error || "the agent returned an error", error: true },
+        ]);
       }
     } catch {
       setItems((x) => [
@@ -124,9 +187,12 @@ export default function LiveRunPanel({
   async function reset() {
     await call("reset");
     setAuthorized(false);
-    setBalance(100);
-    setItems((x) => [...x, { type: "notice", text: "Card delegation reset · balance back to 100." }]);
+    setBalance(live ? balance : 100);
+    setItems((x) => [...x, { type: "notice", text: "Delegation reset." }]);
   }
+
+  // Live tutorial, not yet connected → show the Connect gate instead of the input.
+  const needsConnect = live && !apiKey;
 
   return (
     <>
@@ -134,6 +200,14 @@ export default function LiveRunPanel({
         <div className="rp-bar">
           <span className="live-dot" aria-hidden="true" />
           <span className="title">{title}</span>
+          {live && apiKey ? (
+            <span className="bal" title="Connected to Nevermined">
+              connected{" "}
+              <button className="linkbtn" onClick={disconnect}>
+                disconnect
+              </button>
+            </span>
+          ) : null}
           {balance !== null ? (
             <span className={`bal${flash ? " flash" : ""}`}>
               balance <b>{balance}</b>
@@ -166,7 +240,7 @@ export default function LiveRunPanel({
                     402 <span>Payment Required</span>
                   </div>
                   <p>
-                    This capability costs {it.credits} credit(s). Authorize a card delegation once and
+                    This capability costs {it.credits} credit(s). Authorize a spending delegation once and
                     the agent pays per call — you&apos;re not asked again this session.
                   </p>
                   <button
@@ -174,7 +248,7 @@ export default function LiveRunPanel({
                     onClick={() => authorize(it.pending, i)}
                     disabled={busy || it.resolved}
                   >
-                    {it.resolved ? "Authorized" : "Authorize with card"}
+                    {it.resolved ? "Authorized" : "Authorize delegation"}
                     {!it.resolved ? <ArrowRight size={16} /> : null}
                   </button>
                 </div>
@@ -196,40 +270,61 @@ export default function LiveRunPanel({
           })}
         </div>
 
-        {suggestions.length > 0 && items.length <= 1 ? (
-          <div className="rp-suggest">
-            {suggestions.map((s) => (
-              <button key={s} className="schip" onClick={() => ask(s)} disabled={busy}>
-                {s}
-              </button>
-            ))}
+        {needsConnect ? (
+          <div className="paycard" style={{ margin: "0 12px 12px" }}>
+            <p style={{ marginTop: 0 }}>
+              This tutorial makes <b>real</b> x402 / MPP requests to a live sandbox agent. Connect your
+              Nevermined account to get a sandbox API key — you&apos;ll be sent to the Nevermined App to log
+              in and returned here automatically.
+            </p>
+            <button className="cta" onClick={connect} disabled={busy}>
+              Connect with Nevermined <ArrowRight size={16} />
+            </button>
           </div>
-        ) : null}
+        ) : (
+          <>
+            {suggestions.length > 0 && items.length <= 1 ? (
+              <div className="rp-suggest">
+                {suggestions.map((s) => (
+                  <button key={s} className="schip" onClick={() => ask(s)} disabled={busy}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-        <form
-          className="rp-input"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const t = input;
-            setInput("");
-            ask(t);
-          }}
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={busy ? "…" : "Send a request to the agent"}
-            disabled={busy}
-            aria-label="Message the agent"
-          />
-          <button type="submit" disabled={busy || !input.trim()}>
-            Send
-          </button>
-        </form>
+            <form
+              className="rp-input"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const t = input;
+                setInput("");
+                ask(t);
+              }}
+            >
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={busy ? "…" : "Send a request to the agent"}
+                disabled={busy}
+                aria-label="Message the agent"
+              />
+              <button type="submit" disabled={busy || !input.trim()}>
+                Send
+              </button>
+            </form>
+          </>
+        )}
       </div>
       <p className="runnote">
-        {authorized ? (
+        {live ? (
+          apiKey ? (
+            <>Live agent — real x402/MPP payments on Nevermined sandbox, paid with your connected key. </>
+          ) : (
+            <>Live agent — connect once to pay real x402/MPP requests on Nevermined sandbox. </>
+          )
+        ) : authorized ? (
           <>
             Sandbox agent — real payment round-trips and a real per-session credit balance, no real money.{" "}
             <button className="linkbtn" onClick={reset}>

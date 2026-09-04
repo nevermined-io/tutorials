@@ -1,17 +1,24 @@
 // Live buyer behind the "see it run" panels — the REAL counterpart to demo-agent.mjs.
 // It speaks the same response contract the panel expects ({status, body, state}), but performs
-// genuine x402 / MPP purchases against a deployed weather agent, paying with a sandbox account
-// held server-side (NVM_API_KEY never reaches the browser). Enabled per-slug only when the env is
-// present; otherwise the route falls back to the pure simulator.
+// genuine x402 / MPP purchases against a deployed weather agent.
 //
-// ponytail: one shared delegation + a per-session credit counter — enough for a demo. Per-viewer
-// delegations / real on-chain balance readback if this ever needs to bill distinct visitors.
+// The buyer identity is the VIEWER's own Nevermined API key: the panel obtains it via the
+// "Connect with Nevermined" flow, stores it in localStorage, and sends it on each request. The key
+// only travels to this same-origin API route (never cross-origin) and is used server-side to mint
+// tokens on the viewer's behalf. A shared NVM_API_KEY env var is a dev fallback when no per-user
+// key is supplied.
+//
+// ponytail: per-key Payments + one delegation cached per key — enough for a demo. Real on-chain
+// balance readback / per-viewer credit accounting later if needed.
 
 import { Payments } from "@nevermined-io/payments";
 import { X402_HEADERS } from "@nevermined-io/payments/express";
 
 const AGENT_URL = process.env.WEATHER_AGENT_URL || "";
-const NVM_API_KEY = process.env.NVM_API_KEY || "";
+// Shared-key fallback is DEV-ONLY and off unless explicitly enabled. In production it stays empty,
+// so a request with no per-user key cannot spend the shared account (the cookie is UX-only and
+// unsigned — it must never gate real spend). Every real purchase uses the VIEWER's own key.
+const ENV_KEY = process.env.ALLOW_SHARED_KEY_DEV === "1" ? process.env.NVM_API_KEY || "" : "";
 const START_BALANCE = 10;
 
 // slug → how to buy from it. Add a row to wire another tutorial to the live agent.
@@ -38,28 +45,36 @@ const LIVE = {
   },
 };
 
+// A slug is live-capable when the agent URL + a plan id are configured. Whether a given REQUEST
+// runs live also needs a key (per-user or the env fallback) — see resolveKey / liveRespond.
 export function isLiveSlug(slug) {
-  return !!(AGENT_URL && NVM_API_KEY && LIVE[slug] && LIVE[slug].planId);
+  return !!(AGENT_URL && LIVE[slug] && LIVE[slug].planId);
+}
+export function hasEnvKey() {
+  return !!ENV_KEY;
+}
+function resolveKey(reqApiKey) {
+  return (reqApiKey && String(reqApiKey).trim()) || ENV_KEY;
 }
 
-// ── lazy singletons ─────────────────────────────────────────────────────────
-let _payments;
-function payments() {
-  if (!_payments) _payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY });
-  return _payments;
+// ── per-key singletons ────────────────────────────────────────────────────────
+const _payments = new Map(); // key -> Payments
+const _delegation = new Map(); // key -> delegationId
+function paymentsFor(key) {
+  if (!_payments.has(key)) _payments.set(key, Payments.getInstance({ nvmApiKey: key }));
+  return _payments.get(key);
 }
-let _delegationId;
-async function delegationId() {
-  if (!_delegationId) {
-    const { delegationId: id } = await payments().delegation.createDelegation({
+async function delegationFor(key) {
+  if (!_delegation.has(key)) {
+    const { delegationId } = await paymentsFor(key).delegation.createDelegation({
       provider: "erc4337",
       spendingLimitCents: 10000,
       durationSecs: 604800,
       currency: "usdc",
     });
-    _delegationId = id;
+    _delegation.set(key, delegationId);
   }
-  return _delegationId;
+  return _delegation.get(key);
 }
 
 function cityOf(message) {
@@ -80,9 +95,9 @@ function formatWeather(w) {
 
 const freshState = () => ({ authorized: false, balance: START_BALANCE });
 
-async function buyX402(cfg, city) {
-  const { accessToken } = await payments().x402.getX402AccessToken(cfg.planId, undefined, {
-    delegationConfig: { delegationId: await delegationId() },
+async function buyX402(key, cfg, city) {
+  const { accessToken } = await paymentsFor(key).x402.getX402AccessToken(cfg.planId, undefined, {
+    delegationConfig: { delegationId: await delegationFor(key) },
   });
   const res = await fetch(`${AGENT_URL}${cfg.route}`, {
     method: "POST",
@@ -91,19 +106,18 @@ async function buyX402(cfg, city) {
   });
   if (res.status !== 200) throw new Error(`agent returned ${res.status}: ${await res.text()}`);
   const settled = !!res.headers.get(X402_HEADERS.PAYMENT_RESPONSE);
-  return { weather: await res.json(), settled, note: settled ? "settled in one x402 round-trip" : "served (settlement async)" };
+  return { weather: await res.json(), note: settled ? "settled in one x402 round-trip" : "served (settlement async)" };
 }
 
-async function buyMpp(cfg, city) {
-  const { response, paid, settled, credentialsPresented } = await payments().mpp.fetch(
+async function buyMpp(key, cfg, city) {
+  const { response, paid, credentialsPresented } = await paymentsFor(key).mpp.fetch(
     `${AGENT_URL}${cfg.route}`,
     { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ city }) },
-    { delegationConfig: { delegationId: await delegationId() }, planId: cfg.planId },
+    { delegationConfig: { delegationId: await delegationFor(key) }, planId: cfg.planId },
   );
   if (response.status !== 200) throw new Error(`agent returned ${response.status}`);
   return {
     weather: await response.json(),
-    settled: !!settled,
     note: paid
       ? "settled via MPP credential"
       : `MPP handshake served (credential presented=${credentialsPresented}); settlement pending on this backend`,
@@ -112,22 +126,26 @@ async function buyMpp(cfg, city) {
 
 /**
  * Real buyer, mirroring demo-agent.mjs's respond() contract.
+ * req: { slug, action, message?, apiKey? }
  * @returns {Promise<{status:number, body:object, state:{authorized:boolean,balance:number}}>}
  */
 export async function liveRespond(state, req) {
   const s = state && typeof state.balance === "number" ? { ...state } : freshState();
   const cfg = LIVE[req.slug];
   if (!cfg) return { status: 404, body: { error: "unknown live agent" }, state: s };
+  const key = resolveKey(req.apiKey);
 
   if (req.action === "intro") {
     return {
       status: 200,
       body: {
+        live: true, // tells the panel to show the "Connect with Nevermined" flow
         greeting: cfg.greeting,
         suggestions: cfg.suggestions,
         pill: cfg.pill,
         credits: cfg.credits,
         hasFreeTier: false,
+        connected: !!key,
         authorized: s.authorized,
         balance: s.balance,
       },
@@ -135,14 +153,18 @@ export async function liveRespond(state, req) {
     };
   }
 
+  // Every action past intro needs a buyer key.
+  if (!key) {
+    return { status: 401, body: { kind: "not_connected", error: "Connect with Nevermined to get an API key first." }, state: s };
+  }
+
   if (req.action === "authorize") {
     try {
-      await delegationId(); // create the real erc4337 delegation now
+      await delegationFor(key); // create the real erc4337 delegation for this key now
     } catch (e) {
       return { status: 502, body: { error: `could not create delegation: ${e.message}` }, state: s };
     }
-    const next = { authorized: true, balance: s.balance };
-    return { status: 200, body: { ok: true, method: "erc4337 delegation", balance: next.balance }, state: next };
+    return { status: 200, body: { ok: true, method: "erc4337 delegation", balance: s.balance }, state: { authorized: true, balance: s.balance } };
   }
 
   if (req.action === "reset") {
@@ -160,7 +182,7 @@ export async function liveRespond(state, req) {
     }
     const city = cityOf(message);
     try {
-      const { weather, note } = cfg.protocol === "mpp" ? await buyMpp(cfg, city) : await buyX402(cfg, city);
+      const { weather, note } = cfg.protocol === "mpp" ? await buyMpp(key, cfg, city) : await buyX402(key, cfg, city);
       const next = { authorized: true, balance: s.balance - cfg.credits };
       return {
         status: 200,
