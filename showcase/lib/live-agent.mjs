@@ -45,7 +45,8 @@ const LIVE = {
     protocol: "mpp",
     route: "/weather/payg",
     planId: process.env.PLAN_ID_PAYG || "",
-    credits: 1, // nominal; pay-as-you-go actually charges by requested days (1..7)
+    payg: true, // variable price per request (no fixed credit count)
+    credits: 1, // fallback only; paygCost() computes the real per-request amount
     pill: "MPP · pay-as-you-go",
     greeting:
       "I'm a live weather agent paid over MPP (Machine Payments Protocol), priced pay-as-you-go. Ask for a city — add a number of days for a forecast (e.g. '5-day forecast in Berlin'). The buyer runs the challenge→credential handshake against the real sandbox.",
@@ -96,6 +97,13 @@ function cityOf(message) {
 function daysOf(message) {
   const m = message.match(/(\d+)\s*[- ]?\s*day/i);
   return m ? Math.max(1, Math.min(7, parseInt(m[1], 10))) : undefined;
+}
+
+// Pay-as-you-go price for a request: 1 credit for today, up to 7 for a forecast.
+// Mirrors the agent's priceForRequest so the UI can show the real, variable cost.
+function paygCost(body) {
+  const d = body.days;
+  return typeof d === "number" && d > 1 ? Math.min(7, Math.trunc(d)) : 1;
 }
 
 function formatWeather(w) {
@@ -198,20 +206,26 @@ export async function liveRespond(state, req) {
   if (req.action === "ask") {
     const message = (req.message || "").trim();
     if (!message) return { status: 400, body: { error: "empty message" }, state: s };
-    if (!s.authorized) {
-      return { status: 402, body: { kind: "payment_required", credits: cfg.credits, method: cfg.protocol }, state: s };
-    }
-    if (s.balance < cfg.credits) {
-      return { status: 402, body: { kind: "insufficient", balance: s.balance }, state: s };
-    }
     const days = daysOf(message);
     const body = { city: cityOf(message), ...(days ? { days } : {}) };
+    // Pay-as-you-go: the real cost depends on the request (1..7). Fixed plans use cfg.credits.
+    const cost = cfg.payg ? paygCost(body) : cfg.credits;
+    if (!s.authorized) {
+      return {
+        status: 402,
+        body: { kind: "payment_required", credits: cost, payg: !!cfg.payg, method: cfg.protocol },
+        state: s,
+      };
+    }
+    if (s.balance < cost) {
+      return { status: 402, body: { kind: "insufficient", balance: s.balance }, state: s };
+    }
     try {
       const { weather, note } = cfg.protocol === "mpp" ? await buyMpp(key, cfg, body) : await buyX402(key, cfg, body);
-      const next = { authorized: true, balance: s.balance - cfg.credits };
+      const next = { authorized: true, balance: s.balance - cost };
       return {
         status: 200,
-        body: { kind: "paid", answer: `${formatWeather(weather)}\n\n(${note})`, credits: cfg.credits, balance: next.balance },
+        body: { kind: "paid", answer: `${formatWeather(weather)}\n\n(${note})`, credits: cost, payg: !!cfg.payg, balance: next.balance },
         state: next,
       };
     } catch (e) {

@@ -6,7 +6,7 @@ import { ArrowRight } from "./icons";
 
 type Item =
   | { type: "msg"; role: "user" | "agent"; text: string; tag?: "free" | "paid" }
-  | { type: "pay"; credits: number; pending: string; resolved?: boolean }
+  | { type: "pay"; credits: number; pending: string; resolved?: boolean; payg?: boolean }
   | { type: "settle"; text: string; error?: boolean }
   | { type: "notice"; text: string };
 
@@ -148,7 +148,10 @@ export default function LiveRunPanel({
       if (status === 401 && body.kind === "not_connected") {
         setItems((x) => [...x, { type: "notice", text: "Connect with Nevermined first to make paid requests." }]);
       } else if (status === 402 && body.kind === "payment_required") {
-        setItems((x) => [...x, { type: "pay", credits: body.credits, pending: message }]);
+        setItems((x) => [
+          ...x,
+          { type: "pay", credits: body.credits, pending: message, payg: !!body.payg },
+        ]);
       } else if (status === 402 && body.kind === "insufficient") {
         setBalance(body.balance);
         setItems((x) => [
@@ -161,7 +164,10 @@ export default function LiveRunPanel({
         tickBalance(body.balance);
         setItems((x) => [
           ...x,
-          { type: "settle", text: `200 OK · settled ${body.credits} credit(s) · balance ${body.balance}` },
+          {
+            type: "settle",
+            text: `200 OK · settled ${body.credits} credit(s)${body.payg ? " (pay-as-you-go)" : ""} · balance ${body.balance}`,
+          },
           { type: "msg", role: "agent", text: body.answer, tag: "paid" },
         ]);
       } else {
@@ -247,7 +253,11 @@ export default function LiveRunPanel({
               return (
                 <div className="payline" key={i}>
                   <span className="stamp">402</span>
-                  <span className="txt">Payment required · {it.credits} credit(s)</span>
+                  <span className="txt">
+                    {it.payg
+                      ? `Pay-as-you-go · ${it.credits} credit(s) for this request`
+                      : `Payment required · ${it.credits} credit(s)`}
+                  </span>
                   <button
                     className="cta sm"
                     onClick={() => authorize(it.pending, i)}
