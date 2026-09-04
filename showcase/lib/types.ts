@@ -2,7 +2,7 @@
 // One shape for all tutorials → uniform pages out of wildly different READMEs.
 
 export type Protocol = "x402" | "mcp" | "langchain" | "catalog";
-export type Language = "ts" | "py" | "autonomous";
+export type Language = "ts" | "py" | "autonomous" | "agnostic";
 export type Tier = "live" | "recap" | "discover";
 
 export interface CodeSample {
@@ -141,4 +141,6 @@ export const LANGUAGE_LABEL: Record<Language, string> = {
   ts: "ts",
   py: "py",
   autonomous: "autonomous",
+  // discovery is language-agnostic (curl / MCP / REST) — label by interface, not language
+  agnostic: "mcp + api",
 };
