@@ -31,6 +31,13 @@ on:
         required: false
         type: string
 
+# Superseded PR pushes shouldn't keep burning a runner. Cancel only in-flight PR
+# runs (grouped per ref, so distinct PRs don't cancel each other); never cancel a
+# push/dispatch run — those publish the immutable image and must finish.
+concurrency:
+  group: showcase-image-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   IMAGE: europe-west3-docker.pkg.dev/nevermined-eu-dev/nevermined-io/tutorials-showcase
   AR_LOCATION: europe-west3
@@ -64,7 +71,12 @@ jobs:
           cache-dependency-path: showcase/package-lock.json
 
       - name: Install
-        run: npm ci
+        # setup-node already restores ~/.npm, so every tarball is on disk. Stop
+        # npm ci from hitting the network for data it has: --prefer-offline skips
+        # registry revalidation, --no-audit/--no-fund skip the metadata round-trips
+        # that were stalling install (measured 22s ↔ 421s variance on identical
+        # inputs — the slow runs hung on the audit/fund calls, not on downloads).
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Sandbox agent self-check
         run: node lib/demo-agent.mjs
