@@ -41,15 +41,15 @@ const LIVE = {
       "I'm a live weather agent. Ask for the weather in any city — each call is paid over x402 (1 credit) against the real Nevermined sandbox.",
     suggestions: ["What's the weather in Lisbon?", "Weather in Tokyo"],
   },
-  "http-simple-agent-py": {
+  "mpp-weather-payg": {
     protocol: "mpp",
-    route: "/weather/credits",
-    planId: process.env.PLAN_ID_CREDITS || "",
-    credits: 1,
-    pill: "MPP · sandbox",
+    route: "/weather/payg",
+    planId: process.env.PLAN_ID_PAYG || "",
+    credits: 1, // nominal; pay-as-you-go actually charges by requested days (1..7)
+    pill: "MPP · pay-as-you-go",
     greeting:
-      "I'm a live weather agent paid over MPP (Machine Payments Protocol). Ask for a city — the buyer runs the challenge→credential handshake against the real sandbox.",
-    suggestions: ["What's the weather in Madrid?", "Weather in Berlin"],
+      "I'm a live weather agent paid over MPP (Machine Payments Protocol), priced pay-as-you-go. Ask for a city — add a number of days for a forecast (e.g. '5-day forecast in Berlin'). The buyer runs the challenge→credential handshake against the real sandbox.",
+    suggestions: ["5-day forecast in Berlin", "Weather in Madrid"],
   },
 };
 
@@ -92,9 +92,24 @@ function cityOf(message) {
   return cap ? cap[1] : "Lisbon";
 }
 
+// "5-day forecast" / "next 3 days" / "7 day" → the number of forecast days (pay-as-you-go).
+function daysOf(message) {
+  const m = message.match(/(\d+)\s*[- ]?\s*day/i);
+  return m ? Math.max(1, Math.min(7, parseInt(m[1], 10))) : undefined;
+}
+
 function formatWeather(w) {
-  const parts = [];
   const place = w.country ? `${w.city}, ${w.country}` : w.city;
+  // multi-day forecast (pay-as-you-go /weather/payg with days > 1)
+  if (Array.isArray(w.days)) {
+    const lines = w.days.map((d) => {
+      const t = `${d.tmaxC ?? "?"}° / ${d.tminC ?? "?"}°C`;
+      return `  ${d.date}: ${t}${d.weatherText ? ", " + String(d.weatherText).toLowerCase() : ""}`;
+    });
+    return `${place} — ${w.days.length}-day forecast\n${lines.join("\n")}`;
+  }
+  // single-day current weather
+  const parts = [];
   if (w.tmaxC != null || w.tminC != null) parts.push(`${w.tmaxC ?? "?"}° / ${w.tminC ?? "?"}°C`);
   if (w.weatherText) parts.push(String(w.weatherText).toLowerCase());
   if (w.precipitationMm != null) parts.push(`${w.precipitationMm}mm precip`);
@@ -103,25 +118,25 @@ function formatWeather(w) {
 
 const freshState = () => ({ authorized: false, balance: START_BALANCE });
 
-async function buyX402(key, cfg, city) {
+async function buyX402(key, cfg, body) {
   const { accessToken } = await paymentsFor(key).x402.getX402AccessToken(cfg.planId, undefined, {
     delegationConfig: { delegationId: await delegationFor(key) },
   });
   const res = await fetch(`${AGENT_URL}${cfg.route}`, {
     method: "POST",
     headers: { "content-type": "application/json", [X402_HEADERS.PAYMENT_SIGNATURE]: accessToken },
-    body: JSON.stringify({ city }),
+    body: JSON.stringify(body),
   });
   if (res.status !== 200) throw new Error(`agent returned ${res.status}: ${await res.text()}`);
   const settled = !!res.headers.get(X402_HEADERS.PAYMENT_RESPONSE);
   return { weather: await res.json(), note: settled ? "settled in one x402 round-trip" : "served (settlement async)" };
 }
 
-async function buyMpp(key, cfg, city) {
+async function buyMpp(key, cfg, body) {
   const { response, paid, credentialsPresented } = await paymentsFor(key).mpp.fetch(
     `${AGENT_URL}${cfg.route}`,
-    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ city }) },
-    { delegationConfig: { delegationId: await delegationFor(key) }, planId: cfg.planId },
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
+    { delegationConfig: { delegationId: await delegationFor(key) }, planId: cfg.planId, maxCredits: 7 },
   );
   if (response.status !== 200) throw new Error(`agent returned ${response.status}`);
   return {
@@ -189,9 +204,10 @@ export async function liveRespond(state, req) {
     if (s.balance < cfg.credits) {
       return { status: 402, body: { kind: "insufficient", balance: s.balance }, state: s };
     }
-    const city = cityOf(message);
+    const days = daysOf(message);
+    const body = { city: cityOf(message), ...(days ? { days } : {}) };
     try {
-      const { weather, note } = cfg.protocol === "mpp" ? await buyMpp(key, cfg, city) : await buyX402(key, cfg, city);
+      const { weather, note } = cfg.protocol === "mpp" ? await buyMpp(key, cfg, body) : await buyX402(key, cfg, body);
       const next = { authorized: true, balance: s.balance - cfg.credits };
       return {
         status: 200,

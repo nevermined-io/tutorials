@@ -254,6 +254,13 @@ button { font-family: inherit; }
   width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
 .block .lead { font-family: var(--disp); font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.22;
   margin-bottom: 14px; color: var(--ink); max-width: 22ch; }
+/* numbered sub-sections inside a block (e.g. 3.1 Client, 3.2 Agent) */
+.subblock { margin-top: 24px; }
+.subblock .h3 { font-family: var(--disp); font-weight: 800; font-size: 12px; color: var(--ink-soft);
+  letter-spacing: 0.02em; margin: 0 0 12px; display: flex; align-items: center; gap: 9px; }
+.subblock .h3 .num { font-family: var(--mono); font-weight: 500; color: var(--ink); background: var(--bg-tint);
+  border: 1px solid var(--border); font-size: 10.5px; padding: 3px 7px; border-radius: 5px; }
+.subblock .sublead { color: var(--ink-soft); font-size: 14px; margin: 0 0 12px; }
 .block p { color: var(--ink-soft); font-size: 15.5px; }
 .block p + p { margin-top: 12px; }
 ul.learn { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 11px; }
