@@ -366,6 +366,28 @@ table.dt tr.total td:last-child { color: var(--paid); }
   padding: 4px 2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* "Connect" button — signal variant, from the Nevermined Button Studio design
+   (artifact f119d119). Ribbon logo + pulsing signal rings on hover. Vars are --nc-*
+   prefixed so they don't collide with the showcase's own --accent/--lime. */
+.nvm-connect { --nc-brand: #0d3f48; --nc-brand-ink: #ffffff; --nc-accent: #4ac6bf;
+  position: relative; isolation: isolate; z-index: 0; display: inline-flex; align-items: center; gap: 11px;
+  padding: 13px 22px; border: 0; border-radius: 12px; background: var(--nc-brand); color: var(--nc-brand-ink);
+  font-weight: 600; font-size: 15px; line-height: 1; cursor: pointer; }
+.nvm-connect:disabled { opacity: 0.7; cursor: default; }
+.nvm-connect:focus-visible { outline: 2px solid var(--nc-accent); outline-offset: 3px; }
+.nvm-connect .ico { position: relative; display: grid; place-items: center; color: var(--nc-accent); }
+.nvm-connect .ribbon { height: 17px; width: auto; display: block; }
+.nvm-connect .ribbon path { fill: currentColor; }
+.nvm-connect .lbl { position: relative; z-index: 1; }
+.nvm-connect .ico::before, .nvm-connect .ico::after { content: ""; position: absolute; top: 50%; left: 50%;
+  width: 32px; height: 32px; margin: -16px 0 0 -16px; border-radius: 50%; border: 2px solid var(--nc-accent);
+  opacity: 0; z-index: -1; }
+.nvm-connect:hover .ico::before, .nvm-connect:focus-visible .ico::before { animation: sig 1.4s ease-out infinite; }
+.nvm-connect:hover .ico::after, .nvm-connect:focus-visible .ico::after { animation: sig 1.4s ease-out 0.7s infinite; }
+.nvm-connect:hover .ico, .nvm-connect:focus-visible .ico {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--nc-accent) 75%, transparent)); }
+@keyframes sig { from { transform: scale(0.45); opacity: 0.95; } to { transform: scale(2.6); opacity: 0; } }
+
 .rp-suggest { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 14px; background: var(--bg-tint); }
 .rp-suggest .schip { cursor: pointer; background: var(--bg); }
 .rp-suggest .schip:hover { border-color: var(--accent); color: var(--accent-ink); }
@@ -378,6 +400,9 @@ table.dt tr.total td:last-child { color: var(--paid); }
   font-weight: 700; font-size: 13.5px; cursor: pointer; }
 .rp-input button:disabled { opacity: 0.5; cursor: default; }
 .runnote { font-size: 12.5px; color: var(--faint); margin-top: 14px; }
+.codelinks { font-size: 12px; color: var(--faint); margin: 12px 0 0; }
+.codelinks a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+.runnote a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
 .linkbtn { background: none; border: none; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer;
   text-decoration: underline; }
 .linkbtn:hover { color: var(--accent); }

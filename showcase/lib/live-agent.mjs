@@ -21,6 +21,14 @@ const AGENT_URL = process.env.WEATHER_AGENT_URL || "";
 const ENV_KEY = process.env.ALLOW_SHARED_KEY_DEV === "1" ? process.env.NVM_API_KEY || "" : "";
 const START_BALANCE = 10;
 
+// The deployed weather agent's source (the "server" behind these live demos). Both live slugs
+// hit the same TS agent (MPP is TS-only), so they share these links.
+const AGENT_CODE = [
+  { label: "agent server", url: "https://github.com/nevermined-io/tutorials/tree/main/http-simple-agent-ts" },
+  { label: "agent.ts", url: "https://github.com/nevermined-io/tutorials/blob/main/http-simple-agent-ts/src/agent.ts" },
+  { label: "weather.service.ts", url: "https://github.com/nevermined-io/tutorials/blob/main/http-simple-agent-ts/src/services/weather.service.ts" },
+];
+
 // slug → how to buy from it. Add a row to wire another tutorial to the live agent.
 const LIVE = {
   "http-simple-agent-ts": {
@@ -148,6 +156,7 @@ export async function liveRespond(state, req) {
         connected: !!key,
         authorized: s.authorized,
         balance: s.balance,
+        code: AGENT_CODE, // links to the deployed agent (server) source
       },
       state: s,
     };

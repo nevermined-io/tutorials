@@ -10,12 +10,18 @@ type Item =
   | { type: "settle"; text: string; error?: boolean }
   | { type: "notice"; text: string };
 
+interface CodeLink {
+  label: string;
+  url: string;
+}
+
 interface Intro {
   greeting: string;
   suggestions: string[];
   authorized: boolean;
   balance: number;
   live?: boolean;
+  code?: CodeLink[];
 }
 
 // The Nevermined App host for the "Connect" (CLI-auth) flow. Sandbox vs live is chosen inside the
@@ -57,6 +63,7 @@ export default function LiveRunPanel({
   const [live, setLive] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [codeLinks, setCodeLinks] = useState<CodeLink[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
 
   // On mount: capture an nvm_api_key returned by the Nevermined App callback (query string),
@@ -100,6 +107,7 @@ export default function LiveRunPanel({
       setAuthorized(intro.authorized);
       setBalance(intro.balance);
       setLive(!!intro.live);
+      setCodeLinks(intro.code ?? []);
     });
     return () => {
       alive = false;
@@ -279,10 +287,32 @@ export default function LiveRunPanel({
               Nevermined account to get a sandbox API key — you&apos;ll be sent to the Nevermined App to log
               in and returned here automatically.
             </p>
-            <button className="cta" onClick={connect} disabled={busy || connecting}>
-              {connecting ? "Redirecting to Nevermined…" : "Connect with Nevermined"}
-              {connecting ? <span className="spinner" /> : <ArrowRight size={16} />}
+            <button className="nvm-connect" onClick={connect} disabled={busy || connecting}>
+              <span className="ico">
+                {connecting ? (
+                  <span className="spinner" />
+                ) : (
+                  <svg className="ribbon" viewBox="0 0 31.06 22" aria-hidden="true">
+                    <path d="M0 11.153L10.4179 20.6426V11.0576L0 1.56805V11.153Z" />
+                    <path d="M10.4178 1.56805V11.153L20.8325 20.6426L31.0596 11.153V1.56805L20.8325 11.0576L10.4178 1.56805Z" />
+                  </svg>
+                )}
+              </span>
+              <span className="lbl">{connecting ? "Redirecting…" : "Connect"}</span>
             </button>
+            {codeLinks.length > 0 ? (
+              <p className="codelinks">
+                Server code:{" "}
+                {codeLinks.map((c, i) => (
+                  <span key={c.url}>
+                    {i > 0 ? " · " : ""}
+                    <a href={c.url} target="_blank" rel="noreferrer">
+                      {c.label}
+                    </a>
+                  </span>
+                ))}
+              </p>
+            ) : null}
           </div>
         ) : (
           <>
@@ -338,6 +368,20 @@ export default function LiveRunPanel({
         ) : (
           "Sandbox agent — real payment round-trips (402 → authorize → settle) with a per-session credit balance, no external service and no real money. "
         )}
+        {live && apiKey && codeLinks.length > 0 ? (
+          <>
+            Server code:{" "}
+            {codeLinks.map((c, i) => (
+              <span key={c.url}>
+                {i > 0 ? " · " : ""}
+                <a href={c.url} target="_blank" rel="noreferrer">
+                  {c.label}
+                </a>
+              </span>
+            ))}
+            {". "}
+          </>
+        ) : null}
         {run.note}
       </p>
     </>
