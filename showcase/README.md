@@ -38,6 +38,15 @@ The container listens on `$PORT` (default `3000`) on `0.0.0.0`, runs as a non-ro
 user, and needs no build args or secrets — point a k8s Service / ArgoCD Deployment
 at it.
 
+### CI → Artifact Registry
+
+`.github/workflows/showcase-image.yml` builds this image on every push to `main` that
+touches `showcase/**` (and on manual dispatch) and pushes it to
+`europe-west3-docker.pkg.dev/nevermined-eu-dev/nevermined-io/tutorials-showcase`
+(keyless, via Workload Identity Federation). Tags: an immutable `sha-<short>` per build
+(**pin this in ArgoCD for production**), `latest` on `main`, and an optional semver when
+dispatched with a `version` input.
+
 ## How content works
 
 All tutorial content lives in one typed array: [`content/tutorials.ts`](./content/tutorials.ts),
