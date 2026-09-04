@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join, normalize, extname } from 'node:path'
 
 const PORT = Number(process.env.PORT) || 8080
+const HOST = process.env.HOST || '127.0.0.1' // localhost by default (matches the banner + README); set HOST=0.0.0.0 to expose in a container
 const TIER = process.env.NVM_TIER === 'live' ? 'live' : 'sandbox' // discovery is read-only; default safe
 const API_BASE = `https://api.${TIER}.nevermined.app`
 const MCP_BASE = `https://mcp.${TIER}.nevermined.app`
@@ -109,6 +110,6 @@ const server = createServer(async (req, res) => {
   }
 })
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`Catalog Discovery playground → http://localhost:${PORT}  (tier: ${TIER})`)
 })

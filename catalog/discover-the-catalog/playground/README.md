@@ -34,7 +34,7 @@ The catalog API is public, but its CORS policy only allows browser calls from `*
 
 ## Deploying
 
-- **Anywhere (Vercel, Render, a container, a VM):** ship this folder and run `node server.mjs` — the proxy handles CORS.
+- **Anywhere (Vercel, Render, a container, a VM):** ship this folder and run `HOST=0.0.0.0 node server.mjs` — the proxy handles CORS. (It binds `127.0.0.1` by default, so set `HOST=0.0.0.0` to make it reachable from outside the container/VM.)
 - **Under a `*.nevermined.app` origin:** the browser may call the API directly; the proxy becomes optional.
 
-`NVM_TIER` (`sandbox` | `live`, default `sandbox`) and `PORT` (default `8080`) are the only configuration.
+`NVM_TIER` (`sandbox` | `live`, default `sandbox`), `PORT` (default `8080`) and `HOST` (default `127.0.0.1`) are the only configuration.

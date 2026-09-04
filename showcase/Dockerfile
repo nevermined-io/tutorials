@@ -20,8 +20,9 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY showcase/ ./
-# The recap videos are gitignored under showcase/public — pull them from the
-# committed catalog/ demos so the recap panels play in the image.
+# The demo videos are gitignored under showcase/public — pull them from the
+# committed catalog/ demos so the recap/discover panels play in the image.
+COPY catalog/discover-the-catalog/discover-the-catalog.mp4 ./public/media/discover-the-catalog/
 COPY catalog/song-from-the-headlines/song-from-the-headlines.mp4 ./public/media/song-from-the-headlines/
 COPY catalog/diligence-in-a-box/diligence-in-a-box.mp4 ./public/media/diligence-in-a-box/
 RUN npm run build
