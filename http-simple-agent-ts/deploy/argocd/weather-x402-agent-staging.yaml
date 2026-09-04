@@ -30,11 +30,11 @@ spec:
         - name: env.NVM_API_KEY
           value: gcp:secretmanager:projects/112425687177/secrets/tutorials-weather-nvm-api-key
         - name: env.PLAN_ID_CREDITS
-          value: REPLACE_WITH_PLAN_ID
+          value: "77894004416396861654845539877107044009493609640794154706672817393635324531204"
         - name: env.PLAN_ID_TIME
-          value: REPLACE_WITH_PLAN_ID
+          value: "10952064442830220931222688026195788696776029458594089784747035900055527856473"
         - name: env.PLAN_ID_PAYG
-          value: REPLACE_WITH_PLAN_ID
+          value: "8310544419921962213409780763224169468183360879970520182660325277034660762576"
         - name: service.hostname
           value: weather-x402-agent-staging.nevermined.app
         - name: service.ports.port
