@@ -1,0 +1,21 @@
+{
+  "name": "mpp-seller",
+  "version": "1.0.0",
+  "description": "Dummy MPP-protected agent, published to the Nevermined catalog and bought from a second account",
+  "author": "Nevermined",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "provision": "node provision.mjs",
+    "agent": "node agent.mjs",
+    "client": "node client.mjs",
+    "selfcheck": "node selfcheck.mjs",
+    "demo": "./demo.sh"
+  },
+  "dependencies": {
+    "@nevermined-io/payments": "^1.11.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  }
+}
