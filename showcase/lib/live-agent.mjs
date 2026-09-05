@@ -108,7 +108,9 @@ const CITY_STOPWORDS = new Set([
   "How", "What", "Where", "When", "Why", "Who", "Is", "The", "Weather", "Forecast", "Show", "Give", "Tell", "Today",
 ]);
 function cityOf(message) {
-  const inCity = message.match(/\bin\s+([A-Za-zÀ-ſ][A-Za-zÀ-ſ .'-]+)/);
+  // "in <city>" — bound to one word plus an optional Capitalised second word ("New York"),
+  // so trailing lowercase words don't get swallowed ("in Tokyo today" -> "Tokyo", not "Tokyo today").
+  const inCity = message.match(/\bin\s+([A-Za-zÀ-ſ][A-Za-zÀ-ſ.'-]*(?:\s+[A-Z][A-Za-zÀ-ſ.'-]*)?)/);
   if (inCity) return inCity[1].trim().replace(/[.?!]+$/, "");
   // No "in <city>" clause: take the LAST capitalised word that isn't a question/stop word,
   // so "How is Madrid looking?" resolves to Madrid, not "How".

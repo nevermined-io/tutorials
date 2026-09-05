@@ -1,13 +1,11 @@
 import "dotenv/config";
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
+import { Payments } from "@nevermined-io/payments";
 import { X402_HEADERS } from "@nevermined-io/payments/express";
 
 const BASE = process.env.SERVER_URL || "http://localhost:3000";
 const PLAN = process.env.PLAN_ID_CREDITS!;
-const payments = Payments.getInstance({
-  nvmApiKey: process.env.NVM_API_KEY!,
-  environment: (process.env.NVM_ENVIRONMENT || "sandbox") as EnvironmentName,
-});
+// Environment is derived from the API-key prefix (sandbox:/live:); no `environment` option.
+const payments = Payments.getInstance({ nvmApiKey: process.env.NVM_API_KEY! });
 const assert = (c: boolean, m: string) => { if (!c) throw new Error("FAIL: " + m); };
 
 async function main() {

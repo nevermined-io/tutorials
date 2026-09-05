@@ -106,7 +106,6 @@ helm template weather-x402-agent . -n agents \
   --set replicaCount=1 \
   --set initCommand="yarn start" \
   --set ingress.rateLimitEnabled=true \
-  --set env.NVM_ENVIRONMENT=sandbox \
   --set env.NVM_API_KEY="gcp:secretmanager:projects/112425687177/secrets/tutorials-weather-nvm-api-key"
 ```
 
@@ -126,8 +125,6 @@ Rendered (helm v3.10.1), no template errors, four resources:
     value: gcp:secretmanager:projects/112425687177/secrets/tutorials-weather-nvm-api-key
   - name: OPENAI_API_KEY
     value:
-  - name: NVM_ENVIRONMENT
-    value: sandbox
   - name: AGENT_DID
     value:
   ... (unrelated fixed keys for other agents, all empty here) ...
