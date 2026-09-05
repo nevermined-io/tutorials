@@ -1,353 +1,196 @@
-# HTTP Simple Agent (TypeScript) with x402 Payment Protection
+# HTTP Weather Agent (TypeScript) — x402 + MPP
 
-A minimal Express server demonstrating the [x402 payment protocol](https://github.com/coinbase/x402) using Nevermined's payment middleware. This tutorial shows how to protect API endpoints with credit-based payments.
+A minimal Express server whose weather endpoints are gated by Nevermined's payment middleware. One `paymentMiddleware` call protects three routes, each backed by a different payment plan and each accepting **both** payment protocols — [x402](https://github.com/coinbase/x402) and **MPP** (Machine Payments Protocol). Weather comes from the free, keyless [Open-Meteo](https://open-meteo.com) API, so the agent needs no third-party keys to run.
 
-> **Note:** For a Python version of this tutorial, see [http-simple-agent-py](../http-simple-agent-py/).
+> **Note:** For a Python version of the x402 flow, see [http-simple-agent-py](../http-simple-agent-py/). MPP is TypeScript-only.
 
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289da?logo=discord&logoColor=white)](https://discord.com/invite/GZju2qScKq)
 
 ## Overview
 
-This tutorial includes:
+- **Agent** (`src/agent.ts`) — an Express server exposing three payment-protected weather routes plus an unprotected `/health`.
+- **Weather service** (`src/services/weather.service.ts`) — current weather + multi-day forecast from Open-Meteo (no API key).
+- **Plan registration** (`scripts/register-plans.ts`) — one-shot script that registers the three plans and prints their IDs.
+- **Smoke test / buyer example** (`scripts/smoke.ts`) — drives the full x402 and MPP buyer round-trips against the agent.
 
-- **Agent** (`src/agent.ts`) - An Express server with a payment-protected `/ask` endpoint
-- **Agent with Observability** (`src/agent-observability.ts`) - Same agent with Nevermined observability for tracking OpenAI costs
-- **Client** (`src/client.ts`) - A demo client showing the complete x402 payment flow
+### Routes, plans and protocols
 
-## x402 Payment Flow
+| Route | Plan type | Cost | Protocols |
+| --- | --- | --- | --- |
+| `POST /weather/credits` | fixed credits | 1 credit / request | x402 + MPP |
+| `POST /weather/subscription` | time-based (24h pass) | time-boxed access | x402 + MPP |
+| `POST /weather/payg` | dynamic (pay-as-you-go) | 1 for today, up to 7 for a forecast | x402 + MPP |
 
-```
-┌─────────┐                              ┌─────────┐
-│  Client │                              │  Agent  │
-└────┬────┘                              └────┬────┘
-     │                                        │
-     │  1. POST /ask (no token)               │
-     │───────────────────────────────────────>│
-     │                                        │
-     │  2. 402 Payment Required               │
-     │     Header: payment-required (base64)  │
-     │<───────────────────────────────────────│
-     │                                        │
-     │  3. Generate x402 token via SDK        │
-     │                                        │
-     │  4. POST /ask                          │
-     │     Header: payment-signature (token)  │
-     │───────────────────────────────────────>│
-     │                                        │
-     │     - Verify permissions               │
-     │     - Execute request                  │
-     │     - Settle (burn credits)            │
-     │                                        │
-     │  5. 200 OK + AI response               │
-     │     Header: payment-response (base64)  │
-     │<───────────────────────────────────────│
-     │                                        │
-```
+`mpp: true` on each route makes the `402` advertise **both** protocols, so an x402 buyer and an MPP buyer work against the same URL.
 
-## Quick Start
+## Payment headers
 
-### 1. Install dependencies
+| Protocol | Challenge (402) | Client → server | Receipt (200) |
+| --- | --- | --- | --- |
+| **x402** | `payment-required` | `payment-signature` | `payment-response` |
+| **MPP** | `WWW-Authenticate: Payment` | `Authorization: Payment` | `Payment-Receipt` |
+
+## Quick start
+
+### 1. Install
 
 ```bash
 yarn install
 ```
 
-### 2. Configure environment
+### 2. Register the plans
+
+Registers the three plans against your Nevermined account and prints their IDs. The environment (sandbox/live) is derived from your API-key prefix. Set `NVM_RECEIVER` to your builder wallet so the plans are **crypto-priced (payable)** — without it the script registers FREE plans and warns loudly.
+
+```bash
+NVM_API_KEY=sandbox:your-api-key NVM_RECEIVER=0xYourBuilderWallet yarn register-plans
+# -> PLAN_ID_CREDITS=... / PLAN_ID_TIME=... / PLAN_ID_PAYG=...
+```
+
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
-
 ```bash
-# Nevermined (required)
-NVM_API_KEY=nvm:your-api-key
-NVM_ENVIRONMENT=sandbox
-NVM_PLAN_ID=your-plan-id
+# Nevermined (required). Environment is derived from the key prefix (sandbox:/live:).
+NVM_API_KEY=sandbox:your-api-key
 
-# Agent
-OPENAI_API_KEY=sk-your-openai-api-key
+# Plan IDs from `yarn register-plans`
+PLAN_ID_CREDITS=...
+PLAN_ID_TIME=...
+PLAN_ID_PAYG=...
+
 PORT=3000
-
-# Client
-SERVER_URL=http://localhost:3000
 ```
 
-### 3. Run the agent (server)
+### 4. Run the agent
 
 ```bash
-yarn agent
+yarn agent          # dev (tsx)
+# or: yarn build && yarn start   # compiled (dist/agent.js) — same as the Docker image
 ```
 
-### 4. Run the client (in another terminal)
+### 5. Run the smoke test (buyer, in another terminal)
+
+Exercises the x402 and MPP buyer flows against the running agent. Needs a Nevermined key and an `erc4337` delegation (created by the script); point it at the server with `SERVER_URL`.
 
 ```bash
-yarn client
+SERVER_URL=http://localhost:3000 NVM_API_KEY=sandbox:your-api-key PLAN_ID_CREDITS=... yarn smoke
 ```
 
-## x402 Headers
+## Agent code
 
-The middleware follows the [x402 HTTP transport spec](https://github.com/coinbase/x402/blob/main/specs/transports-v2/http.md):
-
-| Header              | Direction             | Description                         |
-| ------------------- | --------------------- | ----------------------------------- |
-| `payment-signature` | Client → Server       | Base64-encoded x402 access token    |
-| `payment-required`  | Server → Client (402) | Base64-encoded payment requirements |
-| `payment-response`  | Server → Client (200) | Base64-encoded settlement receipt   |
-
-## Agent Code
-
-The agent uses the `paymentMiddleware` from `@nevermined-io/payments/express`:
+One middleware protects all three routes; `mpp: true` opts each into MPP alongside x402:
 
 ```typescript
 import { Payments } from "@nevermined-io/payments";
 import { paymentMiddleware } from "@nevermined-io/payments/express";
 
-const payments = Payments.getInstance({
-  nvmApiKey: NVM_API_KEY,
-  environment: NVM_ENVIRONMENT,
-});
+// Environment is derived from the API-key prefix — no `environment` option.
+const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY });
 
-// Protect routes with one line
 app.use(
   paymentMiddleware(payments, {
-    "POST /ask": {
-      planId: NVM_PLAN_ID,
-      credits: 1,
+    "POST /weather/credits": { planId: PLAN_ID_CREDITS, credits: 1, mpp: true },
+    "POST /weather/subscription": { planId: PLAN_ID_TIME, credits: 1, mpp: true },
+    "POST /weather/payg": {
+      planId: PLAN_ID_PAYG,
+      credits: (req) => priceForRequest(req.body), // 1 for today, up to 7 for a forecast
+      mpp: true,
     },
-  })
+  }),
 );
 
-// Route handler - no payment logic needed!
-app.post("/ask", async (req, res) => {
-  const response = await openai.chat.completions.create({ ... });
-  res.json({ response: response.choices[0].message.content });
+app.post("/weather/credits", async (req, res) => {
+  const { city } = parseWeatherRequest(req.body); // 400 on invalid input
+  res.json(await getTodayWeather(city));           // keyless Open-Meteo
 });
 ```
 
-## Client Code
+## Buyer code
 
-The client demonstrates the full x402 flow:
+A delegation backs the buyer for both protocols (in 1.11.2 even the x402 token needs one):
 
 ```typescript
-import { Payments } from "@nevermined-io/payments";
 import { X402_HEADERS } from "@nevermined-io/payments/express";
 
-// Step 1: Request without token -> 402
-const response1 = await fetch(`${SERVER_URL}/ask`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ query: "What is 2+2?" }),
+const { delegationId } = await payments.delegation.createDelegation({
+  provider: "erc4337", spendingLimitCents: 10000, durationSecs: 604800, currency: "usdc",
 });
-// Status: 402, Header: payment-required
 
-// Step 2: Decode payment requirements
-const paymentRequired = JSON.parse(
-  Buffer.from(response1.headers.get("payment-required"), "base64").toString()
+// --- x402 ---
+const { accessToken } = await payments.x402.getX402AccessToken(
+  PLAN_ID_CREDITS, undefined, { delegationConfig: { delegationId } },
 );
-
-// Step 3: Generate x402 token
-const { accessToken } = await payments.x402.getX402AccessToken(NVM_PLAN_ID);
-
-// Step 4: Request with token -> 200
-const response2 = await fetch(`${SERVER_URL}/ask`, {
+const res = await fetch(SERVER_URL + "/weather/credits", {
   method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    [X402_HEADERS.PAYMENT_SIGNATURE]: accessToken,
-  },
-  body: JSON.stringify({ query: "What is 2+2?" }),
+  headers: { "content-type": "application/json", [X402_HEADERS.PAYMENT_SIGNATURE]: accessToken },
+  body: JSON.stringify({ city: "Lisbon" }),
 });
-// Status: 200, Header: payment-response
+// -> 200 + weather, with a `payment-response` settlement receipt
 
-// Step 5: Decode settlement receipt
-const settlement = JSON.parse(
-  Buffer.from(response2.headers.get("payment-response"), "base64").toString()
+// --- MPP (same route; one call runs the challenge -> credential handshake) ---
+const { response, receipt } = await payments.mpp.fetch(
+  SERVER_URL + "/weather/payg",
+  { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ city: "Berlin", days: 5 }) },
+  { delegationConfig: { delegationId }, planId: PLAN_ID_PAYG, maxCredits: 7 },
 );
 ```
 
-## API Reference
+## API reference
 
-### POST /ask
+All weather routes take `{ "city": "<name>", "days"?: <1-7> }` and return the weather as JSON. `days > 1` (on `/weather/payg`) returns a multi-day forecast.
 
-Send a query to the AI assistant (payment protected).
+| Method | Route | Auth |
+| --- | --- | --- |
+| `POST` | `/weather/credits` | payment (x402 or MPP) |
+| `POST` | `/weather/subscription` | payment (x402 or MPP) |
+| `POST` | `/weather/payg` | payment (x402 or MPP) |
+| `GET` | `/health` | none — returns `{ "ok": true }` |
 
-**Request Headers:**
+An unpaid request returns `402` with the x402 `payment-required` header and the MPP `WWW-Authenticate: Payment` challenge. Invalid input (missing/short `city`) returns `400`; an unknown city returns `404`.
 
-```
-Content-Type: application/json
-payment-signature: <x402-access-token>
-```
+## Scripts
 
-**Request Body:**
+| Script | Description |
+| --- | --- |
+| `yarn agent` | Run the agent (dev, tsx) |
+| `yarn register-plans` | Register the credits / time / pay-as-you-go plans |
+| `yarn smoke` | Buyer round-trips (x402 + MPP) against a running agent |
+| `yarn pricing:selfcheck` | Unit self-check for the pay-as-you-go pricing function |
+| `yarn request:selfcheck` | Unit self-check for request input validation |
+| `yarn build` | Compile TypeScript to `dist/` |
+| `yarn start` | Run the compiled agent (`node dist/agent.js`) |
 
-```json
-{
-  "query": "Your question here"
-}
-```
-
-**Success Response (200):**
-
-```
-Header: payment-response: <base64-settlement-receipt>
-```
-
-```json
-{
-  "response": "AI's answer"
-}
-```
-
-**Payment Required Response (402):**
-
-```
-Header: payment-required: <base64-payment-requirements>
-```
-
-```json
-{
-  "error": "Payment Required",
-  "message": "Missing x402 payment token. Send token in payment-signature header."
-}
-```
-
-## Project Structure
+## Project structure
 
 ```
 http-simple-agent-ts/
 ├── src/
-│   ├── agent.ts              # Express server with payment middleware
-│   ├── agent-observability.ts # Agent with Nevermined observability
-│   └── client.ts             # x402 flow demo client
+│   ├── agent.ts                    # Express server — three dual-protocol weather routes
+│   ├── pricing.ts                  # priceForRequest (pay-as-you-go)
+│   ├── request.ts                  # parseWeatherRequest (boundary validation)
+│   └── services/weather.service.ts # Open-Meteo current weather + forecast (keyless)
+├── scripts/
+│   ├── register-plans.ts           # register the three plans
+│   └── smoke.ts                    # x402 + MPP buyer smoke test
+├── deploy/argocd/                  # ArgoCD deploy manifests + runbook (agents namespace)
+├── Dockerfile
 ├── package.json
 ├── tsconfig.json
-├── .env.example
-├── .gitignore
-└── README.md
+└── .env.example
 ```
 
-## Scripts
+## Deployment
 
-| Script                   | Description                              |
-| ------------------------ | ---------------------------------------- |
-| `yarn agent`             | Run the agent server (dev mode)          |
-| `yarn agent:observability` | Run the agent with observability logging |
-| `yarn client`            | Run the client demo                      |
-| `yarn build`             | Build TypeScript to JavaScript           |
-| `yarn start:agent`       | Run built agent                          |
-| `yarn start:client`      | Run built client                         |
+Deployment reference (Dockerfile → GCP Artifact Registry via the CI workflow → ArgoCD in the `agents` namespace) lives in [`deploy/argocd/`](./deploy/argocd/README.md), including the required chart env patch, the secret, `replicaCount: 1` (MPP single-use is in-process), and the startup-probe timing.
 
-## Middleware Options
-
-```typescript
-paymentMiddleware(payments, routes, {
-  // Custom token header - default: 'payment-signature' (x402 v2)
-  tokenHeader: "payment-signature",
-
-  // Hook before verification
-  onBeforeVerify: (req, paymentRequired) => {
-    console.log(`Verifying ${req.path}`);
-  },
-
-  // Hook after verification (for observability)
-  onAfterVerify: (req, verification) => {
-    // Access agentRequest for observability setup
-    const agentRequest = verification.agentRequest;
-    if (agentRequest) {
-      console.log(`Agent: ${agentRequest.agentName}`);
-    }
-  },
-
-  // Hook after settlement
-  onAfterSettle: (req, creditsUsed, settlement) => {
-    console.log(`Settled ${creditsUsed} credits`);
-  },
-
-  // Custom error handler
-  onPaymentError: (error, req, res) => {
-    res.status(402).json({ error: error.message });
-  },
-});
-```
-
-## Route Configuration
-
-```typescript
-paymentMiddleware(payments, {
-  // Fixed credits
-  "POST /ask": { planId: PLAN_ID, credits: 1 },
-
-  // Dynamic credits based on request
-  "POST /generate": {
-    planId: PLAN_ID,
-    credits: (req, res) => req.body.tokens / 100,
-  },
-
-  // Path parameters
-  "GET /users/:id": { planId: PLAN_ID, credits: 1 },
-
-  // With agent ID
-  "POST /agent/task": {
-    planId: PLAN_ID,
-    agentId: AGENT_ID,
-    credits: 5,
-  },
-});
-```
-
-## Observability
-
-The `agent-observability.ts` demonstrates how to integrate Nevermined observability for tracking OpenAI costs per agent and plan.
-
-### How it works
-
-1. The `paymentMiddleware` verifies the x402 token and returns an `agentRequest` object
-2. The `agentRequest` is available via `req.paymentContext.agentRequest` in route handlers
-3. Pass `agentRequest` to `payments.observability.withOpenAI()` to route calls through Nevermined observability
-
-```typescript
-// In your route handler
-const agentRequest = req.paymentContext?.agentRequest;
-
-if (agentRequest) {
-  // Route OpenAI calls through Nevermined observability
-  const config = payments.observability.withOpenAI(
-    OPENAI_API_KEY,
-    agentRequest,
-    { sessionid: randomUUID() }
-  );
-  openai = new OpenAI(config);
-}
-```
-
-### agentRequest contents
-
-The `agentRequest` object contains:
-
-| Field | Description |
-| ----- | ----------- |
-| `agentRequestId` | Unique identifier for this request |
-| `agentName` | Name of the AI agent |
-| `agentId` | ID of the AI agent |
-| `balance.planId` | Payment plan ID |
-| `balance.planName` | Payment plan name |
-| `balance.balance` | Subscriber's remaining credits |
-| `balance.pricePerCredit` | Cost per credit in USD |
-| `urlMatching` | The matched endpoint URL |
-| `verbMatching` | The matched HTTP verb |
-
-### Running with observability
-
-```bash
-yarn agent:observability
-```
-
-## Learn More
+## Learn more
 
 - [Nevermined Documentation](https://nevermined.ai/docs)
-- [Nevermined Observability Guide](https://nevermined.ai/docs/development-guide/observability)
 - [Nevermined x402 Smart Accounts Spec](https://nevermined.ai/docs/specs/x402-smart-accounts)
 - [x402 Protocol Specification](https://github.com/coinbase/x402)
 - [@nevermined-io/payments SDK](https://github.com/nevermined-io/payments)

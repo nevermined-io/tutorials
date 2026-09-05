@@ -6,15 +6,44 @@ import { ArrowRight } from "./icons";
 
 type Item =
   | { type: "msg"; role: "user" | "agent"; text: string; tag?: "free" | "paid" }
-  | { type: "pay"; credits: number; pending: string; resolved?: boolean }
+  | { type: "pay"; credits: number; pending: string; resolved?: boolean; payg?: boolean }
   | { type: "settle"; text: string; error?: boolean }
   | { type: "notice"; text: string };
+
+interface CodeLink {
+  label: string;
+  url: string;
+}
 
 interface Intro {
   greeting: string;
   suggestions: string[];
   authorized: boolean;
-  balance: number;
+  balance?: number;
+  live?: boolean;
+  payg?: boolean;
+  code?: CodeLink[];
+}
+
+// The Nevermined App host for the "Connect" (CLI-auth) flow. Sandbox vs live is chosen inside the
+// App; this is just the frontend host. Override per-deployment via NEXT_PUBLIC_NVM_APP_URL.
+const APP_URL = process.env.NEXT_PUBLIC_NVM_APP_URL || "https://nevermined.app";
+const KEY_STORAGE = "nvm_api_key";
+
+function readStoredKey(): string | null {
+  try {
+    return localStorage.getItem(KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+
+// Current page URL with any nvm_api_key stripped from BOTH query and fragment — the callback target.
+function cleanCallbackUrl(): string {
+  const u = new URL(window.location.href);
+  u.searchParams.delete(KEY_STORAGE);
+  u.hash = "";
+  return u.toString();
 }
 
 export default function LiveRunPanel({
@@ -33,13 +62,41 @@ export default function LiveRunPanel({
   const [flash, setFlash] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState(false);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [codeLinks, setCodeLinks] = useState<CodeLink[]>([]);
+  const [payg, setPayg] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+
+  // On mount: capture an nvm_api_key returned by the Nevermined App callback, persist it, and clean
+  // the URL — otherwise fall back to a previously stored key.
+  //
+  // SECURITY NOTE: the App's /auth/cli flow currently returns the key as a QUERY param
+  // (?nvm_api_key=…), which lands in the showcase server's (and any proxy/CDN's) access logs on the
+  // redirect's request line — a live key in plaintext logs. The real fix is App-side: return it in
+  // the URL FRAGMENT (#nvm_api_key=…), which browsers never send to the server. We read both here so
+  // that change needs no update on this side; until then, see deploy/argocd README for the log-scrub note.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const returned = params.get(KEY_STORAGE) || hashParams.get(KEY_STORAGE);
+      if (returned) {
+        localStorage.setItem(KEY_STORAGE, returned);
+        window.history.replaceState({}, "", cleanCallbackUrl());
+      }
+    } catch {
+      /* private mode / no storage — connect flow just won't persist */
+    }
+    setApiKey(readStoredKey());
+  }, []);
 
   async function call(action: string, message?: string) {
     const res = await fetch("/api/agent", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ slug, action, message }),
+      body: JSON.stringify({ slug, action, message, apiKey: readStoredKey() ?? undefined }),
     });
     return { status: res.status, body: await res.json() };
   }
@@ -51,17 +108,20 @@ export default function LiveRunPanel({
   }
 
   useEffect(() => {
-    let live = true;
+    let alive = true;
     call("intro").then(({ body }) => {
-      if (!live) return;
+      if (!alive) return;
       const intro = body as Intro;
       setItems([{ type: "msg", role: "agent", text: intro.greeting }]);
       setSuggestions(intro.suggestions ?? []);
       setAuthorized(intro.authorized);
-      setBalance(intro.balance);
+      setBalance(typeof intro.balance === "number" ? intro.balance : null);
+      setLive(!!intro.live);
+      setCodeLinks(intro.code ?? []);
+      setPayg(!!intro.payg);
     });
     return () => {
-      live = false;
+      alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
@@ -70,6 +130,25 @@ export default function LiveRunPanel({
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [items]);
 
+  function connect() {
+    setConnecting(true);
+    const url = `${APP_URL}/auth/cli?callback_url=${encodeURIComponent(
+      cleanCallbackUrl(),
+    )}&key_name=${encodeURIComponent("Nevermined Tutorials")}`;
+    window.location.href = url;
+  }
+
+  function disconnect() {
+    try {
+      localStorage.removeItem(KEY_STORAGE);
+    } catch {
+      /* ignore */
+    }
+    setApiKey(null);
+    setAuthorized(false);
+    setItems((x) => [...x, { type: "notice", text: "Disconnected — your Nevermined key was removed from this browser." }]);
+  }
+
   async function ask(text: string) {
     const message = text.trim();
     if (!message || busy) return;
@@ -77,8 +156,13 @@ export default function LiveRunPanel({
     setItems((x) => [...x, { type: "msg", role: "user", text: message }]);
     try {
       const { status, body } = await call("ask", message);
-      if (status === 402 && body.kind === "payment_required") {
-        setItems((x) => [...x, { type: "pay", credits: body.credits, pending: message }]);
+      if (status === 401 && body.kind === "not_connected") {
+        setItems((x) => [...x, { type: "notice", text: "Connect with Nevermined first to make paid requests." }]);
+      } else if (status === 402 && body.kind === "payment_required") {
+        setItems((x) => [
+          ...x,
+          { type: "pay", credits: body.credits, pending: message, payg: !!body.payg },
+        ]);
       } else if (status === 402 && body.kind === "insufficient") {
         setBalance(body.balance);
         setItems((x) => [
@@ -88,14 +172,22 @@ export default function LiveRunPanel({
       } else if (body.kind === "free") {
         setItems((x) => [...x, { type: "msg", role: "agent", text: body.answer, tag: "free" }]);
       } else if (body.kind === "paid") {
-        tickBalance(body.balance);
+        if (typeof body.balance === "number") tickBalance(body.balance);
         setItems((x) => [
           ...x,
-          { type: "settle", text: `200 OK · settled ${body.credits} credit(s) · balance ${body.balance}` },
+          {
+            type: "settle",
+            text: body.payg
+              ? "200 OK · paid · pay-as-you-go"
+              : `200 OK · settled ${body.credits} credit(s) · balance ${body.balance}`,
+          },
           { type: "msg", role: "agent", text: body.answer, tag: "paid" },
         ]);
       } else {
-        setItems((x) => [...x, { type: "settle", text: "the agent returned an error", error: true }]);
+        setItems((x) => [
+          ...x,
+          { type: "settle", text: body.error || "the agent returned an error", error: true },
+        ]);
       }
     } catch {
       setItems((x) => [
@@ -124,9 +216,12 @@ export default function LiveRunPanel({
   async function reset() {
     await call("reset");
     setAuthorized(false);
-    setBalance(100);
-    setItems((x) => [...x, { type: "notice", text: "Card delegation reset · balance back to 100." }]);
+    setBalance(live ? balance : 100);
+    setItems((x) => [...x, { type: "notice", text: "Delegation reset." }]);
   }
+
+  // Live tutorial, not yet connected → show the Connect gate instead of the input.
+  const needsConnect = live && !apiKey;
 
   return (
     <>
@@ -134,6 +229,14 @@ export default function LiveRunPanel({
         <div className="rp-bar">
           <span className="live-dot" aria-hidden="true" />
           <span className="title">{title}</span>
+          {live && apiKey ? (
+            <span className="bal" title="Connected to Nevermined">
+              connected{" "}
+              <button className="linkbtn" onClick={disconnect}>
+                disconnect
+              </button>
+            </span>
+          ) : null}
           {balance !== null ? (
             <span className={`bal${flash ? " flash" : ""}`}>
               balance <b>{balance}</b>
@@ -161,21 +264,20 @@ export default function LiveRunPanel({
             }
             if (it.type === "pay") {
               return (
-                <div className="paycard" key={i}>
-                  <div className="big402">
-                    402 <span>Payment Required</span>
-                  </div>
-                  <p>
-                    This capability costs {it.credits} credit(s). Authorize a card delegation once and
-                    the agent pays per call — you&apos;re not asked again this session.
-                  </p>
+                <div className="payline" key={i}>
+                  <span className="stamp">402</span>
+                  <span className="txt">
+                    {it.payg
+                      ? "Payment required · pay-as-you-go"
+                      : `Payment required · ${it.credits} credit(s)`}
+                  </span>
                   <button
-                    className="cta"
+                    className="cta sm"
                     onClick={() => authorize(it.pending, i)}
                     disabled={busy || it.resolved}
                   >
-                    {it.resolved ? "Authorized" : "Authorize with card"}
-                    {!it.resolved ? <ArrowRight size={16} /> : null}
+                    {it.resolved ? "Authorized" : "Authorize"}
+                    {!it.resolved ? (busy ? <span className="spinner" /> : <ArrowRight size={14} />) : null}
                   </button>
                 </div>
               );
@@ -194,42 +296,95 @@ export default function LiveRunPanel({
               </div>
             );
           })}
+          {busy ? (
+            <div className="working">
+              <span className="spinner" /> contacting the agent…
+            </div>
+          ) : null}
         </div>
 
-        {suggestions.length > 0 && items.length <= 1 ? (
-          <div className="rp-suggest">
-            {suggestions.map((s) => (
-              <button key={s} className="schip" onClick={() => ask(s)} disabled={busy}>
-                {s}
-              </button>
-            ))}
+        {needsConnect ? (
+          <div className="paycard" style={{ margin: "0 12px 12px" }}>
+            <p style={{ marginTop: 0 }}>
+              This tutorial makes <b>real</b> x402 / MPP requests to a live sandbox agent. Connect your
+              Nevermined account to get a sandbox API key — you&apos;ll be sent to the Nevermined App to log
+              in and returned here automatically.
+            </p>
+            <button className="nvm-connect" onClick={connect} disabled={busy || connecting}>
+              <span className="ico">
+                {connecting ? (
+                  <span className="spinner" />
+                ) : (
+                  <svg className="ribbon" viewBox="0 0 31.06 22" aria-hidden="true">
+                    <path d="M0 11.153L10.4179 20.6426V11.0576L0 1.56805V11.153Z" />
+                    <path d="M10.4178 1.56805V11.153L20.8325 20.6426L31.0596 11.153V1.56805L20.8325 11.0576L10.4178 1.56805Z" />
+                  </svg>
+                )}
+              </span>
+              <span className="lbl">{connecting ? "Redirecting…" : "Connect"}</span>
+            </button>
+            {codeLinks.length > 0 ? (
+              <p className="codelinks">
+                Server code:{" "}
+                {codeLinks.map((c, i) => (
+                  <span key={c.url}>
+                    {i > 0 ? " · " : ""}
+                    <a href={c.url} target="_blank" rel="noreferrer">
+                      {c.label}
+                    </a>
+                  </span>
+                ))}
+              </p>
+            ) : null}
           </div>
-        ) : null}
+        ) : (
+          <>
+            {suggestions.length > 0 && items.length <= 1 ? (
+              <div className="rp-suggest">
+                {suggestions.map((s) => (
+                  <button key={s} className="schip" onClick={() => ask(s)} disabled={busy}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-        <form
-          className="rp-input"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const t = input;
-            setInput("");
-            ask(t);
-          }}
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={busy ? "…" : "Send a request to the agent"}
-            disabled={busy}
-            aria-label="Message the agent"
-          />
-          <button type="submit" disabled={busy || !input.trim()}>
-            Send
-          </button>
-        </form>
+            <form
+              className="rp-input"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const t = input;
+                setInput("");
+                ask(t);
+              }}
+            >
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={busy ? "…" : "Send a request to the agent"}
+                disabled={busy}
+                aria-label="Message the agent"
+              />
+              <button type="submit" disabled={busy || !input.trim()}>
+                {busy ? <span className="spinner" /> : "Send"}
+              </button>
+            </form>
+          </>
+        )}
       </div>
       <p className="runnote">
-        {authorized ? (
+        {live ? (
+          apiKey ? (
+            payg ? (
+              <>Live agent — pay-as-you-go: each request is paid on its own against Nevermined sandbox, no credit balance. </>
+            ) : (
+              <>Live agent — real x402/MPP payments on Nevermined sandbox, paid with your connected key. </>
+            )
+          ) : (
+            <>Live agent — connect once to pay real x402/MPP requests on Nevermined sandbox. </>
+          )
+        ) : authorized ? (
           <>
             Sandbox agent — real payment round-trips and a real per-session credit balance, no real money.{" "}
             <button className="linkbtn" onClick={reset}>
@@ -240,6 +395,20 @@ export default function LiveRunPanel({
         ) : (
           "Sandbox agent — real payment round-trips (402 → authorize → settle) with a per-session credit balance, no external service and no real money. "
         )}
+        {live && apiKey && codeLinks.length > 0 ? (
+          <>
+            Server code:{" "}
+            {codeLinks.map((c, i) => (
+              <span key={c.url}>
+                {i > 0 ? " · " : ""}
+                <a href={c.url} target="_blank" rel="noreferrer">
+                  {c.label}
+                </a>
+              </span>
+            ))}
+            {". "}
+          </>
+        ) : null}
         {run.note}
       </p>
     </>

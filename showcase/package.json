@@ -12,6 +12,7 @@
     "sync:media": "bash scripts/sync-media.sh"
   },
   "dependencies": {
+    "@nevermined-io/payments": "1.11.2",
     "next": "^15.5.25",
     "prismjs": "^1.30.0",
     "react": "19.1.1",

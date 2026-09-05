@@ -125,25 +125,62 @@ export const tutorials: Tutorial[] = [
       ],
     },
     tech: {
-      stack: ["Express", "TypeScript", "@nevermined-io/payments/express", "OpenAI"],
-      samples: [
+      stack: ["Express", "TypeScript", "@nevermined-io/payments/express", "x402 + MPP", "Open-Meteo"],
+      samples: [],
+      groups: [
         {
-          caption: "one line gates the route",
-          lang: "typescript",
-          code: `import { paymentMiddleware } from '@nevermined-io/payments/express'
+          title: "Client",
+          lead: "Create a delegation once, mint an x402 token, and call the paid route.",
+          samples: [
+            {
+              caption: "buy the weather over x402",
+              lang: "typescript",
+              code: `// one delegation backs the buyer (erc4337)
+const { delegationId } = await payments.delegation.createDelegation({
+  provider: 'erc4337', spendingLimitCents: 10000, durationSecs: 604800, currency: 'usdc',
+})
+
+// mint an x402 access token for the plan, then call the route with it
+const { accessToken } = await payments.x402.getX402AccessToken(
+  PLAN_ID, undefined, { delegationConfig: { delegationId } },
+)
+const res = await fetch(AGENT_URL + '/weather/credits', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', [X402_HEADERS.PAYMENT_SIGNATURE]: accessToken },
+  body: JSON.stringify({ city: 'Lisbon' }),
+})
+// → 200 + weather, plus a 'payment-response' settlement receipt`,
+            },
+          ],
+        },
+        {
+          title: "Agent",
+          lead: "One paymentMiddleware, three plans, both protocols — mpp: true makes every 402 advertise x402 AND MPP, so either buyer works against the same URL.",
+          samples: [
+            {
+              caption: "three dual-protocol routes gate the agent",
+              lang: "typescript",
+              code: `import { paymentMiddleware } from '@nevermined-io/payments/express'
 
 app.use(paymentMiddleware(payments, {
-  'POST /ask': { planId: PLAN_ID, credits: 1 }
-}))`,
+  'POST /weather/credits':      { planId: PLAN_ID_CREDITS, credits: 1, mpp: true },
+  'POST /weather/subscription': { planId: PLAN_ID_TIME,    credits: 1, mpp: true },
+  'POST /weather/payg':         { planId: PLAN_ID_PAYG, credits: (req) => priceForRequest(req.body), mpp: true },
+}))
+
+app.post('/weather/credits', async (req, res) => {
+  const { city } = parseWeatherRequest(req.body)  // 400 on bad input
+  res.json(await getTodayWeather(city))           // keyless Open-Meteo
+})`,
+            },
+          ],
         },
       ],
       files: [
-        { path: "src/agent.ts", desc: "Express server with a payment-protected /ask endpoint" },
-        {
-          path: "src/agent-observability.ts",
-          desc: "same agent, with Nevermined observability tracking OpenAI cost",
-        },
-        { path: "src/client.ts", desc: "demo client showing the full x402 payment flow" },
+        { path: "src/agent.ts", desc: "Express agent — three dual-protocol (x402 + MPP) weather routes" },
+        { path: "src/services/weather.service.ts", desc: "keyless weather from Open-Meteo" },
+        { path: "scripts/smoke.ts", desc: "buyer: x402 + MPP round-trips against the agent" },
+        { path: "scripts/register-plans.ts", desc: "registers the credits / time / pay-as-you-go plans" },
       ],
     },
     run: {
@@ -778,6 +815,112 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
       ],
     },
   },
+
+  // ─────────────────────────────── MPP — pay-as-you-go forecast ───────────────
+  {
+    slug: "mpp-weather-payg",
+    title: "Pay per forecast over MPP",
+    tagline:
+      "Buy a weather forecast with the Machine Payments Protocol — a challenge→credential handshake, priced pay-as-you-go (1 credit for today, up to 7 for a week).",
+    protocol: "mpp",
+    language: "ts",
+    tier: "live",
+    repoPath: "http-simple-agent-ts/",
+    learn: {
+      lead: "Pay per forecast with the Machine Payments Protocol.",
+      bullets: [
+        "MPP: a challenge→credential handshake over the same plans, delegations and credits as x402",
+        "Pay-as-you-go pricing — the agent's credits function charges 1 credit for today, up to 7 for a week",
+        "payments.mpp.fetch runs the whole round-trip and returns the Payment-Receipt",
+        "The same route also serves x402 buyers — mpp: true advertises both protocols",
+      ],
+    },
+    how: {
+      paragraphs: [
+        "The buyer POSTs to /weather/payg with no credential and gets 402 with a WWW-Authenticate: Payment challenge — the price (credits) is sealed into the challenge at that moment. payments.mpp.fetch mints an MPP credential for your delegation, retries with Authorization: Payment, and the agent verifies, serves the forecast, and settles — returning a Payment-Receipt.",
+      ],
+      flow: [
+        { label: "POST /weather/payg", sub: "no credential" },
+        { label: "402", sub: "WWW-Authenticate: Payment" },
+        { label: "credential + retry", sub: "Authorization: Payment", emphasis: true },
+        { label: "200", sub: "Payment-Receipt" },
+      ],
+    },
+    tech: {
+      stack: ["MPP", "TypeScript", "@nevermined-io/payments", "pay-as-you-go", "Open-Meteo"],
+      samples: [],
+      groups: [
+        {
+          title: "Client",
+          lead: "payments.mpp.fetch runs the full challenge→credential handshake in one call.",
+          samples: [
+            {
+              caption: "pay a PAYG forecast over MPP",
+              lang: "typescript",
+              code: `// a delegation backs the buyer (erc4337), same as x402
+const { delegationId } = await payments.delegation.createDelegation({
+  provider: 'erc4337', spendingLimitCents: 10000, durationSecs: 604800, currency: 'usdc',
+})
+
+// one call: unpaid → 402 challenge → mint credential → retry → 200 + receipt
+const { response, receipt, paid } = await payments.mpp.fetch(
+  AGENT_URL + '/weather/payg',
+  { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ city: 'Berlin', days: 5 }) },
+  { delegationConfig: { delegationId }, planId: PLAN_ID_PAYG, maxCredits: 7 },
+)
+const forecast = await response.json()  // 5-day forecast`,
+            },
+          ],
+        },
+        {
+          title: "Agent",
+          lead: "The credits function prices each request; mpp: true accepts the MPP handshake on the same route.",
+          samples: [
+            {
+              caption: "pay-as-you-go route, dual-protocol",
+              lang: "typescript",
+              code: `import { paymentMiddleware } from '@nevermined-io/payments/express'
+
+app.use(paymentMiddleware(payments, {
+  'POST /weather/payg': {
+    planId: PLAN_ID_PAYG,
+    credits: (req) => priceForRequest(req.body),  // 1 for today, up to 7 for a week
+    mpp: true,
+  },
+}))
+
+app.post('/weather/payg', async (req, res) => {
+  const { city, days } = parseWeatherRequest(req.body)
+  res.json(days && days > 1 ? await getForecast(city, days) : await getTodayWeather(city))
+})`,
+            },
+          ],
+        },
+      ],
+      files: [
+        { path: "src/agent.ts", desc: "the /weather/payg route — dynamic credits, mpp: true" },
+        { path: "src/pricing.ts", desc: "priceForRequest: 1 credit for today, up to 7 for a forecast" },
+        { path: "src/services/weather.service.ts", desc: "getForecast — keyless multi-day weather from Open-Meteo" },
+        { path: "scripts/smoke.ts", desc: "buyer: the MPP round-trip against the agent" },
+      ],
+    },
+    run: {
+      kind: "live",
+      present: "transcript",
+      paymentPill: "MPP · pay-as-you-go",
+      transcript: [
+        { t: "POST /weather/payg   { city: 'Berlin', days: 5 }", kind: "req" },
+        { t: "← 402   WWW-Authenticate: Payment (pay-as-you-go)", kind: "r402" },
+        { t: "  mint MPP credential for the delegation", kind: "dim" },
+        { t: "POST /weather/payg   Authorization: Payment eyJ…", kind: "req" },
+        { t: "  verify → serve → settle", kind: "dim" },
+        { t: "← 200 OK   Payment-Receipt", kind: "r200" },
+        { t: "paid · 5-day forecast", kind: "settle" },
+      ],
+      note: "Connect your Nevermined sandbox account, then send a city — the buyer runs the real MPP handshake (payments.mpp.fetch) against the deployed agent's pay-as-you-go route.",
+    },
+  },
 ];
 
 export function getTutorial(slug: string): Tutorial | undefined {
@@ -788,6 +931,7 @@ export function getTutorial(slug: string): Tutorial | undefined {
 export const GROUP_ORDER: { label: string; protocol: Protocol }[] = [
   { label: "Catalog", protocol: "catalog" },
   { label: "x402 HTTP", protocol: "x402" },
+  { label: "MPP", protocol: "mpp" },
   { label: "MCP", protocol: "mcp" },
   { label: "LangChain", protocol: "langchain" },
 ];

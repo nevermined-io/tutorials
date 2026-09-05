@@ -58,7 +58,10 @@ export default function CodeBlock({
           {copied ? <Check size={13} /> : <Copy size={13} />}
           {copied ? "Copied" : "Copy"}
         </button>
-        <pre className="code">
+        {/* suppressHydrationWarning: Prism (and some browser extensions) mutate the
+            highlighted <pre>/<code> after SSR — adding a language class / tabindex — which
+            is a benign attribute-only diff React would otherwise warn about. */}
+        <pre className="code" suppressHydrationWarning>
           {html ? (
             // Safe: `code` is our own static content (content/tutorials.ts), and
             // Prism.highlight HTML-escapes its input before emitting token spans —
@@ -66,6 +69,7 @@ export default function CodeBlock({
             <code
               className={`language-${lang}`}
               dangerouslySetInnerHTML={{ __html: html }}
+              suppressHydrationWarning
             />
           ) : (
             <code>{code}</code>

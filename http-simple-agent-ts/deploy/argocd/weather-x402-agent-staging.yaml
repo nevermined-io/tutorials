@@ -1,0 +1,64 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: weather-x402-agent-staging
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  # No argocd-image-updater.* annotations: the image tag is pinned to an
+  # immutable `sha-<short>` tag printed by CI on push to main (Artifact
+  # Registry has immutableTags=true), not a moving semver tag. Bump
+  # image.tag below by hand (or via PR) after each build you want deployed.
+spec:
+  project: default
+  source:
+    path: helm-charts/agent/v1.0.0
+    repoURL: git@github.com:nevermined-io/argocd.git
+    targetRevision: main
+    helm:
+      parameters:
+        - name: image.repository
+          value: europe-west3-docker.pkg.dev/nevermined-eu-dev/nevermined-io/tutorials-weather-x402
+        - name: image.tag
+          value: sha-REPLACE_AFTER_FIRST_CI_BUILD
+        - name: image.pullPolicy
+          value: Always
+        - name: replicaCount
+          value: "1"
+        - name: env.NVM_API_KEY
+          value: gcp:secretmanager:projects/112425687177/secrets/tutorials-weather-nvm-api-key
+        - name: env.PLAN_ID_CREDITS
+          value: "77894004416396861654845539877107044009493609640794154706672817393635324531204"
+        - name: env.PLAN_ID_TIME
+          value: "10952064442830220931222688026195788696776029458594089784747035900055527856473"
+        - name: env.PLAN_ID_PAYG
+          value: "8310544419921962213409780763224169468183360879970520182660325277034660762576"
+        - name: service.hostname
+          value: weather-x402-agent-staging.nevermined.app
+        - name: service.ports.port
+          value: "3000"
+        - name: service.ports.targetPort
+          value: "3000"
+        - name: service.ports.containerPort
+          value: "3000"
+        - name: initCommand
+          value: yarn start
+        - name: ingress.rateLimitEnabled
+          value: "true"
+  destination:
+    namespace: agents
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

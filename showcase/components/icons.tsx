@@ -112,6 +112,24 @@ export const Bolt = ({ size, className }: P) => (
     <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />
   </svg>
 );
+// Signal / broadcast — the MPP category glyph (matches the "signal" Connect button theme).
+export const Signal = ({ size, className }: P) => (
+  <svg
+    width={size ?? 13}
+    height={size ?? 13}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    <path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6" />
+    <path d="M5.4 5.4a9.4 9.4 0 0 0 0 13.2M18.6 5.4a9.4 9.4 0 0 1 0 13.2" />
+  </svg>
+);
 export const Grid = ({ size, className, strokeWidth }: P) =>
   svg(
     <>

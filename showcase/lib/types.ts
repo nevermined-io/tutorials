@@ -1,7 +1,7 @@
 // Normalized content model shared by every tutorial page.
 // One shape for all tutorials → uniform pages out of wildly different READMEs.
 
-export type Protocol = "x402" | "mcp" | "langchain" | "catalog";
+export type Protocol = "x402" | "mpp" | "mcp" | "langchain" | "catalog";
 export type Language = "ts" | "py" | "autonomous" | "agnostic";
 export type Tier = "live" | "recap" | "discover";
 
@@ -42,10 +42,21 @@ export interface HowSection {
   table?: DataTable;
 }
 
+/** A titled group of code samples — rendered as a numbered sub-section (3.1, 3.2, …). */
+export interface CodeGroup {
+  title: string;
+  /** optional lead sentence under the sub-section heading */
+  lead?: string;
+  samples: CodeSample[];
+}
+
 /** Section 3 — technical details. */
 export interface TechSection {
   stack: string[];
+  /** flat samples — rendered when `groups` is absent (most tutorials) */
   samples: CodeSample[];
+  /** when present, samples are split into numbered sub-sections (e.g. 3.1 Client, 3.2 Agent) */
+  groups?: CodeGroup[];
   files?: FileRow[];
 }
 
@@ -132,6 +143,7 @@ export interface Tutorial {
 
 export const PROTOCOL_LABEL: Record<Protocol, string> = {
   x402: "x402 HTTP",
+  mpp: "MPP",
   mcp: "MCP",
   langchain: "LangChain",
   catalog: "Catalog",

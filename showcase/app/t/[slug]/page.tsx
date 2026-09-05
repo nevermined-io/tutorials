@@ -132,11 +132,27 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
               </span>
             ))}
           </div>
-          {t.tech.samples.map((s, i) => (
-            <div key={i} style={{ marginBottom: "16px" }}>
-              <CodeBlock code={s.code} caption={s.caption} lang={s.lang} />
-            </div>
-          ))}
+          {t.tech.groups?.length ? (
+            t.tech.groups.map((g, gi) => (
+              <div key={gi} className="subblock">
+                <div className="h3">
+                  <span className="num">3.{gi + 1}</span> {g.title}
+                </div>
+                {g.lead ? <p className="sublead">{g.lead}</p> : null}
+                {g.samples.map((s, i) => (
+                  <div key={i} style={{ marginBottom: "16px" }}>
+                    <CodeBlock code={s.code} caption={s.caption} lang={s.lang} />
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            t.tech.samples.map((s, i) => (
+              <div key={i} style={{ marginBottom: "16px" }}>
+                <CodeBlock code={s.code} caption={s.caption} lang={s.lang} />
+              </div>
+            ))
+          )}
           {t.tech.files?.length ? (
             <table className="files">
               <tbody>

@@ -7,17 +7,17 @@
   "type": "module",
   "scripts": {
     "agent": "tsx src/agent.ts",
-    "agent:observability": "tsx src/agent-observability.ts",
-    "client": "tsx src/client.ts",
+    "register-plans": "tsx scripts/register-plans.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "pricing:selfcheck": "tsx src/pricing.selfcheck.ts",
+    "request:selfcheck": "tsx src/request.selfcheck.ts",
     "build": "tsc",
-    "start:agent": "node dist/agent.js",
-    "start:client": "node dist/client.js"
+    "start": "node dist/agent.js"
   },
   "dependencies": {
-    "@nevermined-io/payments": "^1.1.0",
+    "@nevermined-io/payments": "1.11.2",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "openai": "^4.77.0"
+    "express": "^4.19.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
