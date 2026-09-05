@@ -1,16 +1,21 @@
 import "dotenv/config";
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
+import { Payments } from "@nevermined-io/payments";
 
-const payments = Payments.getInstance({
-  nvmApiKey: process.env.NVM_API_KEY!,
-  environment: (process.env.NVM_ENVIRONMENT || "sandbox") as EnvironmentName,
-});
+// Environment is derived from the API-key prefix (sandbox:/live:); no `environment` option.
+const payments = Payments.getInstance({ nvmApiKey: process.env.NVM_API_KEY! });
 const plans = payments.plans;
 
 // Crypto price so BOTH x402 (erc4337) and MPP can pay. Needs the builder's receiver wallet.
 // If NVM_RECEIVER is unset, fall back to a free plan so the script still runs for a demo.
 const receiver = process.env.NVM_RECEIVER ?? "";
 const amount = BigInt(process.env.PLAN_PRICE_WEI ?? "0");
+if (!receiver) {
+  console.warn(
+    "⚠  NVM_RECEIVER is unset — registering FREE plans (getFreePriceConfig); NO payment will be charged. " +
+      "Set NVM_RECEIVER=<builder wallet 0x…> (and optionally PLAN_PRICE_WEI) to register crypto-priced plans " +
+      "that x402 and MPP buyers actually pay.",
+  );
+}
 const price = receiver
   ? plans.getCryptoPriceConfig(amount, receiver as `0x${string}`)
   : plans.getFreePriceConfig();

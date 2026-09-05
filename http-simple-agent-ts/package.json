@@ -7,7 +7,6 @@
   "type": "module",
   "scripts": {
     "agent": "tsx src/agent.ts",
-    "client": "tsx src/client.ts",
     "register-plans": "tsx scripts/register-plans.ts",
     "smoke": "tsx scripts/smoke.ts",
     "pricing:selfcheck": "tsx src/pricing.selfcheck.ts",

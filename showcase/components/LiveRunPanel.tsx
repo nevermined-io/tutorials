@@ -38,10 +38,11 @@ function readStoredKey(): string | null {
   }
 }
 
-// Current page URL with any nvm_api_key param stripped — used as the callback target.
+// Current page URL with any nvm_api_key stripped from BOTH query and fragment — the callback target.
 function cleanCallbackUrl(): string {
   const u = new URL(window.location.href);
   u.searchParams.delete(KEY_STORAGE);
+  u.hash = "";
   return u.toString();
 }
 
@@ -68,12 +69,19 @@ export default function LiveRunPanel({
   const [payg, setPayg] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
-  // On mount: capture an nvm_api_key returned by the Nevermined App callback (query string),
-  // persist it, and clean the URL — otherwise fall back to a previously stored key.
+  // On mount: capture an nvm_api_key returned by the Nevermined App callback, persist it, and clean
+  // the URL — otherwise fall back to a previously stored key.
+  //
+  // SECURITY NOTE: the App's /auth/cli flow currently returns the key as a QUERY param
+  // (?nvm_api_key=…), which lands in the showcase server's (and any proxy/CDN's) access logs on the
+  // redirect's request line — a live key in plaintext logs. The real fix is App-side: return it in
+  // the URL FRAGMENT (#nvm_api_key=…), which browsers never send to the server. We read both here so
+  // that change needs no update on this side; until then, see deploy/argocd README for the log-scrub note.
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const returned = params.get(KEY_STORAGE);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const returned = params.get(KEY_STORAGE) || hashParams.get(KEY_STORAGE);
       if (returned) {
         localStorage.setItem(KEY_STORAGE, returned);
         window.history.replaceState({}, "", cleanCallbackUrl());

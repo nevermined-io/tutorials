@@ -65,9 +65,31 @@ because the template has no line for them.
 param (`{{ .Values.replicaCount }}` is used directly in `deployment.yaml`
 when `autoscaling.enabled` is false, which is also the default). Both
 manifests set it explicitly anyway for visibility: **do not raise it and do
-not enable `autoscaling`**. The MPP single-use-token guard in `agent.ts` is
-an in-process in-memory set; a second replica (or HPA scale-out) would let
-the same MPP token be redeemed twice, defeating the guard.
+not enable `autoscaling`**. The MPP single-use-token guard lives inside
+`paymentMiddleware` (`@nevermined-io/payments/express`) — the
+`inFlightMppCredentials` / `spentMppCredentials` in-process, in-memory sets,
+not anything in `agent.ts` — so a second replica (or HPA scale-out) would let
+the same MPP credential be redeemed twice, defeating the guard. (The SDK's own
+comment on `spentMppCredentials` says the same: it does not span processes or
+horizontally-scaled instances.)
+
+## Startup: probes must tolerate a ~15–20s boot
+
+The image takes ~15–20s to start (the payments SDK import is heavy) before
+`GET /health` responds. Ensure the pod's readiness/liveness probe allows for
+this — a startup probe, or a `readinessProbe` with enough `initialDelaySeconds`
+/ `failureThreshold`. A liveness probe that fires sooner will kill the pod
+mid-boot and crash-loop it.
+
+## Viewer API keys in access logs (showcase Connect flow)
+
+The tutorials showcase's "Connect with Nevermined" flow returns the viewer's
+API key to the site as a **query param** (`?nvm_api_key=…`, the App's
+`/auth/cli` shape), so it lands in the showcase server's (and any proxy/CDN's)
+access logs on the redirect's request line. If you deploy the showcase, either
+scrub that param at the edge, or track the App-side fix to return the key in
+the URL **fragment** (`#…`, never sent to the server — the showcase capture
+code already reads both).
 
 ## `helm template` render summary (validated locally, no cluster contact)
 

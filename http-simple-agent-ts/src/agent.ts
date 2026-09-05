@@ -14,7 +14,7 @@
  */
 import "dotenv/config";
 import express, { Request, Response, RequestHandler } from "express";
-import { Payments, EnvironmentName } from "@nevermined-io/payments";
+import { Payments } from "@nevermined-io/payments";
 import { paymentMiddleware, X402_HEADERS, MPP_HEADERS } from "@nevermined-io/payments/express";
 import { getTodayWeather, getForecast, CityNotFoundError } from "./services/weather.service.js";
 import { priceForRequest } from "./pricing.js";
@@ -22,7 +22,6 @@ import { parseWeatherRequest, BadRequestError } from "./request.js";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const NVM_API_KEY = process.env.NVM_API_KEY ?? "";
-const NVM_ENVIRONMENT = (process.env.NVM_ENVIRONMENT || "sandbox") as EnvironmentName;
 const PLAN_ID_CREDITS = process.env.PLAN_ID_CREDITS ?? "";
 const PLAN_ID_TIME = process.env.PLAN_ID_TIME ?? "";
 const PLAN_ID_PAYG = process.env.PLAN_ID_PAYG ?? "";
@@ -32,7 +31,8 @@ if (!NVM_API_KEY || !PLAN_ID_CREDITS || !PLAN_ID_TIME || !PLAN_ID_PAYG) {
   process.exit(1);
 }
 
-const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY, environment: NVM_ENVIRONMENT });
+// Environment is derived from the API-key prefix (sandbox:/live:); no `environment` option.
+const payments = Payments.getInstance({ nvmApiKey: NVM_API_KEY });
 
 const app = express();
 app.use(express.json());

@@ -67,30 +67,53 @@ function resolveKey(reqApiKey) {
 }
 
 // ── per-key singletons ────────────────────────────────────────────────────────
+const DELEGATION_DURATION_SECS = 604800; // 7 days
+const DELEGATION_LIMIT_CENTS = 500; // $5 — scaled to a demo (calls cost 1..7 credits), on the VIEWER's account
+const MAX_KEYS = 200; // bound the per-key caches so they don't grow for the life of the process
+
 const _payments = new Map(); // key -> Payments
-const _delegation = new Map(); // key -> delegationId
+const _delegation = new Map(); // key -> { id, expiresAt }
+
+// Simple FIFO bound — evict the oldest entry once over the cap.
+function capMap(m) {
+  while (m.size > MAX_KEYS) m.delete(m.keys().next().value);
+}
 function paymentsFor(key) {
-  if (!_payments.has(key)) _payments.set(key, Payments.getInstance({ nvmApiKey: key }));
+  if (!_payments.has(key)) {
+    _payments.set(key, Payments.getInstance({ nvmApiKey: key }));
+    capMap(_payments);
+  }
   return _payments.get(key);
 }
 async function delegationFor(key) {
-  if (!_delegation.has(key)) {
-    const { delegationId } = await paymentsFor(key).delegation.createDelegation({
-      provider: "erc4337",
-      spendingLimitCents: 10000,
-      durationSecs: 604800,
-      currency: "usdc",
-    });
-    _delegation.set(key, delegationId);
-  }
-  return _delegation.get(key);
+  const cached = _delegation.get(key);
+  // Re-mint past (or near) expiry — a cached-forever delegationId would 502 every call after 7 days.
+  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.id;
+  const { delegationId } = await paymentsFor(key).delegation.createDelegation({
+    provider: "erc4337",
+    spendingLimitCents: DELEGATION_LIMIT_CENTS,
+    durationSecs: DELEGATION_DURATION_SECS,
+    currency: "usdc",
+  });
+  _delegation.set(key, { id: delegationId, expiresAt: Date.now() + DELEGATION_DURATION_SECS * 1000 });
+  capMap(_delegation);
+  return delegationId;
+}
+// Drop a key's cached delegation so the next call re-mints (used after a delegation-expiry error).
+function invalidateDelegation(key) {
+  _delegation.delete(key);
 }
 
+const CITY_STOPWORDS = new Set([
+  "How", "What", "Where", "When", "Why", "Who", "Is", "The", "Weather", "Forecast", "Show", "Give", "Tell", "Today",
+]);
 function cityOf(message) {
   const inCity = message.match(/\bin\s+([A-Za-zÀ-ſ][A-Za-zÀ-ſ .'-]+)/);
   if (inCity) return inCity[1].trim().replace(/[.?!]+$/, "");
-  const cap = message.match(/\b([A-Z][A-Za-zÀ-ſ]{2,})\b/);
-  return cap ? cap[1] : "Lisbon";
+  // No "in <city>" clause: take the LAST capitalised word that isn't a question/stop word,
+  // so "How is Madrid looking?" resolves to Madrid, not "How".
+  const caps = [...message.matchAll(/\b([A-Z][A-Za-zÀ-ſ]{2,})\b/g)].map((m) => m[1]).filter((w) => !CITY_STOPWORDS.has(w));
+  return caps.length ? caps[caps.length - 1] : "Lisbon";
 }
 
 // "5-day forecast" / "next 3 days" / "7 day" → the number of forecast days (pay-as-you-go).
@@ -227,6 +250,8 @@ export async function liveRespond(state, req) {
       const next = { authorized: true, balance: s.balance - cfg.credits };
       return { status: 200, body: { kind: "paid", answer, credits: cfg.credits, balance: next.balance }, state: next };
     } catch (e) {
+      // If the delegation was rejected (e.g. expired — BCK.ROUTER.0003), drop it so the next call re-mints.
+      if (/deleg|expired|BCK\.ROUTER\.0003/i.test(e.message || "")) invalidateDelegation(key);
       return { status: 502, body: { kind: "error", error: `live agent call failed: ${e.message}` }, state: s };
     }
   }
