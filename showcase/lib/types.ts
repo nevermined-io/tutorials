@@ -1,7 +1,7 @@
 // Normalized content model shared by every tutorial page.
 // One shape for all tutorials → uniform pages out of wildly different READMEs.
 
-export type Protocol = "x402" | "mpp" | "mcp" | "langchain" | "catalog";
+export type Protocol = "x402" | "mpp" | "mcp" | "langchain" | "catalog" | "orders";
 export type Language = "ts" | "py" | "autonomous" | "agnostic";
 export type Tier = "live" | "recap" | "discover";
 
@@ -126,6 +126,27 @@ export interface DiscoverRun {
   note: string;
 }
 
+/** Section 4 (fiat) — an embedded, scripted card-checkout chat. Unlike `live` (which
+ * drives /api/agent), this is self-contained on the client: the panel (components/
+ * FiatRunPanel) walks the Nevermined Orders flow — pick a package → hosted card
+ * checkout → "booked" — with no real charge. The real Stripe iframe lives in the
+ * tutorial's own app (repoPath), which needs the local Orders stack to run. */
+export interface FiatPackage {
+  id: string;
+  name: string;
+  /** display price, e.g. "$3,437.95" */
+  amount: string;
+  blurb: string;
+  emoji: string;
+}
+export interface FiatRun {
+  kind: "fiat";
+  merchant: string;
+  greeting: string;
+  packages: FiatPackage[];
+  note: string;
+}
+
 export interface Tutorial {
   slug: string;
   title: string;
@@ -138,7 +159,7 @@ export interface Tutorial {
   learn: LearnSection;
   how: HowSection;
   tech: TechSection;
-  run: LiveRun | RecapRun | DiscoverRun;
+  run: LiveRun | RecapRun | DiscoverRun | FiatRun;
 }
 
 export const PROTOCOL_LABEL: Record<Protocol, string> = {
@@ -147,6 +168,7 @@ export const PROTOCOL_LABEL: Record<Protocol, string> = {
   mcp: "MCP",
   langchain: "LangChain",
   catalog: "Catalog",
+  orders: "Fiat checkout",
 };
 
 export const LANGUAGE_LABEL: Record<Language, string> = {

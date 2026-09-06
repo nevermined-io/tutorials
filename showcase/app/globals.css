@@ -109,6 +109,7 @@ button { font-family: inherit; }
 .sb-cat .glyph.x402 { background: linear-gradient(140deg, #12b3a6, #0b7d75); }
 .sb-cat .glyph.mcp { background: linear-gradient(140deg, #7c6bff, #5a49df); }
 .sb-cat .glyph.langchain { background: linear-gradient(140deg, #1ec46f, #0f9a52); }
+.sb-cat .glyph.orders { background: linear-gradient(140deg, #4f7cff, #2f54eb); }
 .sb-cat .cat-count { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--faint);
   font-weight: 400; }
 .sb-cat .chev { color: var(--faint); transition: transform 0.18s ease; }

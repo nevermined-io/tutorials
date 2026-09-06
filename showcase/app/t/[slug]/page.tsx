@@ -7,6 +7,7 @@ import { repoUrl, repoFileUrl } from "@/lib/repo";
 import LiveRunPanel from "@/components/LiveRunPanel";
 import RecapPanel from "@/components/RecapPanel";
 import DiscoverPanel from "@/components/DiscoverPanel";
+import FiatRunPanel from "@/components/FiatRunPanel";
 import CodeBlock from "@/components/CodeBlock";
 import { ArrowRight, ArrowLeft, GitHub, External } from "@/components/icons";
 
@@ -184,6 +185,8 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           </div>
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />
+          ) : t.run.kind === "fiat" ? (
+            <FiatRunPanel run={t.run} />
           ) : t.run.kind === "discover" ? (
             <DiscoverPanel run={t.run} />
           ) : (

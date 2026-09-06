@@ -921,6 +921,108 @@ app.post('/weather/payg', async (req, res) => {
       note: "Connect your Nevermined sandbox account, then send a city — the buyer runs the real MPP handshake (payments.mpp.fetch) against the deployed agent's pay-as-you-go route.",
     },
   },
+
+  // ─────────────────────────────── Fiat checkout — Orders ─────────────────────
+  {
+    slug: "fiat-checkout-chat",
+    title: "Pay a merchant by card — no account",
+    tagline:
+      "A shopper with no Nevermined account and no API key pays a merchant an arbitrary fiat amount by card via Stripe, in the browser — the Nevermined Orders flow. The merchant org creates the order server-side; the buyer just pays a hosted checkout embedded in the chat.",
+    protocol: "orders",
+    language: "ts",
+    tier: "live",
+    repoPath: "fiat-checkout-chat/",
+    learn: {
+      lead: "Take a fiat card payment from a buyer with no Nevermined account, no API key, no wallet.",
+      bullets: [
+        "The organization creates a payable Order server-side with its API key — POST /api/v1/orders",
+        "The org key stays in the merchant backend; the browser only ever calls your own /api/orders",
+        "The buyer pays a hosted Stripe checkout embedded as an iframe — no login, no crypto",
+        "The chat trusts the iframe's nvm:success message only after checking event.origin and the envelope version",
+      ],
+    },
+    how: {
+      paragraphs: [
+        "The shopper picks a trip; the app calls its own backend, which calls the Nevermined Orders API with the organization's key and gets back an orderId (the price is looked up server-side, so a tampered client can't name its own amount). The chat mounts the hosted Stripe checkout for that order in an iframe. The buyer pays with a test card; the iframe postMessages nvm:success, the chat verifies event.origin and version === '1', and shows a booked confirmation. clientSecret is never forwarded to the browser — the hosted checkout fetches the order itself.",
+      ],
+      flow: [
+        { label: "pick a trip", sub: '"book the Barcelona trip"' },
+        { label: "POST /api/orders", sub: "backend → Orders API (org key)", emphasis: true },
+        { label: "iframe checkout", sub: "hosted Stripe · no account" },
+        { label: "nvm:success", sub: "origin + version verified → booked" },
+      ],
+    },
+    tech: {
+      stack: ["Nevermined Orders", "Stripe", "Next.js", "React 19", "TypeScript"],
+      samples: [],
+      groups: [
+        {
+          title: "Merchant backend",
+          lead: "The only holder of the org key — a Next.js server route. The browser calls this, never the Orders API directly.",
+          samples: [
+            {
+              caption: "src/app/api/orders/route.ts",
+              lang: "typescript",
+              code: `export async function POST(req: Request) {
+  const { packageId } = await req.json()
+  const pkg = getPackage(packageId)            // price is OURS, not the client's
+  const res = await fetch(\`\${NVM_API_BASE_URL}/api/v1/orders\`, {
+    method: 'POST',
+    headers: {
+      Authorization: \`Bearer \${NVM_ORDER_API_KEY}\`,  // secret — server only
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      amountMinor: pkg.amountMinor, currency: 'usd', description: pkg.name,
+    }),
+  })
+  const { orderId } = await res.json()         // clientSecret NOT forwarded
+  return Response.json({ orderId })
+}`,
+            },
+          ],
+        },
+        {
+          title: "Embed + verified success",
+          lead: "Mount the hosted checkout in an iframe; trust nvm:success only from the embed origin and only version 1.",
+          samples: [
+            {
+              caption: "src/app/chat.tsx",
+              lang: "tsx",
+              code: `// the hosted Stripe checkout for this order, embedded inline
+<iframe src={\`\${embedBase}/checkout/order/\${orderId}\` +
+  \`?parentOrigin=\${encodeURIComponent(location.origin)}\`} />
+
+// the confirmation is gated on a verified message
+window.addEventListener('message', (e) => {
+  if (e.origin !== embedBase) return          // only the embed origin
+  if (e.data?.type !== 'nvm:success') return  // only our event
+  if (e.data?.version !== '1') return         // only the envelope we understand
+  showBooked(e.data.payload)                  // { orderId, paymentIntent }
+})`,
+            },
+          ],
+        },
+      ],
+      files: [
+        { path: "src/app/api/orders/route.ts", desc: "merchant backend — the only holder of the org key" },
+        { path: "src/app/chat.tsx", desc: "the chat UI, the checkout iframe, and the verified postMessage listener" },
+        { path: "src/lib/packages.ts", desc: "server-owned catalog — prices live here, not on the client" },
+      ],
+    },
+    run: {
+      kind: "fiat",
+      merchant: "Acme Travel",
+      greeting:
+        "Hi! I'm your Acme Travel concierge. Pick a trip and pay by card right here — no account, no login. Which one sounds good?",
+      packages: [
+        { id: "barcelona", name: "Barcelona City Break", amount: "$3,437.95", blurb: "3 nights · flights + hotel", emoji: "🏖️" },
+        { id: "tokyo", name: "Tokyo Explorer", amount: "$12,899.00", blurb: "7 nights · flights + ryokan", emoji: "🗼" },
+        { id: "safari", name: "Kenya Safari", amount: "$8,750.00", blurb: "5 nights · all-inclusive lodge", emoji: "🦁" },
+      ],
+      note: "It runs for real from the fiat-checkout-chat/ app against a local Nevermined Orders stack (the Orders feature is in progress — epic #3238 — so the API + hosted checkout run from the feature branch until it ships).",
+    },
+  },
 ];
 
 export function getTutorial(slug: string): Tutorial | undefined {
@@ -930,6 +1032,7 @@ export function getTutorial(slug: string): Tutorial | undefined {
 // Sidebar / index grouping — fixed group order, items keep content-array order.
 export const GROUP_ORDER: { label: string; protocol: Protocol }[] = [
   { label: "Catalog", protocol: "catalog" },
+  { label: "Fiat checkout", protocol: "orders" },
   { label: "x402 HTTP", protocol: "x402" },
   { label: "MPP", protocol: "mpp" },
   { label: "MCP", protocol: "mcp" },

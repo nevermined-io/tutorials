@@ -15,6 +15,7 @@ import {
   Signal,
   Plug,
   Layers,
+  Card,
   Book,
   Globe,
   Discord,
@@ -48,6 +49,7 @@ const GLYPH: Record<Protocol, React.ReactNode> = {
   mpp: <Signal size={13} />,
   mcp: <Plug size={13} />,
   langchain: <LinkIcon size={13} />,
+  orders: <Card size={13} />,
 };
 
 export default function AppShell({
