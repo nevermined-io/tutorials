@@ -2,57 +2,93 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FiatRun, FiatPackage } from "@/lib/types";
-import { ArrowRight } from "./icons";
 
-// Self-contained, scripted card-checkout chat — the deployed gallery can't reach a
-// running Orders API, so nothing here charges a card. The real hosted Stripe iframe
-// lives in the tutorial's own app (see run.note / repoPath). This mirrors the shape
-// of the live tutorials' panel (components/LiveRunPanel) using the same CSS.
+// The REAL Orders flow, embedded in the gallery: pick a trip → POST /api/orders
+// (our server route holds the org key and calls the Nevermined Orders API) →
+// mount the hosted Stripe checkout in an iframe → the iframe postMessages
+// nvm:success and we show "booked". No account, no wallet — a card in the iframe.
+//
+// This needs a running Orders backend + NVM_ORDER_API_KEY (local stack now; the
+// sandbox once Orders ships). If it's not reachable, the panel says so.
 
 type Item =
   | { type: "msg"; role: "user" | "agent"; text: string }
-  | { type: "pay"; pkg: FiatPackage; resolved?: boolean }
-  | { type: "settle"; text: string }
-  | { type: "confirm"; pkg: FiatPackage };
+  | { type: "checkout"; orderId: string; pkg: FiatPackage }
+  | { type: "confirm"; pkg: FiatPackage; paymentIntent: string }
+  | { type: "notice"; text: string };
 
-export default function FiatRunPanel({ run }: { run: FiatRun }) {
+export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBase: string }) {
   const [items, setItems] = useState<Item[]>([{ type: "msg", role: "agent", text: run.greeting }]);
   const [picking, setPicking] = useState(true);
   const [busy, setBusy] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const confirmed = useRef<Set<string>>(new Set());
+  const orderPkg = useRef<Map<string, FiatPackage>>(new Map());
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [items]);
 
-  function pick(pkg: FiatPackage) {
+  // Trust nvm:success only from the embed origin, only our event, only version 1.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== embedBase) return;
+      if (e.data?.type !== "nvm:success") return;
+      if (e.data?.version !== "1") return;
+      const { orderId, paymentIntent } = e.data.payload ?? {};
+      if (!orderId || confirmed.current.has(orderId)) return;
+      const pkg = orderPkg.current.get(orderId);
+      if (!pkg) return;
+      confirmed.current.add(orderId);
+      // swap the (completed) checkout iframe for the confirmation
+      setItems((x) => [
+        ...x.filter((it) => !(it.type === "checkout" && it.orderId === orderId)),
+        { type: "confirm", pkg, paymentIntent: paymentIntent ?? "" },
+      ]);
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [embedBase]);
+
+  async function pick(pkg: FiatPackage) {
     if (busy) return;
+    setBusy(true);
     setPicking(false);
     setItems((x) => [
       ...x,
       { type: "msg", role: "user", text: `I'd like to book the ${pkg.name}.` },
-      {
-        type: "msg",
-        role: "agent",
-        text: `Great choice! Here's your secure checkout for the ${pkg.name} (${pkg.amount}). Pay by card — no account needed.`,
-      },
-      { type: "pay", pkg },
+      { type: "msg", role: "agent", text: "Setting up your secure checkout…" },
     ]);
-  }
-
-  function pay(pkg: FiatPackage, idx: number) {
-    if (busy) return;
-    setBusy(true);
-    setItems((x) => x.map((it, i) => (i === idx ? ({ ...it, resolved: true } as Item) : it)));
-    // brief pause so the "processing" state reads as a real card round-trip
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ packageId: pkg.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `order failed (${res.status})`);
+      orderPkg.current.set(data.orderId, pkg);
       setItems((x) => [
-        ...x,
-        { type: "settle", text: `paid · card ····4242 · ${pkg.amount}` },
-        { type: "confirm", pkg },
+        ...x.filter((it) => !(it.type === "msg" && it.text === "Setting up your secure checkout…")),
+        {
+          type: "msg",
+          role: "agent",
+          text: `Here's your secure checkout for the ${pkg.name} (${pkg.amount}). Pay with the Stripe test card 4242 4242 4242 4242 — any future expiry / CVC / ZIP.`,
+        },
+        { type: "checkout", orderId: data.orderId, pkg },
       ]);
+    } catch (err) {
+      setItems((x) => [
+        ...x.filter((it) => !(it.type === "msg" && it.text === "Setting up your secure checkout…")),
+        {
+          type: "notice",
+          text: `Couldn't reach the Orders backend (${err instanceof Error ? err.message : "error"}). Start the local Nevermined Orders stack and set NVM_ORDER_API_KEY — see the tutorial's README.`,
+        },
+      ]);
+      setPicking(true);
+    } finally {
       setBusy(false);
-    }, 900);
+    }
   }
 
   function reset() {
@@ -78,38 +114,41 @@ export default function FiatRunPanel({ run }: { run: FiatRun }) {
                 </div>
               );
             }
-            if (it.type === "pay") {
+            if (it.type === "checkout") {
+              const src =
+                `${embedBase}/checkout/order/${it.orderId}` +
+                `?parentOrigin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`;
               return (
-                <div className="payline" key={i}>
-                  <span className="stamp">CARD</span>
-                  <span className="txt">
-                    {it.pkg.amount} · {it.pkg.name}
-                  </span>
-                  <button className="cta sm" onClick={() => pay(it.pkg, i)} disabled={busy || it.resolved}>
-                    {it.resolved ? "Paid" : "Pay by card"}
-                    {!it.resolved ? busy ? <span className="spinner" /> : <ArrowRight size={14} /> : null}
-                  </button>
+                <div key={i} className="fiat-checkout">
+                  <div className="fiat-cap">
+                    🔒 Secure Stripe checkout · {it.pkg.name} · {it.pkg.amount}
+                  </div>
+                  <iframe src={src} title="Nevermined hosted checkout" allow="payment" />
                 </div>
               );
             }
-            if (it.type === "settle") {
+            if (it.type === "confirm") {
               return (
-                <div className="settle" key={i}>
-                  <span className="stamp">PAID</span>
-                  <span className="txt">{it.text}</span>
+                <div key={i} className="msg a" style={{ borderLeft: "3px solid var(--paid)" }}>
+                  ✅ Payment confirmed — your <b>{it.pkg.name}</b> is booked! You&apos;ll get an itinerary by
+                  email shortly.
+                  {it.paymentIntent ? (
+                    <span style={{ display: "block", marginTop: 4, fontFamily: "var(--mono)", fontSize: 11, opacity: 0.7 }}>
+                      {it.paymentIntent}
+                    </span>
+                  ) : null}
                 </div>
               );
             }
             return (
-              <div className="msg a" key={i} style={{ borderLeft: "3px solid var(--paid)" }}>
-                ✅ Payment confirmed — your <b>{it.pkg.name}</b> is booked! You&apos;ll get an itinerary by
-                email shortly.
+              <div key={i} className="notice">
+                {it.text}
               </div>
             );
           })}
           {busy ? (
             <div className="working">
-              <span className="spinner" /> charging the card…
+              <span className="spinner" /> creating your order…
             </div>
           ) : null}
         </div>
@@ -131,8 +170,9 @@ export default function FiatRunPanel({ run }: { run: FiatRun }) {
         )}
       </div>
       <p className="runnote">
-        Scripted checkout — no real card is charged here. The real hosted Stripe iframe (test card{" "}
-        <code>4242 4242 4242 4242</code>) runs in the tutorial&apos;s own app. {run.note}
+        Live Orders flow — selecting a trip sends a real <code>POST /api/v1/orders</code> to the backend (the
+        org key stays server-side), then the hosted Stripe checkout runs in the iframe above. Pay with test
+        card <code>4242 4242 4242 4242</code>; no real money moves. {run.note}
       </p>
     </>
   );

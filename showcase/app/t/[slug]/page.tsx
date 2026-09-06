@@ -186,7 +186,7 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />
           ) : t.run.kind === "fiat" ? (
-            <FiatRunPanel run={t.run} />
+            <FiatRunPanel run={t.run} embedBase={process.env.NVM_EMBED_BASE_URL ?? "http://localhost:4250"} />
           ) : t.run.kind === "discover" ? (
             <DiscoverPanel run={t.run} />
           ) : (

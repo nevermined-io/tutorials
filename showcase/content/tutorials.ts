@@ -1020,7 +1020,7 @@ window.addEventListener('message', (e) => {
         { id: "tokyo", name: "Tokyo Explorer", amount: "$12,899.00", blurb: "7 nights · flights + ryokan", emoji: "🗼" },
         { id: "safari", name: "Kenya Safari", amount: "$8,750.00", blurb: "5 nights · all-inclusive lodge", emoji: "🦁" },
       ],
-      note: "It runs for real from the fiat-checkout-chat/ app against a local Nevermined Orders stack (the Orders feature is in progress — epic #3238 — so the API + hosted checkout run from the feature branch until it ships).",
+      note: "It needs a running Nevermined Orders backend + org key — the local stack now, the sandbox once Orders ships (epic #3238). The full source is in fiat-checkout-chat/.",
     },
   },
 ];
