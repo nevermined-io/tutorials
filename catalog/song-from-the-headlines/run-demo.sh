@@ -22,26 +22,57 @@ DEL_ID=$(curl -s "${AUTH[@]}" -X POST "$API_BASE/api/v1/delegation/create" \
   | jq -r '.id // .delegationId')
 echo "  budget id: $DEL_ID"
 
+# ── discovery: find a service's catalog slug at runtime (the whole point) ─────
+# The agent doesn't hardcode where a service lives. It searches the Catalog, gets the
+# service's slug, and pays the opaque Router broker BY SLUG — the broker resolves the slug
+# to the real upstream server-side, so the merchant host is never exposed. A raw-URL payment
+# to a cataloged host is refused (409 BCK.ROUTER.0014); raw URL is for off-catalog hosts only.
+# `slug` is published in every env (prod or broker), so this works either way.
+catalog_slug() {  # $1=search term → prints the top-matching service's slug (empty = off-catalog)
+  curl -s "$API_BASE/api/v1/catalog/services?search=$(jq -rn --arg t "$1" '$t|@uri')&offset=1" \
+    | jq -r '.services[0].slug // empty'
+}
+
 # ── the one primitive the agent uses for every purchase ─────────────────────
-route() {  # $1=url  $2=json-body
+# It hands the Router a slug (cataloged) or a url (off-catalog); the Router probes the
+# merchant's 402, picks the rail (MPP or x402), and settles. requestId must be unique per call.
+_pay() {  # $1=target-json ({slug,path} | {url})  $2=json-body
   local payload
-  payload=$(jq -n --arg d "$DEL_ID" --arg u "$1" --arg r "song-$(date +%s)-$RANDOM" --argjson b "$2" \
-    '{delegationId:$d,url:$u,method:"POST",requestId:$r,body:$b}')
+  payload=$(jq -n --arg d "$DEL_ID" --arg r "song-$(date +%s%N)-$RANDOM" --argjson t "$1" --argjson b "$2" \
+    '{delegationId:$d,method:"POST",requestId:$r,body:$b}+$t')
   curl -s --max-time 120 "${AUTH[@]}" -X POST "$API_BASE/api/v1/router/route" -d "$payload"
 }
+route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=json-body
+  local t; t=$(jq -n --arg s "$1" '{slug:$s}')
+  [ -n "$2" ] && t=$(jq --arg p "$2" '.+{path:$p}' <<<"$t")
+  _pay "$t" "$3"
+}
+route_url() {   # $1=url  $2=json-body  — OFF-CATALOG hosts only
+  _pay "$(jq -n --arg u "$1" '{url:$u}')" "$2"
+}
+
+# discover each cataloged service's slug in the Catalog once, up front
+echo "▸ Discovering services in the Nevermined Catalog…"
+BRAVE=$(catalog_slug brave)
+SUNO=$(catalog_slug suno)
+FAL=$(catalog_slug fal)
+: "${BRAVE:?brave not found in catalog}" "${SUNO:?suno not found}" "${FAL:?fal not found}"
+echo "  slugs: $BRAVE · $SUNO · $FAL   (2s.io is off-catalog → paid by raw URL)"
 
 # ── 1. Brave — today's #1 tech headline  [MPP · Tempo] ──────────────────────
 echo "▸ 1/4  Finding today's top tech headline (Brave)…"
-NEWS=$(route "https://brave.mpp.paywithlocus.com/brave/news-search" \
+NEWS=$(route_slug "$BRAVE" "/brave/news-search" \
   '{"q":"technology","count":5,"freshness":"pd"}')
 HEADLINE=$(jq -r '.body.data.results[0].title // .body.results[0].title' <<<"$NEWS")
 echo "  headline: $HEADLINE"
 
 # ── 2. 2s.io — 90s-pop lyrics  [x402 · Base] ────────────────────────────────
-# 2s.io is OpenAI-compatible. Two gotchas: pick a model from GET /api/ai/models
-# (gpt-4o-mini is NOT valid), and do NOT send a system role — fold it into the user message.
+# 2s.io is OFF-CATALOG (not listed in the Nevermined Catalog) and on its own distinct host,
+# so it is paid by raw URL — no slug, and no BCK.ROUTER.0014 (that refusal is host-scoped to
+# cataloged services only). 2s.io is OpenAI-compatible. Two gotchas: pick a model from
+# GET /api/ai/models (gpt-4o-mini is NOT valid), and do NOT send a system role — fold it in.
 echo "▸ 2/4  Writing 90s-pop lyrics (2s.io)…"
-LYR=$(route "https://2s.io/api/ai/chat" "$(jq -n --arg h "$HEADLINE" '{
+LYR=$(route_url "https://2s.io/api/ai/chat" "$(jq -n --arg h "$HEADLINE" '{
   model:"google/gemini-2.5-flash-lite", max_tokens:400,
   messages:[{role:"user",content:("You are a 90s pop songwriter. Output only lyrics. Write an upbeat 90s pop anthem about: "+$h)}]}')")
 LYRICS=$(jq -r '.body.choices[0].message.content' <<<"$LYR")
@@ -50,14 +81,17 @@ echo "  lyrics: $(head -c 60 <<<"$LYRICS")…"
 # ── 3. Suno — full song from the lyrics  [MPP · Tempo] (async) ──────────────
 # Suno needs customMode + instrumental + model; taskId comes back nested.
 echo "▸ 3/4  Composing the song (Suno — this takes ~a minute)…"
-JOB=$(route "https://suno.mpp.paywithlocus.com/suno/generate-music" "$(jq -n --arg l "$LYRICS" '{
+JOB=$(route_slug "$SUNO" "/suno/generate-music" "$(jq -n --arg l "$LYRICS" '{
   customMode:true, instrumental:false, model:"V5",
   prompt:$l, style:"90s pop anthem", title:"Song From the Headlines"}')")
 TASK=$(jq -r '.body.data.data.taskId // .body.data.taskId // .body.taskId' <<<"$JOB")
 AUDIO=""
 for i in $(seq 1 30); do
   sleep 10
-  ST=$(route "https://suno.mpp.paywithlocus.com/suno/get-music-status" "$(jq -n --arg t "$TASK" '{taskId:$t}')")
+  # KNOWN LIMITATION: a free follow-up call to a cataloged service returns body:null through the
+  # broker (Phase-2 anti-oracle); pending nvm-monorepo follow-up. Left UNCHANGED as a raw-URL poll
+  # to the free status endpoint (paying by slug would return body:null and yield no audioUrl).
+  ST=$(route_url "https://suno.mpp.paywithlocus.com/suno/get-music-status" "$(jq -n --arg t "$TASK" '{taskId:$t}')")
   AUDIO=$(jq -r '[.. | .audioUrl? // .audio_url? // empty] | map(select(. != "")) | .[0] // empty' <<<"$ST")
   [ -n "$AUDIO" ] && break
   echo "  …still rendering ($i)"
@@ -66,7 +100,7 @@ echo "  song: ${AUDIO:-<not ready>}"
 
 # ── 4. fal.ai — album cover  [MPP · Tempo] ──────────────────────────────────
 echo "▸ 4/4  Painting the album cover (fal.ai FLUX)…"
-COV=$(route "https://fal.mpp.tempo.xyz/fal-ai/flux/schnell" "$(jq -n --arg h "$HEADLINE" '{
+COV=$(route_slug "$FAL" "/fal-ai/flux/schnell" "$(jq -n --arg h "$HEADLINE" '{
   prompt:("90s pop album cover art about: "+$h), image_size:"square_hd", num_images:1}')")
 COVER=$(jq -r '.body.images[0].url' <<<"$COV")
 echo "  cover: $COVER"
