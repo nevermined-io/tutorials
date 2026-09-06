@@ -43,12 +43,19 @@ export function getPackage(id: string): TravelPackage | undefined {
   return PACKAGES.find((p) => p.id === id)
 }
 
+// An intent verb must be present, so "it looks broken in Safari" or "not tokyo,
+// something cheaper" don't open an $8,750 checkout. The package token is matched
+// on a word boundary, not as a bare substring.
+const INTENT = /\b(book|buy|reserve|want|take|get|pay)\b/
+
 /** Best-effort match of free-typed chat text to a package (city / name / id). */
 export function matchPackage(text: string): TravelPackage | undefined {
   const t = text.toLowerCase()
-  return PACKAGES.find(
-    (p) => t.includes(p.id) || t.includes(p.name.toLowerCase().split(' ')[0]),
-  )
+  if (!INTENT.test(t)) return undefined
+  return PACKAGES.find((p) => {
+    const token = p.name.toLowerCase().split(' ')[0]
+    return new RegExp(`\\b(${p.id}|${token})\\b`).test(t)
+  })
 }
 
 export function formatUsd(amountMinor: number): string {
@@ -58,8 +65,8 @@ export function formatUsd(amountMinor: number): string {
   }).format(amountMinor / 100)
 }
 
-// ponytail: fail-fast money-path guard, runs at import (server boot). Ceiling:
-// static catalog; move to a DB + zod row schema when packages become dynamic.
+// Fail-fast money-path guard, runs at import (server boot). Ceiling: static
+// catalog; move to a DB + row schema when packages become dynamic.
 const ids = new Set<string>()
 for (const p of PACKAGES) {
   if (!Number.isInteger(p.amountMinor) || p.amountMinor < 100 || p.amountMinor > 99_999_999) {

@@ -54,20 +54,33 @@ chat — no login, no wallet, no crypto.
   tampered client can't pay less.
 - **The success message is verified.** The `message` listener in
   [`src/app/chat.tsx`](src/app/chat.tsx) trusts a `nvm:success` event **only** when
-  `event.origin === NVM_EMBED_BASE_URL` **and** `event.data.type === 'nvm:success'`.
-  This is exactly what the `@nevermined-io/ui-widgets` `startOrder` helper does under
-  the hood — done here as a plain iframe so the whole mechanism is visible.
+  `event.origin === NVM_EMBED_BASE_URL`, `event.data.type === 'nvm:success'`, **and**
+  `event.data.version === '1'`. This mirrors the `origin` + envelope checks
+  `@nevermined-io/ui-widgets` performs in its `parseMessage` — done here as a plain
+  iframe so the whole mechanism is visible. (Its higher-level `startOrder()` helper is
+  planned but not yet shipped, which is why this tutorial wires the iframe directly.)
 - **`clientSecret` stays server-side.** The hosted checkout fetches the order itself
   via the no-auth `GET /orders/:id`, so the backend deliberately does **not** forward
   `clientSecret` to the chat.
 
+> ⚠️ **The `nvm:success` message is a UX signal, not proof of settlement.** The
+> origin/version checks make the *message* trustworthy; they don't make the *payment*
+> final. Upstream, an Order only reaches `paid` via Stripe's `payment_intent.succeeded`
+> **webhook** — a 3DS step-up, a late decline, or a closed tab can all leave this card
+> ahead of the money. This demo shows the buyer-facing flow only. **A production
+> merchant must fulfil (book the trip, send the itinerary) on the webhook or a
+> server-side status read — never on this browser event.**
+
 ## Prerequisite: the Nevermined Orders backend
 
 Orders is a **feature in progress** (epic
-[#3238](https://github.com/nevermined-io/nvm-monorepo/issues/3238)); the `POST/GET
-/api/v1/orders` endpoints and the hosted embed checkout are not yet in a released
-sandbox/live environment. Until they ship, run them **locally from the feature
-branch** in `nvm-monorepo`. You need three things listening:
+[#3238](https://github.com/nevermined-io/nvm-monorepo/issues/3238)) and is not yet in
+a released sandbox/live environment, so run the backend **locally from
+`nvm-monorepo`**. The `POST/GET /api/v1/orders` **API** is already merged to `main`;
+the piece that is not is the **hosted embed checkout route** `/checkout/order/:orderId`
+— it lives on branch **`aaitor/orders-embed-checkout-3249`** (issue
+[#3249](https://github.com/nevermined-io/nvm-monorepo/issues/3249)), so build the stack
+from that branch until it ships. You need three things listening:
 
 | Service | Port | What it is |
 |---|---|---|
@@ -132,12 +145,19 @@ to the browser bundle.
 
 - **`POST /api/v1/orders`** — `Authorization: Bearer <ORG_API_KEY>`.
   Body `{ amountMinor: <int USD cents 100..99_999_999>, currency: "usd",
-  description?: string, buyerRef?: string }` → `201 { orderId, clientSecret,
-  status: "requires_payment" }`. Errors: `BCK.ORDER.0003` (caller not an active
+  description?: string, buyerRef?: string, idempotencyKey?: string }` →
+  `201 { orderId, clientSecret, status: "requires_payment" }`. A retried create with
+  the same `idempotencyKey` returns the **same** Order + `clientSecret` instead of a
+  new PaymentIntent — this backend passes one (`<session>:<packageId>`); a production
+  merchant keys it on its own order id. Errors: `BCK.ORDER.0003` (caller not an active
   org), `0004` (org has no validated Connect account), `0001` (bad amount/currency).
-- **`GET /api/v1/orders/:id`** — no auth (the id is the access control). Returns a
-  buyer-safe `{ id, amountMinor, currency, status, description, merchantName,
-  clientSecret? }`. The hosted checkout uses this; the chat does not need to.
+- **`GET /api/v1/orders/:id`** — no auth (the id is the access control). Returns the
+  buyer-safe projection `{ id, amountMinor, currency, status, amountRefundedMinor,
+  description, buyerRef, merchantName, paymentIntentId, expiresAt, clientSecret? }`.
+  The merchant's **internal identity and economics** (`merchantOrgId`, `merchantUserId`,
+  `feeAmountMinor`) are intentionally **withheld** from this unauthenticated read;
+  `merchantName` is the display name the checkout shows as the payee. The hosted
+  checkout consumes this endpoint; the chat does not need to.
 
 ## Files
 

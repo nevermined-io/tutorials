@@ -19,14 +19,18 @@ export async function POST(req: Request) {
   }
 
   let packageId: unknown
+  let idempotencyKey: unknown
   try {
-    ({ packageId } = await req.json())
+    ({ packageId, idempotencyKey } = await req.json())
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
   if (typeof packageId !== 'string') {
     return NextResponse.json({ error: 'packageId (string) is required.' }, { status: 400 })
+  }
+  if (idempotencyKey !== undefined && typeof idempotencyKey !== 'string') {
+    return NextResponse.json({ error: 'idempotencyKey must be a string.' }, { status: 400 })
   }
 
   const pkg = getPackage(packageId)
@@ -46,6 +50,10 @@ export async function POST(req: Request) {
       currency: 'usd',
       description: pkg.name,
       buyerRef: 'fiat-checkout-chat',
+      // Retried/double-clicked creates with the same key return the same Order
+      // + clientSecret instead of a fresh PaymentIntent. A production merchant
+      // keys this on its OWN order id; here it's a per-session + package key.
+      ...(idempotencyKey ? { idempotencyKey } : {}),
     }),
   })
 

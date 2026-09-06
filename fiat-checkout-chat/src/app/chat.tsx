@@ -33,6 +33,11 @@ export default function Chat({
   const confirmed = useRef<Set<string>>(new Set())
   // Map orderId -> package so the success handler can name the trip.
   const orderPkg = useRef<Map<string, TravelPackage>>(new Map())
+  // Stable per-session nonce. Combined with the packageId it becomes the Order's
+  // idempotencyKey, so a double-clicked or retried "Book" for the same trip
+  // returns the same Order instead of minting orphan PaymentIntents.
+  const sessionNonce = useRef<string>('')
+  if (!sessionNonce.current) sessionNonce.current = crypto.randomUUID()
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' })
@@ -40,15 +45,22 @@ export default function Chat({
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
-      // Non-negotiable trust checks: only the embed origin, only nvm:success.
+      // Non-negotiable trust checks: only the embed origin, only nvm:success,
+      // only the envelope version we understand. @nevermined-io/ui-widgets'
+      // parseMessage rejects any other `version`; mirror that so a future v2
+      // envelope can't be mis-parsed into a false "confirmed".
       if (event.origin !== embedBase) return
       if (event.data?.type !== 'nvm:success') return
+      if (event.data?.version !== '1') return
 
       const { orderId, paymentIntent } = event.data.payload ?? {}
       if (!orderId || confirmed.current.has(orderId)) return
       const pkg = orderPkg.current.get(orderId)
       if (!pkg) return
 
+      // NOTE: this message is a UX signal, not proof of settlement. A production
+      // merchant fulfils on the `payment_intent.succeeded` webhook (or a
+      // server-side status read), never on this browser event — see the README.
       confirmed.current.add(orderId)
       // Replace the (now-completed) checkout iframe with the confirmation so the
       // "booked!" moment lands where the buyer is looking, not below a tall form.
@@ -74,7 +86,10 @@ export default function Chat({
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId: pkg.id }),
+        body: JSON.stringify({
+          packageId: pkg.id,
+          idempotencyKey: `${sessionNonce.current}:${pkg.id}`,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Order failed')
