@@ -68,6 +68,15 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
       </div>
 
       <div className="content">
+        {/* Tech stack badges — shown up front, before the walkthrough */}
+        <div className="chips" style={{ marginBottom: "22px" }}>
+          {t.tech.stack.map((s) => (
+            <span key={s} className="schip">
+              {s}
+            </span>
+          ))}
+        </div>
+
         {/* 1 — Learn */}
         <section className="block" id="learn">
           <div className="h2">
@@ -125,13 +134,6 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
         <section className="block" id="tech">
           <div className="h2">
             <span className="num">3</span> Under the hood
-          </div>
-          <div className="chips" style={{ marginBottom: "18px" }}>
-            {t.tech.stack.map((s) => (
-              <span key={s} className="schip">
-                {s}
-              </span>
-            ))}
           </div>
           {t.tech.groups?.length ? (
             t.tech.groups.map((g, gi) => (

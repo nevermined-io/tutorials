@@ -935,6 +935,7 @@ app.post('/weather/payg', async (req, res) => {
     learn: {
       lead: "Take a fiat card payment from a buyer with no Nevermined account, no API key, no wallet.",
       bullets: [
+        "Setup: the merchant must have a Nevermined organization account with a Stripe account linked to it (Stripe Connect) — that's what authorizes it to take card payments and receive the funds",
         "The organization creates a payable Order server-side with its API key — POST /api/v1/orders",
         "The org key stays in the merchant backend; the browser only ever calls your own /api/orders",
         "The buyer pays a hosted Stripe checkout embedded as an iframe — no login, no crypto",
@@ -943,7 +944,8 @@ app.post('/weather/payg', async (req, res) => {
     },
     how: {
       paragraphs: [
-        "The shopper picks a trip; the app calls its own backend, which calls the Nevermined Orders API with the organization's key and gets back an orderId (the price is looked up server-side, so a tampered client can't name its own amount). The chat mounts the hosted Stripe checkout for that order in an iframe. The buyer pays with a test card; the iframe postMessages nvm:success, the chat verifies event.origin and version === '1', and shows a booked confirmation. clientSecret is never forwarded to the browser — the hosted checkout fetches the order itself.",
+        "One-time setup: the merchant registers a Nevermined organization and links a Stripe account to it (Stripe Connect onboarding), which is what lets the org take card payments and receive the funds.",
+        "Then, per purchase: the shopper picks a trip; the app calls its own backend, which calls the Nevermined Orders API with the organization's key and gets back an orderId (the price is looked up server-side, so a tampered client can't name its own amount). The chat mounts the hosted Stripe checkout for that order in an iframe. The buyer pays with a test card; the iframe postMessages nvm:success, the chat verifies event.origin and version === '1', and shows a booked confirmation. clientSecret is never forwarded to the browser — the hosted checkout fetches the order itself.",
       ],
       flow: [
         { label: "pick a trip", sub: '"book the Barcelona trip"' },

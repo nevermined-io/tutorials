@@ -4,6 +4,10 @@ import { useMemo, useState } from "react";
 import Prism from "prismjs";
 import "prismjs/components/prism-python";
 import "prismjs/components/prism-typescript";
+// jsx/tsx must load after typescript (tsx extends both jsx and typescript) so
+// the chat.tsx sample — JSX + TS — highlights fully instead of rendering plain.
+import "prismjs/components/prism-jsx";
+import "prismjs/components/prism-tsx";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-bash";
 import { Copy, Check } from "./icons";
@@ -13,6 +17,8 @@ const LANG_MAP: Record<string, string> = {
   py: "python",
   typescript: "typescript",
   ts: "typescript",
+  tsx: "tsx",
+  jsx: "jsx",
   json: "json",
   bash: "bash",
   sh: "bash",
