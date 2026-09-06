@@ -118,6 +118,28 @@ A freemium market-research agent on LangChain's [Deep Agents](https://docs.langc
 
 ---
 
+### 5. Fiat Checkout Chat (TypeScript)
+
+**Location**: `fiat-checkout-chat/`
+
+A Next.js chat UI + thin merchant backend demonstrating the Nevermined **Orders** flow (epic [#3238](https://github.com/nevermined-io/nvm-monorepo/issues/3238), Phase 1): a web consumer with **no Nevermined account and no API key** pays a merchant an arbitrary **fiat** amount by **card via Stripe**, entirely in the browser. The merchant is an **organization** that creates the order server-side; the buyer just pays a hosted checkout embedded inline as a chat card — no login, no wallet, no crypto.
+
+**Technologies**:
+- TypeScript
+- Next.js (App Router) + React 19
+- Nevermined Orders API (`POST/GET /api/v1/orders`)
+- Nevermined hosted embed checkout (Stripe)
+
+**What You'll Learn**:
+- Create a payable order server-side with an organization's API key — kept out of the browser bundle
+- Embed the Nevermined hosted Stripe checkout as a plain iframe and verify its `nvm:success` `postMessage` by `event.origin`
+- Let the server own prices so a client can't name its own amount
+- Take a buyer from "I want to book X" to a confirmed fiat payment with no account
+
+> **Note**: tracks the in-progress Orders feature and currently requires running the Nevermined API + embed from the feature branch. See the tutorial's [README](fiat-checkout-chat/README.md).
+
+---
+
 ## Quick Start
 
 Each tutorial includes detailed instructions for:
