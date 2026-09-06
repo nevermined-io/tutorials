@@ -58,6 +58,32 @@ route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=method  $4=json-body ('')
 route_url() {   # $1=url  $2=method  $3=json-body ('')  — OFF-CATALOG hosts only
   _pay "$(jq -n --arg u "$1" '{url:$u}')" "$2" "${3:-}"
 }
+# ── slug invoke for a cataloged GET *with query params* ──────────────────────
+# The {slug,path} body route can't carry a query (it composes joinSlugSubpath(base,path) with no
+# `search` arg, so `?`→`%3F`). A cataloged GET-with-query instead uses the catalog's OWN published
+# invoke URL — /api/v1/router/svc/<slug>/<subpath>?<query>, which *is* `invokeUrl` — same opaque
+# broker, pay-by-slug, host hidden, same /router/payments ledger. Delegation + request id ride
+# X-Router-* headers; -G --data-urlencode encodes each value into the query (so $DOMAIN can't inject
+# a second param or escape the path). This surface returns the RAW upstream body → parse .field.
+route_slug_get() {  # $1=slug  $2=subpath (no query)  then any number of: --data-urlencode k=v
+  local slug="$1" subpath="$2" resp code json; shift 2
+  resp=$(curl -s --max-time 120 -G "$@" \
+    -H "Authorization: Bearer $KEY" \
+    -H "X-Router-Delegation-Id: $DEL_ID" \
+    -H "X-Router-Request-Id: dd-$(date +%s%N)-$RANDOM" \
+    -w $'\n%{http_code}' \
+    "$API_BASE/api/v1/router/svc/$slug$subpath")
+  code=${resp##*$'\n'}
+  # A cataloged call delivers a body ONLY on 2xx; the broker withholds it on any non-2xx (bad query,
+  # 402 re-challenge, per-slug 429). Surface the status so a failed source is never silent — the run
+  # still degrades (below) and the receipt is the durable record. curl exits 0 on an HTTP error;
+  # a transport error aborts like every other call.
+  { [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; } 2>/dev/null \
+    || echo "  ⚠ $slug$subpath → HTTP ${code:-?} (no body delivered; see the receipt)" >&2
+  # Normalise empty/withheld/non-JSON to {} so the callers' // fallbacks fire and set -e never aborts.
+  json=$(jq -c . <<<"${resp%$'\n'*}" 2>/dev/null) || json=''
+  [ -n "$json" ] && printf '%s' "$json" || printf '{}'
+}
 
 # discover each source's slug in the Catalog once, up front, and reuse across calls
 echo "▸ Discovering sources in the Nevermined Catalog…"
@@ -72,21 +98,20 @@ echo "  slugs: $AVIATO · $PREDICTLEADS · $ONESHOT · $EDGAR · $RIVETER"
 
 # ── 1. Aviato — company overview + founders  [MPP · Tempo] ──────────────────
 # Aviato's query param is ?website= (not ?domain=); /company/founders also needs page + perPage.
-# NOTE (broker query-string gap — see PR): the body route composes the target as
-# joinSlugSubpath(base, path) with no `search` arg, so a `?query` inside `path` is percent-encoded
-# (`?`→`%3F`) and lost. Aviato's two GETs depend on ?website=/?page=. Written to the intended
-# contract (the /svc/:slug/* surface already splits query the same way); pending a broker fix to
-# split query from path in resolveRouteTarget. Aviato is on the shared mpp.orthogonal.com host, so
-# raw URL is not an option here — it would 409 (BCK.ROUTER.0014). Slug is mandatory.
+# Aviato is on the SHARED host mpp.orthogonal.com (raw URL would 409 BCK.ROUTER.0014), so the slug is
+# mandatory — and these are GETs with a query string, which the {slug,path} body route can't carry.
+# So they go through the catalog's published slug-native invoke URL (route_slug_get, above): the
+# opaque broker, still pay-by-slug, query preserved. It returns the RAW upstream body → parse .field.
 echo "▸ 1/5  Company overview + founders (Aviato)…"
-COMPANY=$(route_slug "$AVIATO" "/company/enrich?website=$DOMAIN" GET '')
-echo "  $(jq -r '.body.name // .body.legalName // "company"' <<<"$COMPANY") — raised \$$(jq -r '((.body.totalFunding // .body.totalRaised // 0)/1e6|floor)' <<<"$COMPANY")M"
-FOUNDERS=$(route_slug "$AVIATO" "/company/founders?website=$DOMAIN&page=1&perPage=10" GET '')
+COMPANY=$(route_slug_get "$AVIATO" /company/enrich --data-urlencode "website=$DOMAIN")
+echo "  $(jq -r '.name // .legalName // "company"' <<<"$COMPANY") — raised \$$(jq -r '((.totalFunding // .totalRaised // 0)/1e6|floor)' <<<"$COMPANY")M"
+FOUNDERS=$(route_slug_get "$AVIATO" /company/founders \
+  --data-urlencode "website=$DOMAIN" --data-urlencode "page=1" --data-urlencode "perPage=10")
 # pick the CEO-ish founder (prefer the one based in San Francisco), with their LinkedIn for a richer dossier
-FOUNDER=$(jq -r '[.body.founders[]? | select(((.location//"")|test("San Francisco"))) ] as $sf
-                 | (($sf[0] // .body.founders[0]).fullName // "")' <<<"$FOUNDERS")
-FOUNDER_LI=$(jq -r '[.body.founders[]? | select(((.location//"")|test("San Francisco"))) ] as $sf
-                 | (($sf[0] // .body.founders[0]).URLs.linkedin // "")' <<<"$FOUNDERS")
+FOUNDER=$(jq -r '[.founders[]? | select(((.location//"")|test("San Francisco"))) ] as $sf
+                 | (($sf[0] // .founders[0]).fullName // "")' <<<"$FOUNDERS")
+FOUNDER_LI=$(jq -r '[.founders[]? | select(((.location//"")|test("San Francisco"))) ] as $sf
+                 | (($sf[0] // .founders[0]).URLs.linkedin // "")' <<<"$FOUNDERS")
 echo "  founder to deep-dive: ${FOUNDER:-<none>}"
 
 # the buyer wallet is the OneShot poll header (X-Agent-ID) — read it off the first settled payment

@@ -50,6 +50,10 @@ route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=json-body
 route_url() {   # $1=url  $2=json-body  — OFF-CATALOG hosts only
   _pay "$(jq -n --arg u "$1" '{url:$u}')" "$2"
 }
+# NOTE: every cataloged call here is POST-with-body (no query string), so the {slug,path} body route
+# suffices for all of them. A cataloged GET *with query params* can't use the body route — it takes
+# the slug-native invoke URL /api/v1/router/svc/<slug>/<subpath>?<query> instead; see the
+# route_slug_get helper in ../diligence-in-a-box/run-demo.sh (Aviato).
 
 # discover each cataloged service's slug in the Catalog once, up front
 echo "▸ Discovering services in the Nevermined Catalog…"
