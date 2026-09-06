@@ -34,9 +34,15 @@ echo "  budget id: $DEL_ID"
 # slug to the real upstream server-side, so the merchant host is never exposed. A raw-URL
 # payment to a cataloged host is refused (409 BCK.ROUTER.0014); raw URL is for off-catalog
 # hosts only. `slug` is published in every env (prod or broker), so this works either way.
-catalog_slug() {  # $1=search term → prints the top-matching service's slug (empty = off-catalog)
-  curl -s "$API_BASE/api/v1/catalog/services?search=$(jq -rn --arg t "$1" '$t|@uri')&offset=1" \
-    | jq -r '.services[0].slug // empty'
+catalog_slug() {  # $1=search term  $2=expected slug → prints $2 iff the catalog lists it (else empty)
+  # Discover-and-verify. Top-1 is NOT a stable identity: the default sort reshuffles every ~6h and
+  # `search` is a substring match over title+description, so a bare term can match 2+ services and
+  # resolve to a different one each window ('fal' also matches a weather service; 'edgar' matches two
+  # EDGAR listings). Pinning the exact slug keeps a live catalog lookup — it proves the service is
+  # listed and aborts loud (via the :? guards below) if it is ever delisted or renamed — while
+  # guaranteeing a real-money run pays the intended vendor, not whatever floats to the top this hour.
+  curl -s "$API_BASE/api/v1/catalog/services?search=$(jq -rn --arg t "$1" '$t|@uri')&limit=50" \
+    | jq -r --arg s "$2" 'if any(.services[]?.slug; . == $s) then $s else empty end'
 }
 
 # ── the one primitive the agent uses for every purchase ─────────────────────
@@ -55,9 +61,9 @@ route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=method  $4=json-body ('')
   [ -n "$2" ] && t=$(jq --arg p "$2" '.+{path:$p}' <<<"$t")
   _pay "$t" "$3" "${4:-}"
 }
-route_url() {   # $1=url  $2=method  $3=json-body ('')  — OFF-CATALOG hosts only
-  _pay "$(jq -n --arg u "$1" '{url:$u}')" "$2" "${3:-}"
-}
+# (No route_url helper here: every source this demo touches is cataloged, so every purchase goes by
+# slug. A raw-URL {url} payment to any of these hosts would 409 BCK.ROUTER.0014 — off-catalog raw-URL
+# payment lives in ../song-from-the-headlines, where 2s.io genuinely isn't listed.)
 # ── slug invoke for a cataloged GET *with query params* ──────────────────────
 # The {slug,path} body route can't carry a query (it composes joinSlugSubpath(base,path) with no
 # `search` arg, so `?`→`%3F`). A cataloged GET-with-query instead uses the catalog's OWN published
@@ -87,11 +93,11 @@ route_slug_get() {  # $1=slug  $2=subpath (no query)  then any number of: --data
 
 # discover each source's slug in the Catalog once, up front, and reuse across calls
 echo "▸ Discovering sources in the Nevermined Catalog…"
-AVIATO=$(catalog_slug aviato)
-PREDICTLEADS=$(catalog_slug predictleads)
-ONESHOT=$(catalog_slug oneshot)
-EDGAR=$(catalog_slug edgar)
-RIVETER=$(catalog_slug riveter)
+AVIATO=$(catalog_slug aviato aviato)
+PREDICTLEADS=$(catalog_slug predictleads predictleads-mpp)
+ONESHOT=$(catalog_slug oneshot oneshot-deep-person-research)
+EDGAR=$(catalog_slug edgar edgar-search)
+RIVETER=$(catalog_slug riveter riveter-api)
 : "${AVIATO:?aviato not found in catalog}" "${PREDICTLEADS:?predictleads not found}" \
   "${ONESHOT:?oneshot not found}" "${EDGAR:?edgar not found}" "${RIVETER:?riveter not found}"
 echo "  slugs: $AVIATO · $PREDICTLEADS · $ONESHOT · $EDGAR · $RIVETER"
@@ -121,12 +127,19 @@ BUYER=$(curl -s "${AUTH[@]}" "$API_BASE/api/v1/router/payments?delegationId=$DEL
 # Body keys: name / social_media_url / company (NOT linkedin_url / full_name). Name-only is thin —
 # pass the LinkedIn + company for a real dossier. Returns 202 + request_id; poll the FREE, direct
 # status endpoint with X-Agent-ID: <buyer wallet> (no payment, no router).
+# OneShot's catalog targetUrl is the full https://win.oneshotagent.com/v1/tools/research/person, so
+# the slug takes NO subpath (verified in the listing — same as EDGAR below).
 echo "▸ 2/5  Founder deep-dive (OneShot — x402 on Base, runs asynchronously)…"
+DOSSIER=""
+if [ -z "$FOUNDER" ]; then
+  # Guard a PAID x402 call: a deep-dive on an empty name is money for nothing (with_entries strips the
+  # blank keys, so the body would be `{}`). If Aviato yielded no founder, skip step 2 entirely.
+  echo "  (skipped — Aviato returned no founder to research)"
+else
 OS_INIT=$(route_slug "$ONESHOT" "" POST \
   "$(jq -n --arg n "$FOUNDER" --arg s "$FOUNDER_LI" --arg c "$COMPANY_NAME" \
      '{name:$n, social_media_url:$s, company:$c} | with_entries(select(.value != ""))')")
 REQ_ID=$(jq -r '.body.request_id // .body.data.request_id // empty' <<<"$OS_INIT")
-DOSSIER=""
 if [ -n "$REQ_ID" ] && [ -n "$BUYER" ]; then
   for i in $(seq 1 20); do
     sleep 6
@@ -138,6 +151,7 @@ if [ -n "$REQ_ID" ] && [ -n "$BUYER" ]; then
     echo "  …still researching ($i)"
   done
 fi
+fi  # end: pay OneShot only when Aviato yielded a founder
 echo "  dossier: $(jq -r 'if .result then "ready" else "pending" end' <<<"${DOSSIER:-{}}")"
 
 # ── 3. PredictLeads — hiring + news momentum  [MPP · Tempo] ──────────────────

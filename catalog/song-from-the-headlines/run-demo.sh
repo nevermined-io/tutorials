@@ -28,9 +28,14 @@ echo "  budget id: $DEL_ID"
 # to the real upstream server-side, so the merchant host is never exposed. A raw-URL payment
 # to a cataloged host is refused (409 BCK.ROUTER.0014); raw URL is for off-catalog hosts only.
 # `slug` is published in every env (prod or broker), so this works either way.
-catalog_slug() {  # $1=search term → prints the top-matching service's slug (empty = off-catalog)
-  curl -s "$API_BASE/api/v1/catalog/services?search=$(jq -rn --arg t "$1" '$t|@uri')&offset=1" \
-    | jq -r '.services[0].slug // empty'
+catalog_slug() {  # $1=search term  $2=expected slug → prints $2 iff the catalog lists it (else empty)
+  # Discover-and-verify. Top-1 is NOT a stable identity: the default sort reshuffles every ~6h and
+  # `search` is a substring match over title+description, so a bare term can match 2+ services and
+  # resolve to a different one each window ('fal' also matches a weather service). Pinning the exact
+  # slug keeps a live catalog lookup — proves the service is listed, aborts loud (via the :? guards)
+  # if delisted/renamed — while guaranteeing a real-money run pays the intended vendor.
+  curl -s "$API_BASE/api/v1/catalog/services?search=$(jq -rn --arg t "$1" '$t|@uri')&limit=50" \
+    | jq -r --arg s "$2" 'if any(.services[]?.slug; . == $s) then $s else empty end'
 }
 
 # ── the one primitive the agent uses for every purchase ─────────────────────
@@ -57,9 +62,9 @@ route_url() {   # $1=url  $2=json-body  — OFF-CATALOG hosts only
 
 # discover each cataloged service's slug in the Catalog once, up front
 echo "▸ Discovering services in the Nevermined Catalog…"
-BRAVE=$(catalog_slug brave)
-SUNO=$(catalog_slug suno)
-FAL=$(catalog_slug fal)
+BRAVE=$(catalog_slug brave brave-search-via-mpp)
+SUNO=$(catalog_slug suno suno-mpp)
+FAL=$(catalog_slug fal fal-ai-mpp)
 : "${BRAVE:?brave not found in catalog}" "${SUNO:?suno not found}" "${FAL:?fal not found}"
 echo "  slugs: $BRAVE · $SUNO · $FAL   (2s.io is off-catalog → paid by raw URL)"
 
@@ -92,11 +97,16 @@ TASK=$(jq -r '.body.data.data.taskId // .body.data.taskId // .body.taskId' <<<"$
 AUDIO=""
 for i in $(seq 1 30); do
   sleep 10
-  # KNOWN LIMITATION: a free follow-up call to a cataloged service returns body:null through the
-  # broker (Phase-2 anti-oracle); pending nvm-monorepo follow-up. Left UNCHANGED as a raw-URL poll
-  # to the free status endpoint (paying by slug would return body:null and yield no audioUrl).
-  ST=$(route_url "https://suno.mpp.paywithlocus.com/suno/get-music-status" "$(jq -n --arg t "$TASK" '{taskId:$t}')")
-  AUDIO=$(jq -r '[.. | .audioUrl? // .audio_url? // empty] | map(select(. != "")) | .[0] // empty' <<<"$ST")
+  # KNOWN LIMITATION — the free status poll bypasses the Router (direct curl), exactly like the
+  # OneShot poll in ../diligence-in-a-box. A free follow-up to a cataloged service can't go through
+  # the broker: by slug it returns body:null (Phase-2 anti-oracle), and by raw URL it's a payment to a
+  # cataloged host → 409 BCK.ROUTER.0014 (so the old route_url poll 409'd every iteration and the song
+  # never rendered). In the fully-opaque broker world the demo won't know this host — an authorized
+  # free-follow-up mechanism is the real fix (pending nvm-monorepo follow-up).
+  ST=$(curl -s --max-time 60 -H "Content-Type: application/json" \
+       -d "$(jq -n --arg t "$TASK" '{taskId:$t}')" \
+       "https://suno.mpp.paywithlocus.com/suno/get-music-status")
+  AUDIO=$(jq -r '[.. | .audioUrl? // .audio_url? // empty] | map(select(. != "")) | .[0] // empty' <<<"$ST" 2>/dev/null) || AUDIO=""
   [ -n "$AUDIO" ] && break
   echo "  …still rendering ($i)"
 done
