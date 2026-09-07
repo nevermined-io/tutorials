@@ -62,7 +62,13 @@ export async function POST(req: Request) {
     );
   }
 
-  // Same-origin guard: a browser always sends Origin; reject cross-site callers.
+  // NOTE on the bound below: both halves have a deliberate, demo-grade bypass. The
+  // same-origin check is conditional — a request with no `Origin` header (curl,
+  // server-to-server) skips it — and `x-forwarded-for` is caller-supplied unless a
+  // trusted proxy overwrites it, so a direct caller can spoof the rate-limit key.
+  // Behind the showcase's own ingress both hold; for a hardened public deployment,
+  // put this route behind the platform's WAF / rate-limiter and treat the in-route
+  // guards as a backstop, not the primary control.
   const origin = req.headers.get("origin");
   const host = req.headers.get("host");
   if (origin && host) {
