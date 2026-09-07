@@ -7,6 +7,7 @@ import { repoUrl, repoFileUrl } from "@/lib/repo";
 import LiveRunPanel from "@/components/LiveRunPanel";
 import RecapPanel from "@/components/RecapPanel";
 import DiscoverPanel from "@/components/DiscoverPanel";
+import FiatRunPanel from "@/components/FiatRunPanel";
 import CodeBlock from "@/components/CodeBlock";
 import { ArrowRight, ArrowLeft, GitHub, External } from "@/components/icons";
 
@@ -67,6 +68,15 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
       </div>
 
       <div className="content">
+        {/* Tech stack badges — shown up front, before the walkthrough */}
+        <div className="chips" style={{ marginBottom: "22px" }}>
+          {t.tech.stack.map((s) => (
+            <span key={s} className="schip">
+              {s}
+            </span>
+          ))}
+        </div>
+
         {/* 1 — Learn */}
         <section className="block" id="learn">
           <div className="h2">
@@ -125,13 +135,6 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           <div className="h2">
             <span className="num">3</span> Under the hood
           </div>
-          <div className="chips" style={{ marginBottom: "18px" }}>
-            {t.tech.stack.map((s) => (
-              <span key={s} className="schip">
-                {s}
-              </span>
-            ))}
-          </div>
           {t.tech.groups?.length ? (
             t.tech.groups.map((g, gi) => (
               <div key={gi} className="subblock">
@@ -184,6 +187,17 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           </div>
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />
+          ) : t.run.kind === "fiat" ? (
+            // Default to localhost only in dev. In production the var is required;
+            // "" makes the panel show a "checkout not configured" notice rather than
+            // silently pointing the iframe (and the origin check) at localhost.
+            <FiatRunPanel
+              run={t.run}
+              embedBase={
+                process.env.NVM_EMBED_BASE_URL ??
+                (process.env.NODE_ENV === "production" ? "" : "http://localhost:4250")
+              }
+            />
           ) : t.run.kind === "discover" ? (
             <DiscoverPanel run={t.run} />
           ) : (
