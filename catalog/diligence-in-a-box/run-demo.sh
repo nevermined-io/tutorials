@@ -8,6 +8,13 @@
 #          plus jq and curl.
 # Run:     ./run-demo.sh              # profiles perplexity.ai by default
 #          DOMAIN=stripe.com ./run-demo.sh
+#
+# ⚠ REQUIRES THE OPAQUE ROUTER BROKER (nvm-monorepo #3304). This demo pays cataloged services
+#   BY SLUG — via the {slug,path} body route and the /api/v1/router/svc/<slug> invoke surface.
+#   That mechanism is merged to `main` but NOT yet in a release tag (latest v1.31.0), so it is not
+#   on prod/staging as of 2026-09. Run against a BROKER-ENABLED API. Against a pre-broker API the
+#   `slug`/`path` fields are stripped (server whitelist) and /svc 404s, so no purchase settles. This
+#   is intentional per issue #70 — landing the demo so it is correct the day the broker ships.
 set -euo pipefail
 
 DOMAIN="${DOMAIN:-perplexity.ai}"          # the startup to diligence
@@ -33,7 +40,7 @@ echo "  budget id: $DEL_ID"
 # service's slug, and pays the opaque Router broker BY SLUG — the broker resolves the
 # slug to the real upstream server-side, so the merchant host is never exposed. A raw-URL
 # payment to a cataloged host is refused (409 BCK.ROUTER.0014); raw URL is for off-catalog
-# hosts only. `slug` is published in every env (prod or broker), so this works either way.
+# hosts only. (The catalog + `slug` are read from a broker-enabled API — see the prerequisite note.)
 catalog_slug() {  # $1=search term  $2=expected slug → prints $2 iff the catalog lists it (else empty)
   # Discover-and-verify. Top-1 is NOT a stable identity: the default sort reshuffles every ~6h and
   # `search` is a substring match over title+description, so a bare term can match 2+ services and
@@ -41,7 +48,10 @@ catalog_slug() {  # $1=search term  $2=expected slug → prints $2 iff the catal
   # EDGAR listings). Pinning the exact slug keeps a live catalog lookup — it proves the service is
   # listed and aborts loud (via the :? guards below) if it is ever delisted or renamed — while
   # guaranteeing a real-money run pays the intended vendor, not whatever floats to the top this hour.
-  curl -s "$API_BASE/api/v1/catalog/services?search=$(jq -rn --arg t "$1" '$t|@uri')&limit=50" \
+  # NB: the page-size param is `offset` (items per page, default 20, cap 100) — `limit` is not in the
+  # DTO and is silently stripped, leaving the default 20-row (shuffled) window. Ask for the 100 cap so
+  # the exact slug is in the page even for a broad term.
+  curl -s "$API_BASE/api/v1/catalog/services?search=$(jq -rn --arg t "$1" '$t|@uri')&offset=100" \
     | jq -r --arg s "$2" 'if any(.services[]?.slug; . == $s) then $s else empty end'
 }
 
@@ -49,12 +59,19 @@ catalog_slug() {  # $1=search term  $2=expected slug → prints $2 iff the catal
 # It never chooses a protocol — it hands the Router a slug (cataloged) or a url
 # (off-catalog) + method, and the Router probes the merchant's 402, picks the rail
 # (MPP or x402), and settles. requestId must be unique per call.
-_pay() {  # $1=target-json ({slug,path} | {url})  $2=method  $3=json-body ('' for none)
-  local payload
-  payload=$(jq -n --arg d "$DEL_ID" --arg m "$2" --arg r "dd-$(date +%s%N)-$RANDOM" --argjson t "$1" \
+_pay() {  # $1=target-json ({slug,path} | {url})  $2=method  $3=json-body ('') → JSON result envelope
+  local payload resp code
+  # requestId must be unique per call (Router idempotency key); portable — macOS `date` has no %N.
+  payload=$(jq -n --arg d "$DEL_ID" --arg m "$2" --arg r "dd-$(date +%s)-$RANDOM-$RANDOM" --argjson t "$1" \
     '{delegationId:$d,method:$m,requestId:$r}+$t')
   [ -n "${3:-}" ] && payload=$(jq --argjson b "$3" '.+{body:$b}' <<<"$payload")
-  curl -s --max-time 120 "${AUTH[@]}" -X POST "$API_BASE/api/v1/router/route" -d "$payload"
+  resp=$(curl -s --max-time 120 "${AUTH[@]}" -w $'\n%{http_code}' -X POST "$API_BASE/api/v1/router/route" -d "$payload") || resp=$'\n000'
+  code=${resp##*$'\n'}
+  # 2xx = settled; a 402/409/5xx (or transport 000) did NOT settle — surface it so a failed payment
+  # never reads as a silent result. The receipt (below) is the durable record.
+  { [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; } 2>/dev/null \
+    || echo "  ⚠ router/route → HTTP ${code:-?} (payment not settled; see the receipt)" >&2
+  printf '%s' "${resp%$'\n'*}"
 }
 route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=method  $4=json-body ('')
   local t; t=$(jq -n --arg s "$1" '{slug:$s}')
@@ -66,9 +83,10 @@ route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=method  $4=json-body ('')
 # payment lives in ../song-from-the-headlines, where 2s.io genuinely isn't listed.)
 # ── slug invoke for a cataloged GET *with query params* ──────────────────────
 # The {slug,path} body route can't carry a query (it composes joinSlugSubpath(base,path) with no
-# `search` arg, so `?`→`%3F`). A cataloged GET-with-query instead uses the catalog's OWN published
-# invoke URL — /api/v1/router/svc/<slug>/<subpath>?<query>, which *is* `invokeUrl` — same opaque
-# broker, pay-by-slug, host hidden, same /router/payments ledger. Delegation + request id ride
+# `search` arg, so `?`→`%3F`). A cataloged GET-with-query instead uses the slug-native invoke URL
+# /api/v1/router/svc/<slug>/<subpath>?<query> — the same value the broker publishes as the catalog's
+# `invokeUrl` field once it ships — same opaque broker, pay-by-slug, host hidden, same
+# /router/payments ledger. Delegation + request id ride
 # X-Router-* headers; -G --data-urlencode encodes each value into the query (so $DOMAIN can't inject
 # a second param or escape the path). This surface returns the RAW upstream body → parse .field.
 route_slug_get() {  # $1=slug  $2=subpath (no query)  then any number of: --data-urlencode k=v
@@ -76,7 +94,7 @@ route_slug_get() {  # $1=slug  $2=subpath (no query)  then any number of: --data
   resp=$(curl -s --max-time 120 -G "$@" \
     -H "Authorization: Bearer $KEY" \
     -H "X-Router-Delegation-Id: $DEL_ID" \
-    -H "X-Router-Request-Id: dd-$(date +%s%N)-$RANDOM" \
+    -H "X-Router-Request-Id: dd-$(date +%s)-$RANDOM-$RANDOM" \
     -w $'\n%{http_code}' \
     "$API_BASE/api/v1/router/svc/$slug$subpath")
   code=${resp##*$'\n'}
@@ -136,21 +154,28 @@ if [ -z "$FOUNDER" ]; then
   # blank keys, so the body would be `{}`). If Aviato yielded no founder, skip step 2 entirely.
   echo "  (skipped — Aviato returned no founder to research)"
 else
-OS_INIT=$(route_slug "$ONESHOT" "" POST \
-  "$(jq -n --arg n "$FOUNDER" --arg s "$FOUNDER_LI" --arg c "$COMPANY_NAME" \
-     '{name:$n, social_media_url:$s, company:$c} | with_entries(select(.value != ""))')")
-REQ_ID=$(jq -r '.body.request_id // .body.data.request_id // empty' <<<"$OS_INIT")
-if [ -n "$REQ_ID" ] && [ -n "$BUYER" ]; then
-  for i in $(seq 1 20); do
-    sleep 6
-    # KNOWN LIMITATION: a free follow-up call to a cataloged service returns body:null through the
-    # broker (Phase-2 anti-oracle); pending nvm-monorepo follow-up. Left as a direct, free poll to
-    # the merchant's status endpoint — which the opaque broker will eventually hide the host of.
-    ST=$(curl -s --max-time 60 -H "X-Agent-ID: $BUYER" "https://win.oneshotagent.com/v1/requests/$REQ_ID")
-    if [ "$(jq -r '.status // empty' <<<"$ST")" = "completed" ]; then DOSSIER="$ST"; break; fi
-    echo "  …still researching ($i)"
-  done
-fi
+  OS_INIT=$(route_slug "$ONESHOT" "" POST \
+    "$(jq -n --arg n "$FOUNDER" --arg s "$FOUNDER_LI" --arg c "$COMPANY_NAME" \
+       '{name:$n, social_media_url:$s, company:$c} | with_entries(select(.value != ""))')")
+  REQ_ID=$(jq -r '.body.request_id // .body.data.request_id // empty' <<<"$OS_INIT")
+  if [ -z "$REQ_ID" ]; then
+    echo "  ✗ OneShot returned no request_id (payment not settled? see the receipt)"
+  elif [ -z "$BUYER" ]; then
+    # We PAID OneShot but have no buyer wallet to authenticate the free status poll — say so loudly
+    # rather than silently forfeiting the dossier we just bought.
+    echo "  ✗ paid OneShot ($REQ_ID) but no buyer wallet for the status poll — dossier not retrieved"
+  else
+    for i in $(seq 1 20); do
+      sleep 6
+      # KNOWN LIMITATION: a free follow-up call to a cataloged service returns body:null through the
+      # broker (Phase-2 anti-oracle); pending nvm-monorepo follow-up. Left as a direct, free poll to
+      # the merchant's status endpoint — which the opaque broker will eventually hide the host of.
+      # `|| ST=""` so a poll timeout can't abort the run under set -e after OneShot is already paid.
+      ST=$(curl -s --max-time 60 -H "X-Agent-ID: $BUYER" "https://win.oneshotagent.com/v1/requests/$REQ_ID") || ST=""
+      if [ "$(jq -r '.status // empty' <<<"$ST" 2>/dev/null)" = "completed" ]; then DOSSIER="$ST"; break; fi
+      echo "  …still researching ($i)"
+    done
+  fi
 fi  # end: pay OneShot only when Aviato yielded a founder
 echo "  dossier: $(jq -r 'if .result then "ready" else "pending" end' <<<"${DOSSIER:-{}}")"
 
