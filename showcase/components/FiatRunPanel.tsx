@@ -11,6 +11,11 @@ import type { FiatRun, FiatPackage } from "@/lib/types";
 // This needs a running Orders backend + NVM_ORDER_API_KEY (local stack now; the
 // sandbox once Orders ships). If it's not reachable, the panel says so.
 
+const fmtUsd = (amountMinor: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amountMinor / 100);
+
+const ORDER_TIMEOUT_MS = 15_000;
+
 type Item =
   | { type: "msg"; role: "user" | "agent"; text: string }
   | { type: "checkout"; orderId: string; pkg: FiatPackage }
@@ -25,6 +30,19 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
   const confirmed = useRef<Set<string>>(new Set());
   const orderPkg = useRef<Map<string, FiatPackage>>(new Map());
 
+  // Normalize once: e.origin is a browser-normalized origin (no trailing slash),
+  // while embedBase is whatever an operator typed into NVM_EMBED_BASE_URL. Compare
+  // and build the iframe src off the SAME derived origin so a trailing slash (or a
+  // full URL with a path) can't silently break the origin check or the iframe URL.
+  // Empty string (unconfigured in production) → "" → the panel refuses to proceed.
+  const embedOrigin = (() => {
+    try {
+      return embedBase ? new URL(embedBase).origin : "";
+    } catch {
+      return "";
+    }
+  })();
+
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [items]);
@@ -32,7 +50,7 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
   // Trust nvm:success only from the embed origin, only our event, only version 1.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      if (e.origin !== embedBase) return;
+      if (!embedOrigin || e.origin !== embedOrigin) return;
       if (e.data?.type !== "nvm:success") return;
       if (e.data?.version !== "1") return;
       const { orderId, paymentIntent } = e.data.payload ?? {};
@@ -48,10 +66,17 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [embedBase]);
+  }, [embedOrigin]);
 
   async function pick(pkg: FiatPackage) {
     if (busy) return;
+    if (!embedOrigin) {
+      setItems((x) => [
+        ...x,
+        { type: "notice", text: "Checkout isn't configured here (NVM_EMBED_BASE_URL is unset). Run it from the fiat-checkout-chat/ app — see the tutorial's README." },
+      ]);
+      return;
+    }
     setBusy(true);
     setPicking(false);
     setItems((x) => [
@@ -64,25 +89,31 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ packageId: pkg.id }),
+        signal: AbortSignal.timeout(ORDER_TIMEOUT_MS),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `order failed (${res.status})`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data.orderId !== "string") {
+        throw new Error(data.error ?? `order failed (${res.status})`);
+      }
       orderPkg.current.set(data.orderId, pkg);
       setItems((x) => [
         ...x.filter((it) => !(it.type === "msg" && it.text === "Setting up your secure checkout…")),
         {
           type: "msg",
           role: "agent",
-          text: `Here's your secure checkout for the ${pkg.name} (${pkg.amount}). Pay with the Stripe test card 4242 4242 4242 4242 — any future expiry / CVC / ZIP.`,
+          text: `Here's your secure checkout for the ${pkg.name} (${fmtUsd(pkg.amountMinor)}). Pay with the Stripe test card 4242 4242 4242 4242 — any future expiry / CVC / ZIP.`,
         },
         { type: "checkout", orderId: data.orderId, pkg },
       ]);
     } catch (err) {
+      const timedOut = err instanceof DOMException && err.name === "TimeoutError";
       setItems((x) => [
         ...x.filter((it) => !(it.type === "msg" && it.text === "Setting up your secure checkout…")),
         {
           type: "notice",
-          text: `Couldn't reach the Orders backend (${err instanceof Error ? err.message : "error"}). Start the local Nevermined Orders stack and set NVM_ORDER_API_KEY — see the tutorial's README.`,
+          text: timedOut
+            ? "The Orders backend didn't respond in time. Make sure the local Nevermined Orders stack is running — see the tutorial's README."
+            : `Couldn't reach the Orders backend (${err instanceof Error ? err.message : "error"}). Start the local Nevermined Orders stack and set NVM_ORDER_API_KEY — see the tutorial's README.`,
         },
       ]);
       setPicking(true);
@@ -116,12 +147,12 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
             }
             if (it.type === "checkout") {
               const src =
-                `${embedBase}/checkout/order/${it.orderId}` +
+                `${embedOrigin}/checkout/order/${it.orderId}` +
                 `?parentOrigin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`;
               return (
                 <div key={i} className="fiat-checkout">
                   <div className="fiat-cap">
-                    🔒 Secure Stripe checkout · {it.pkg.name} · {it.pkg.amount}
+                    🔒 Secure Stripe checkout · {it.pkg.name} · {fmtUsd(it.pkg.amountMinor)}
                   </div>
                   <iframe src={src} title="Nevermined hosted checkout" allow="payment" />
                 </div>
@@ -157,7 +188,7 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
           <div className="rp-suggest" style={{ flexWrap: "wrap" }}>
             {run.packages.map((p) => (
               <button key={p.id} className="schip" onClick={() => pick(p)} disabled={busy}>
-                {p.emoji} {p.name} · {p.amount}
+                {p.emoji} {p.name} · {fmtUsd(p.amountMinor)}
               </button>
             ))}
           </div>

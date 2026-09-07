@@ -134,8 +134,10 @@ export interface DiscoverRun {
 export interface FiatPackage {
   id: string;
   name: string;
-  /** display price, e.g. "$3,437.95" */
-  amount: string;
+  /** Price in USD cents — the SINGLE source of truth. The server (app/api/orders)
+   * charges from this; the panel formats the display string from it. Must stay
+   * under the Orders API's per-order cap (ORDER_MAX_AMOUNT_MINOR). */
+  amountMinor: number;
   blurb: string;
   emoji: string;
 }

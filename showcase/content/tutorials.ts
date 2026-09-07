@@ -1017,10 +1017,13 @@ window.addEventListener('message', (e) => {
       merchant: "Acme Travel",
       greeting:
         "Hi! I'm your Acme Travel concierge. Pick a trip and pay by card right here — no account, no login. Which one sounds good?",
+      // Priced under the Orders API's $500 per-order cap (ORDER_MAX_AMOUNT_MINOR,
+      // 50000 minor) — so the demo works against the capped sandbox, and a low-value
+      // impulse buy fits the "no account, just tap a card" story better anyway.
       packages: [
-        { id: "barcelona", name: "Barcelona City Break", amount: "$3,437.95", blurb: "3 nights · flights + hotel", emoji: "🏖️" },
-        { id: "tokyo", name: "Tokyo Explorer", amount: "$12,899.00", blurb: "7 nights · flights + ryokan", emoji: "🗼" },
-        { id: "safari", name: "Kenya Safari", amount: "$8,750.00", blurb: "5 nights · all-inclusive lodge", emoji: "🦁" },
+        { id: "barcelona", name: "Barcelona Tapas & Gaudí Tour", amountMinor: 18900, blurb: "half-day · small group", emoji: "🥘" },
+        { id: "tokyo", name: "Tokyo Sushi Masterclass", amountMinor: 14500, blurb: "2 hours · chef-led", emoji: "🍣" },
+        { id: "safari", name: "Nairobi Day Safari", amountMinor: 32900, blurb: "full day · park entry + guide", emoji: "🦁" },
       ],
       note: "It needs a running Nevermined Orders backend + org key — the local stack now, the sandbox once Orders ships (epic #3238). The full source is in fiat-checkout-chat/.",
     },

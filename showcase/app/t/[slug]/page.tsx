@@ -188,7 +188,16 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />
           ) : t.run.kind === "fiat" ? (
-            <FiatRunPanel run={t.run} embedBase={process.env.NVM_EMBED_BASE_URL ?? "http://localhost:4250"} />
+            // Default to localhost only in dev. In production the var is required;
+            // "" makes the panel show a "checkout not configured" notice rather than
+            // silently pointing the iframe (and the origin check) at localhost.
+            <FiatRunPanel
+              run={t.run}
+              embedBase={
+                process.env.NVM_EMBED_BASE_URL ??
+                (process.env.NODE_ENV === "production" ? "" : "http://localhost:4250")
+              }
+            />
           ) : t.run.kind === "discover" ? (
             <DiscoverPanel run={t.run} />
           ) : (
