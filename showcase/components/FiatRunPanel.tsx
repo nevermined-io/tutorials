@@ -22,10 +22,14 @@ type Item =
   | { type: "confirm"; pkg: FiatPackage; paymentIntent: string }
   | { type: "notice"; text: string };
 
-export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBase: string }) {
+export default function FiatRunPanel({ run }: { run: FiatRun }) {
   const [items, setItems] = useState<Item[]>([{ type: "msg", role: "agent", text: run.greeting }]);
   const [picking, setPicking] = useState(true);
   const [busy, setBusy] = useState(false);
+  // The hosted-checkout origin is read at request time from GET /api/embed-base
+  // (a dynamic route), not baked into this SSG page at build. null = still
+  // loading; "" = configured-off (shows the notice); a URL = ready.
+  const [embedBase, setEmbedBase] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const confirmed = useRef<Set<string>>(new Set());
   const orderPkg = useRef<Map<string, FiatPackage>>(new Map());
@@ -46,6 +50,19 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [items]);
+
+  // Fetch the embed origin once on mount; on any failure fall back to "" (the
+  // panel then shows the "not configured" notice rather than a broken iframe).
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/embed-base")
+      .then((r) => r.json())
+      .then((d) => alive && setEmbedBase(typeof d?.embedBase === "string" ? d.embedBase : ""))
+      .catch(() => alive && setEmbedBase(""));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Trust nvm:success only from the embed origin, only our event, only version 1.
   useEffect(() => {
@@ -187,7 +204,7 @@ export default function FiatRunPanel({ run, embedBase }: { run: FiatRun; embedBa
         {picking ? (
           <div className="rp-suggest" style={{ flexWrap: "wrap" }}>
             {run.packages.map((p) => (
-              <button key={p.id} className="schip" onClick={() => pick(p)} disabled={busy}>
+              <button key={p.id} className="schip" onClick={() => pick(p)} disabled={busy || embedBase === null}>
                 {p.emoji} {p.name} · {fmtUsd(p.amountMinor)}
               </button>
             ))}
