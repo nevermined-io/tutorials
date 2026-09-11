@@ -1025,7 +1025,7 @@ window.addEventListener('message', (e) => {
         { id: "tokyo", name: "Tokyo Sushi Masterclass", amountMinor: 14500, blurb: "2 hours · chef-led", emoji: "🍣" },
         { id: "safari", name: "Nairobi Day Safari", amountMinor: 32900, blurb: "full day · park entry + guide", emoji: "🦁" },
       ],
-      note: "It needs a running Nevermined Orders backend + org key — the local stack now, the sandbox once Orders ships (epic #3238). The full source is in fiat-checkout-chat/.",
+      note: "Runs against the deployed Nevermined Orders sandbox (epic #3238) with an org key — no local stack needed. The full source is in fiat-checkout-chat/.",
     },
   },
 ];

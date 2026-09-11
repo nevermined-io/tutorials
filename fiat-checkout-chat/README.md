@@ -73,14 +73,26 @@ chat — no login, no wallet, no crypto.
 
 ## Prerequisite: the Nevermined Orders backend
 
-Orders is a **feature in progress** (epic
-[#3238](https://github.com/nevermined-io/nvm-monorepo/issues/3238)) and is not yet in
-a released sandbox/live environment, so run the backend **locally from
-`nvm-monorepo`**. The `POST/GET /api/v1/orders` **API** is already merged to `main`;
-the piece that is not is the **hosted embed checkout route** `/checkout/order/:orderId`
-— it lives on branch **`aaitor/orders-embed-checkout-3249`** (issue
-[#3249](https://github.com/nevermined-io/nvm-monorepo/issues/3249)), so build the stack
-from that branch until it ships. You need three things listening:
+Orders (epic [#3238](https://github.com/nevermined-io/nvm-monorepo/issues/3238)) is
+now deployed in **sandbox** — both the `POST/GET /api/v1/orders` **API** and the
+hosted embed checkout route `/checkout/order/:orderId`
+([#3249](https://github.com/nevermined-io/nvm-monorepo/issues/3249)). So you don't
+need to run anything locally: point the two URLs at the deployed sandbox endpoints
+and only the org key is yours to supply.
+
+| Variable | Sandbox value | What it is |
+|---|---|---|
+| `NVM_API_BASE_URL` | `https://api.sandbox.nevermined.app` | serves `POST/GET /api/v1/orders` |
+| `NVM_EMBED_BASE_URL` | `https://embed.nevermined.app` | the hosted Stripe form the chat iframes — one host serves both networks and follows the order's, so there is no `sandbox`-flavoured variant |
+
+You still need a provisioned **merchant org**: an active organization with a
+**validated Stripe Connect account** and an **org-scoped API key** with ordering
+enabled (`canOrder`) — that is your `NVM_ORDER_API_KEY`.
+
+<details>
+<summary>Alternative: run the whole stack locally from <code>nvm-monorepo</code></summary>
+
+You can also run the backend yourself — three things listening:
 
 | Service | Port | What it is |
 |---|---|---|
@@ -88,17 +100,18 @@ from that branch until it ships. You need three things listening:
 | Hosted embed checkout | `4250` | the Stripe form the chat iframes |
 | Embed config server | `3000` | serves `/api/config` (Stripe publishable key, URLs) |
 
-You also need a provisioned **merchant org**: an active organization with a
-**validated Stripe Connect account** and an **org-scoped API key** with ordering
-enabled (`canOrder`). See the epic and the `nvm-monorepo` run docs for the exact
-build/migrate/seed steps. (Gotcha: the embed's dev server needs the runtime `dist`
-of `@nevermined-io/commons`, `core-kit` and `ui-widgets` built first, or it renders
-"Couldn't load the widget".)
+Then set `NVM_API_BASE_URL=http://localhost:3001` and
+`NVM_EMBED_BASE_URL=http://localhost:4250`. See the epic and the `nvm-monorepo` run
+docs for the build/migrate/seed steps. (Gotcha: the embed's dev server needs the
+runtime `dist` of `@nevermined-io/commons`, `core-kit` and `ui-widgets` built first,
+or it renders "Couldn't load the widget".)
+
+</details>
 
 Sanity-check the backend before running the chat:
 
 ```bash
-curl -sX POST http://localhost:3001/api/v1/orders \
+curl -sX POST "$NVM_API_BASE_URL/api/v1/orders" \
   -H "Authorization: Bearer $NVM_ORDER_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"amountMinor":343795,"currency":"usd","description":"Barcelona trip"}'
@@ -114,8 +127,8 @@ pnpm install            # or npm install / yarn
 # 2. configure — copy the example and paste your ORG key (never commit .env.local)
 cp .env.example .env.local
 #   NVM_ORDER_API_KEY   = the organization's Nevermined API key (SECRET)
-#   NVM_API_BASE_URL    = http://localhost:3001   (the Orders API)
-#   NVM_EMBED_BASE_URL  = http://localhost:4250   (the hosted checkout origin)
+#   NVM_API_BASE_URL    = https://api.sandbox.nevermined.app  (the Orders API)
+#   NVM_EMBED_BASE_URL  = https://embed.nevermined.app        (the hosted checkout origin)
 
 # 3. run  (http://localhost:3200)
 pnpm dev                # or: pnpm build && pnpm start
@@ -137,9 +150,9 @@ to the browser bundle.
 
 | Variable | Example | Notes |
 |---|---|---|
-| `NVM_ORDER_API_KEY` | `sandbox-…` | **Secret.** The org's Nevermined API key. Only used in `/api/orders`. |
-| `NVM_API_BASE_URL` | `http://localhost:3001` | The Nevermined API the backend calls. |
-| `NVM_EMBED_BASE_URL` | `http://localhost:4250` | Origin of the hosted checkout; also the value the success listener checks `event.origin` against. |
+| `NVM_ORDER_API_KEY` | `sandbox:…` | **Secret.** The org's Nevermined API key. Only used in `/api/orders`. |
+| `NVM_API_BASE_URL` | `https://api.sandbox.nevermined.app` | The Nevermined API the backend calls (`http://localhost:3001` for a local stack). |
+| `NVM_EMBED_BASE_URL` | `https://embed.nevermined.app` | Origin of the hosted checkout; also the value the success listener checks `event.origin` against (`http://localhost:4250` for a local stack). |
 
 ## The Orders API contract
 
