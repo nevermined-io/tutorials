@@ -188,16 +188,11 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />
           ) : t.run.kind === "fiat" ? (
-            // Default to localhost only in dev. In production the var is required;
-            // "" makes the panel show a "checkout not configured" notice rather than
-            // silently pointing the iframe (and the origin check) at localhost.
-            <FiatRunPanel
-              run={t.run}
-              embedBase={
-                process.env.NVM_EMBED_BASE_URL ??
-                (process.env.NODE_ENV === "production" ? "" : "http://localhost:4250")
-              }
-            />
+            // The panel fetches the hosted-checkout origin at runtime from
+            // GET /api/embed-base (a dynamic route reads NVM_EMBED_BASE_URL).
+            // This page is SSG, so reading the env here would freeze it at
+            // `next build` (unset → "" → a permanent "not configured" notice).
+            <FiatRunPanel run={t.run} />
           ) : t.run.kind === "discover" ? (
             <DiscoverPanel run={t.run} />
           ) : (
