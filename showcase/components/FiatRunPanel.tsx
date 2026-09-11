@@ -15,6 +15,11 @@ const fmtUsd = (amountMinor: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amountMinor / 100);
 
 const ORDER_TIMEOUT_MS = 15_000;
+// Bound the embed-config read too: it's a same-origin JSON GET, so a hang means
+// the backend/CDN is wedged. Without this a never-settling fetch leaves embedBase
+// null forever → every package button stays disabled with no explanation. On
+// timeout we fall back to "" (the "not configured" notice), same as any failure.
+const EMBED_CFG_TIMEOUT_MS = 8_000;
 
 type Item =
   | { type: "msg"; role: "user" | "agent"; text: string }
@@ -55,7 +60,7 @@ export default function FiatRunPanel({ run }: { run: FiatRun }) {
   // panel then shows the "not configured" notice rather than a broken iframe).
   useEffect(() => {
     let alive = true;
-    fetch("/api/embed-base")
+    fetch("/api/embed-base", { signal: AbortSignal.timeout(EMBED_CFG_TIMEOUT_MS) })
       .then((r) => r.json())
       .then((d) => alive && setEmbedBase(typeof d?.embedBase === "string" ? d.embedBase : ""))
       .catch(() => alive && setEmbedBase(""));
@@ -203,8 +208,21 @@ export default function FiatRunPanel({ run }: { run: FiatRun }) {
 
         {picking ? (
           <div className="rp-suggest" style={{ flexWrap: "wrap" }}>
+            {/* embedBase === null → still fetching the checkout origin; the buttons
+                are disabled, so say why rather than showing an inert, silent row. */}
+            {embedBase === null ? (
+              <span className="working">
+                <span className="spinner" /> connecting to secure checkout…
+              </span>
+            ) : null}
             {run.packages.map((p) => (
-              <button key={p.id} className="schip" onClick={() => pick(p)} disabled={busy || embedBase === null}>
+              <button
+                key={p.id}
+                className="schip"
+                onClick={() => pick(p)}
+                disabled={busy || embedBase === null}
+                title={embedBase === null ? "Connecting to secure checkout…" : undefined}
+              >
                 {p.emoji} {p.name} · {fmtUsd(p.amountMinor)}
               </button>
             ))}
