@@ -83,7 +83,7 @@ and only the org key is yours to supply.
 | Variable | Sandbox value | What it is |
 |---|---|---|
 | `NVM_API_BASE_URL` | `https://api.sandbox.nevermined.app` | serves `POST/GET /api/v1/orders` |
-| `NVM_EMBED_BASE_URL` | `https://embed.nevermined.app` | the hosted Stripe form the chat iframes |
+| `NVM_EMBED_BASE_URL` | `https://embed.nevermined.app` | the hosted Stripe form the chat iframes — one host serves both networks and follows the order's, so there is no `sandbox`-flavoured variant |
 
 You still need a provisioned **merchant org**: an active organization with a
 **validated Stripe Connect account** and an **org-scoped API key** with ordering
