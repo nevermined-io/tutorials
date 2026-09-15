@@ -1,8 +1,8 @@
 # Diligence-in-a-Box
 
-**An AI agent that assembles a VC-grade investment memo on a startup — and pays for every source it needs, itself.**
+**A Catalog demo that pays for startup research sources and assembles a reviewable investment research memo.**
 
-Imagine giving an assistant a small prepaid budget and a single instruction: *"build me an investment memo on Perplexity."* It goes off, finds the data sources it needs, uses them, pays each one directly, and comes back with a finished memo — company overview, a founder deep-dive, hiring and news momentum, SEC filings, and web research. No accounts to create, no API keys to wire up, no buttons to click along the way.
+Imagine giving an assistant a small prepaid budget and a single instruction: *"build me an investment memo on Perplexity."* The script verifies catalog services, pays for research responses, saves them locally, and creates `out/memo.md` with selected facts and explicit gaps. A person should verify the memo before relying on it.
 
 That's this demo. It replaces an analyst's morning of tab-hopping with one prompt.
 
@@ -74,7 +74,7 @@ Five sources, seven payments, two payment rails, two blockchains, about fifty ce
 
 ## Try it yourself
 
-**You'll need:** a Nevermined account API key, and a little real balance (this runs on live blockchains — about **$0.49** per run, so keep the budget small).
+**You'll need:** `jq`, `curl`, Python 3, a Nevermined account API key, a broker-enabled API that accepts Catalog `slug`/`path` routing, and real balance. The recorded run cost about **$0.49**; live prices, retries, and missing results can change the spend and memo.
 
 1. Save your key in a file the script can read:
    ```bash
@@ -87,9 +87,9 @@ Five sources, seven payments, two payment rails, two blockchains, about fifty ce
    ```bash
    ./run-demo.sh
    ```
-   The script sets up a small capped budget, then runs the five steps above — printing what it buys, saving each source's raw response to `./out/`, and ending with the on-chain receipt. To profile a different company: `DOMAIN=stripe.com COMPANY_NAME=Stripe ./run-demo.sh`.
+   The script verifies Catalog slugs, creates a capped budget, runs the five steps, saves raw responses in `./out/`, and writes a selected-facts memo to `./out/memo.md`. It exits nonzero if core company, founder, dossier, paid-source, or web evidence is missing, so a partial memo is not counted as a complete run. The memo builder omits raw person-research text and contact fields, redacts detected emails and phone numbers, and marks missing results. Keep `./out/*.json` private because those files are unredacted. To profile a different company: `DOMAIN=stripe.com COMPANY_NAME=Stripe ./run-demo.sh`. You can rebuild the memo without new purchases using `DOMAIN=stripe.com COMPANY_NAME=Stripe python3 assemble-memo.py`.
 
-> ⚠️ **Real money.** Each run spends ~$0.49 on live blockchains. The script caps the budget at $1.00 and 15 minutes so it can never overspend.
+> ⚠️ **Real money.** The script caps delegation spending at $1.00 for 15 minutes. Its OneShot result poll currently calls the merchant's free endpoint directly; a broker-only deployment may need the operator's free-follow-up relay enabled to hide that host. Check the receipt and `out/memo.md` for missing source data before sharing.
 
 ## The prompt file
 

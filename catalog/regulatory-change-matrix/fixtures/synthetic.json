@@ -1,0 +1,30 @@
+{
+  "synthetic": true,
+  "changes": {
+    "changes": [
+      {
+        "citation": "12 CFR 1026.43",
+        "title": "Ability to Repay",
+        "change_type": "final_rule",
+        "effective_date": "2026-07-01",
+        "detected_at": "2026-06-01T12:00:00Z",
+        "agency": "CFPB",
+        "url": "https://example.invalid/synthetic-federal-register-notice",
+        "summary": "Synthetic example change for formatting only.",
+        "provenance": {"source_system": "federal_register", "trust": {"disclaimer_code": "FR_NOTICE", "citation_suitability": ["research", "reference"]}}
+      }
+    ],
+    "period": {"from": "2026-05-01", "to": "2026-06-01"},
+    "total": 1
+  },
+  "resolutions": {
+    "12 CFR 1026.43": {
+      "citation": "12 CFR 1026.43",
+      "title": "Ability to Repay",
+      "text": "Synthetic regulation text; not a legal source.",
+      "source": {"url": "https://example.invalid/synthetic-ecfr-section", "retrieved_at": "2026-06-01T12:00:00Z"},
+      "freshness": {"up_to_date_as_of": "2026-06-01T12:00:00Z", "status": "synthetic"},
+      "provenance": {"source_system": "ecfr", "trust": {"disclaimer_code": "ECFR_UNOFFICIAL", "citation_suitability": ["research", "reference"]}}
+    }
+  }
+}
