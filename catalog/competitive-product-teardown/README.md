@@ -4,6 +4,8 @@ This one-off sample helps a product-marketing or strategy builder compare a publ
 
 **Status: a bounded three-service Live repeat completed on 2026-09-15; publication is pending.** Separate small paid probes confirmed all three payable wrappers. The first complete-chain attempt settled all three merchants but DeepSeek returned no final text at a 250-token limit, so no artifact was counted. A new 25¢ capped run with a shorter prompt and 1024-token limit delivered the [redacted Markdown teardown](sample/teardown.md) and [JSON teardown](sample/teardown.json). It recorded **$0.069** in merchant-plus-buyer-fee charges, consumed **8¢** of cap, and delivered its first result in **14.44 seconds**. The immediate buyer-fee states were `Submitted`; a later Router audit found all three `Settled`. [`wrapper-contract.json`](wrapper-contract.json), [BUILD_LOG.md](BUILD_LOG.md), and [FRICTION.md](FRICTION.md) record the path from probe to repeat. The sample files are local until this folder is published.
 
+A later local full run delivered its first result in **13.48 seconds** and again recorded **$0.069**. Its Brave buyer-fee status was `Submitted` at receipt time; a read-only ledger reconciliation found all three buyer-fee records **Settled**. The new generated teardown stays in ignored `out/`; the linked sample is from the earlier run.
+
 ## Try the synthetic deliverable
 
 ```sh

@@ -20,6 +20,8 @@ CIK=320193 SYMBOL=AAPL COMPANY=Apple ./run-demo.sh
 
 The script allows at most five purchases and creates a 10¢ / 10-minute delegation. Catalog labels suggest about 0.8¢ per call, or about 4¢ total; those labels are **estimates**, not guaranteed quotes. The representative run charged **$0.040** to merchants, but consumed **5¢** of delegation cap because each sub-cent purchase counts as a whole cent against that cap. It delivered its first successful result in **8 seconds** and finished in **35 seconds**. Prices and timing can vary. The Router handles each merchant's live HTTP 402 quote during settlement; the delegation enforces the cap. After each delivery, the script checks a `Settled` payment in the ledger and the delegation's spent and remaining cents. It stops when a receipt, delivered body, or budget check is missing. An ambiguous transport failure is not retried automatically; each named call has a stable request ID within the delegation, which must be reused for any manual retry.
 
+A later complete Apple follow-up on 2026-09-15 had the same five Settled $0.008 charges and 5¢ cap consumption; it delivered the first result in **10 seconds** and finished in **41 seconds**. Its generated pack remains in ignored `out/`. The linked sample and earlier timings belong to the previous representative run.
+
 `out/` contains paid responses and payment records and is ignored by Git. Check these files before sharing the generated pack. `build-pack.py` can rebuild it offline from saved responses without making new purchases.
 
 ## Evidence and limits

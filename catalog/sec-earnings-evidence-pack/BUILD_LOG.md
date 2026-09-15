@@ -32,3 +32,7 @@ The representative run used 5¢ of its 10¢ delegation cap, with 5¢ remaining. 
 Follow [README.md](README.md) and run `CIK=320193 SYMBOL=AAPL COMPANY=Apple ./run-demo.sh` with a funded Live buyer. It saves raw receipts privately to `out/`, builds `out/evidence.json` and `out/evidence.md`, and records observed merchant spend, delegation consumption and timing. Check `out/payments.json` and `out/budget-summary.json` before sharing; compare the public facts to the SEC source URLs in the pack. Unknown body mappings and missing values remain unavailable rather than becoming invented facts.
 
 The repeat verified the script's EDGAR path correction. Larger Catalog gaps, with reproduction and acceptance checks, are in [FRICTION.md](FRICTION.md). The public sample contains no API key, delegation ID, request ID, buyer wallet, personal contact field or raw merchant payload.
+
+## 2026-09-15 local follow-up
+
+A subsequent complete Apple (`CIK 320193`, `AAPL`) run again delivered all five paid responses and wrote `out/evidence.md` and `out/evidence.json`. The saved ledger has five Settled merchant payments at $0.008 each, for **$0.040** in merchant charges. The delegation consumed **5¢** of its **10¢** cap. The saved timing summary records **10 seconds** to the first result and **41 seconds** for the full run. These timings describe this follow-up; the checked-in sample and earlier 8-second/35-second measurements describe the previous representative run. Raw Router envelopes and payment records remain in ignored `out/`.
