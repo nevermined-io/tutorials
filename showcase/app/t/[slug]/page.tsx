@@ -56,7 +56,9 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
           ))}
           <span className={`tier ${t.tier}`}>
             {t.tier === "recap"
-              ? "recap · watch it run"
+              ? t.run.kind === "recap" && !t.run.video
+                ? "recap · review the run"
+                : "recap · watch it run"
               : t.tier === "discover"
                 ? "discover · free & live"
                 : "live · you pay per call"}
@@ -183,7 +185,8 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
         {/* 4 — Run */}
         <section className="block wide" id="run">
           <div className="h2">
-            <span className="num">4</span> See it run
+            <span className="num">4</span>{" "}
+            {t.run.kind === "recap" && !t.run.video ? "Review the run" : "See it run"}
           </div>
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />
