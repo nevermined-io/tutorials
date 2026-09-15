@@ -9,6 +9,7 @@ from pathlib import Path
 OUT = Path(__file__).resolve().parent / "out"
 DOMAIN = os.environ.get("DOMAIN", "perplexity.ai")
 COMPANY_NAME = os.environ.get("COMPANY_NAME", "Perplexity")
+PHONE = re.compile(r"(?<!\w)(?:\+?\d{1,3}[ .-]?)?\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}(?!\w)")
 
 
 def load(name):
@@ -31,7 +32,8 @@ def clean(value, limit=220):
         return "unavailable"
     text = re.sub(r"[\r\n\t]+", " ", str(value))
     text = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", "[email redacted]", text)
-    text = re.sub(r"(?<!\w)(?:\+?\d[\d ().-]{8,}\d)(?!\w)", "[phone redacted]", text)
+    if not isinstance(value, (int, float)):
+        text = PHONE.sub("[phone redacted]", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text[:limit] if text else "unavailable"
 
@@ -45,7 +47,8 @@ filings = unwrap(load("filings.json"))
 web = unwrap(load("web.json"))
 
 founder_list = founders.get("founders", []) if isinstance(founders, dict) else []
-founder_names = [clean(f.get("fullName"), 80) for f in founder_list[:5] if isinstance(f, dict)]
+founder_names = [clean(f.get("fullName"), 80) for f in founder_list[:5]
+                 if isinstance(f, dict) and f.get("fullName")]
 jobs_data = hiring.get("data", []) if isinstance(hiring, dict) else []
 news_items = news.get("included", []) if isinstance(news, dict) else []
 news_titles = [clean(item.get("attributes", {}).get("title"), 120)
@@ -57,9 +60,14 @@ hits = filing_data.get("hits", {}) if isinstance(filing_data, dict) else {}
 total = hits.get("total", {}) if isinstance(hits, dict) else {}
 filing_count = total.get("value", "unavailable") if isinstance(total, dict) else total
 web_text = web.get("text", "") if isinstance(web, dict) else ""
+complete = bool(company.get("name") or company.get("legalName")) and bool(founder_names) and bool(dossier.get("result"))
+complete = complete and isinstance(hiring.get("data"), list) and isinstance(news.get("included"), list)
+complete = complete and isinstance(hits, dict) and "total" in hits and bool(web_text)
 
 lines = [
-    f"# Investment research memo: {clean(COMPANY_NAME, 80)}",
+    f"# {'Investment research memo' if complete else 'PARTIAL investment research memo'}: {clean(COMPANY_NAME, 80)}",
+    "",
+    "Status: complete source set received." if complete else "Status: PARTIAL — one or more source responses are missing; do not treat this as a completed outcome.",
     "",
     f"Target website: {clean(DOMAIN, 100)}",
     "",
@@ -72,7 +80,7 @@ lines = [
     f"- Person-research result: {'received' if dossier.get('result') else 'pending or unavailable'}. Raw dossier and contact fields are excluded from this shareable memo.",
     "",
     "## Hiring and news momentum",
-    f"- Job-opening records returned: {len(jobs_data) if isinstance(jobs_data, list) else 'unavailable'}.",
+    f"- Job-opening records returned: {len(jobs_data) if isinstance(jobs_data, list) and hiring else 'unavailable'}.",
     f"- Recent article titles: {', '.join(news_titles) if news_titles else 'unavailable'}.",
     "",
     "## SEC filing search",

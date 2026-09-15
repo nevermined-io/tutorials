@@ -2,6 +2,8 @@
 # SEC earnings evidence pack: five paid calls to three cataloged sources, one capped delegation.
 # This is a Live paid sample. Validation must not run this file.
 set -euo pipefail
+set +x
+umask 077
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 START_SECONDS=$(date +%s)
@@ -22,7 +24,7 @@ COMPANY_PATTERN='^[A-Za-z0-9 .,&-]{1,80}$'
 API_BASE=$(jq -er '.apiBase // .API_BASE' "$CREDS")
 KEY=$(jq -er '.apiKey // .KEY' "$CREDS")
 [[ "$API_BASE" == https://* ]] || { echo "apiBase must use HTTPS" >&2; exit 1; }
-AUTH=(-H "Authorization: Bearer $KEY" -H 'Content-Type: application/json')
+auth_curl() { curl -H @<(printf 'Authorization: Bearer %s\n' "$KEY") -H 'Content-Type: application/json' "$@"; }
 
 catalog_slug() {
   local response
@@ -47,21 +49,22 @@ catalog_path "$ALPHA" /alphavantage/income-statement || {
   echo "One required POST path is absent from current Catalog detail; no delegation created" >&2; exit 1; }
 echo "Catalog slugs: $EDGAR · $SEARCH · $ALPHA"
 echo "Estimated listed price: five calls × about \$0.008 = \$0.04. Live 402 quotes and fees can differ."
-echo "Maximum delegation spend: \$0.10 for 10 minutes. This script stops after $MAX_CALLS calls."
+echo "Maximum delegation spend: \$$(jq -n --argjson cap "$CAP_CENTS" '$cap / 100') for 10 minutes. This script stops after $MAX_CALLS calls."
 
-DEL_RESPONSE=$(curl -fsS --max-time 30 "${AUTH[@]}" -X POST "$API_BASE/api/v1/delegation/create" \
+DEL_RESPONSE=$(auth_curl -fsS --max-time 30 -X POST "$API_BASE/api/v1/delegation/create" \
   -d "$(jq -n --arg p "SEC earnings pack: $SYMBOL/$CIK" --argjson cap "$CAP_CENTS" \
        '{provider:"erc4337",currency:"usdc",spendingLimitCents:$cap,durationSecs:600,consumerPrompt:$p,assuranceData:{}}')")
 DEL_ID=$(jq -er '.id // .delegationId' <<<"$DEL_RESPONSE")
 echo "Delegation created (identifier kept in the private output files)."
 
 OUT="$HERE/out"; mkdir -p "$OUT"; chmod 700 "$OUT"
+jq -n --arg id "$DEL_ID" '{delegationId:$id}' > "$OUT/delegation.json"
 CALLS=0
 FIRST_SUCCESS_SECONDS=''
 check_budget_and_ledger() { # request-id; fail closed if budget/receipt cannot be reconciled
   local request_id="$1" details payments spent remaining
-  details=$(curl -fsS --max-time 20 "${AUTH[@]}" "$API_BASE/api/v1/delegation/$DEL_ID") || return 1
-  payments=$(curl -fsS --max-time 20 "${AUTH[@]}" "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID") || return 1
+  details=$(auth_curl -fsS --max-time 20 "$API_BASE/api/v1/delegation/$DEL_ID") || return 1
+  payments=$(auth_curl -fsS --max-time 20 "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID") || return 1
   printf '%s\n' "$payments" > "$OUT/payments.json"
   jq -e --arg id "$request_id" 'any(.[]?; .requestId == $id and .status == "Settled")' \
     <<<"$payments" >/dev/null || { echo "Payment ledger has no Settled receipt for this request" >&2; return 1; }
@@ -70,7 +73,8 @@ check_budget_and_ledger() { # request-id; fail closed if budget/receipt cannot b
   [ "$spent" -ge 0 ] && [ "$remaining" -ge 0 ] && [ "$((spent + remaining))" -eq "$CAP_CENTS" ] || {
     echo "Delegation budget could not be reconciled" >&2; return 1; }
   echo "  ledger: Settled; spent ${spent}¢, remaining ${remaining}¢ of ${CAP_CENTS}¢" >&2
-  [ "$remaining" -ge 1 ] || { echo "Budget depleted; stopping before another call" >&2; return 1; }
+  [ "$CALLS" -eq "$MAX_CALLS" ] || [ "$remaining" -ge 1 ] || {
+    echo "Budget depleted; stopping before another call" >&2; return 1; }
 }
 route_paid() { # name slug path request-body; prints the Router envelope
   local name="$1" slug="$2" path="$3" body="$4" payload response code envelope request_id
@@ -83,7 +87,7 @@ route_paid() { # name slug path request-body; prints the Router envelope
     --arg req "$request_id" --argjson body "$body" \
     '{delegationId:$id,slug:$slug,path:$path,method:"POST",requestId:$req,body:$body}')
   printf '%s\n' "$payload" > "$OUT/$name.request.json"; chmod 600 "$OUT/$name.request.json"
-  response=$(curl -sS --max-time 120 "${AUTH[@]}" -w $'\n%{http_code}' \
+  response=$(auth_curl -sS --max-time 120 -w $'\n%{http_code}' \
     -X POST "$API_BASE/api/v1/router/route" -d "$payload") || { echo "$name: transport failure" >&2; return 1; }
   code=${response##*$'\n'}
   envelope=${response%$'\n'*}
@@ -111,8 +115,8 @@ echo "Buying earnings and income statement…"
 route_paid earnings "$ALPHA" /alphavantage/earnings "$(jq -n --arg s "$SYMBOL" '{symbol:$s}')" >/dev/null
 route_paid income "$ALPHA" /alphavantage/income-statement "$(jq -n --arg s "$SYMBOL" '{symbol:$s}')" >/dev/null
 
-curl -fsS --max-time 20 "${AUTH[@]}" "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" > "$OUT/payments.json"
-curl -fsS --max-time 20 "${AUTH[@]}" "$API_BASE/api/v1/delegation/$DEL_ID" \
+auth_curl -fsS --max-time 20 "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" > "$OUT/payments.json"
+auth_curl -fsS --max-time 20 "$API_BASE/api/v1/delegation/$DEL_ID" \
   | jq '{budgetSpentCents:.amountSpentCents,remainingBudgetCents:.remainingBudgetCents}' \
   > "$OUT/budget-summary.json"
 jq -n --argjson first "$((FIRST_SUCCESS_SECONDS - START_SECONDS))" \

@@ -30,8 +30,8 @@ SERVICES = {
 }
 FEE_HEADROOM = Decimal("1.20")
 EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
-PHONE = re.compile(r"(?<!\d)(?:\+?\d[\d(). -]{7,}\d)(?!\d)")
-TOKEN = re.compile(r"(?i)\b(?:sk-[A-Za-z0-9_-]{12,}|(?:api[_-]?key|token)\s*[:=]\s*\S+)\b")
+PHONE = re.compile(r"(?<!\w)(?:\+?\d{1,3}[ .-]?)?\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}(?!\w)")
+TOKEN = re.compile(r"(?i)\b(?:sk-[A-Za-z0-9_-]{12,}|(?:live|sandbox|nvm):[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._-]{16,}|(?:api[_-]?key|token)\s*[:=]\s*[A-Za-z0-9._-]{16,})")
 
 
 def safe_url(raw: str, *, fixture: bool = False) -> str:
@@ -69,6 +69,17 @@ def get_json(url: str, key: str | None = None) -> Any:
         headers["Authorization"] = f"Bearer {key}"
     with urlopen(Request(url, headers=headers), timeout=20) as response:
         return json.load(response)
+
+
+def private_buyer_key() -> str:
+    path = Path.home() / ".nvm-router-buyer.json"
+    if not path.is_file() or path.stat().st_mode & 0o077:
+        raise ValueError(f"Credential file {path} is missing or not private (chmod 600)")
+    config = json.loads(path.read_text())
+    key = config.get("apiKey") or config.get("KEY")
+    if not key or (config.get("apiBase") or config.get("API_BASE") or API).rstrip("/") != API:
+        raise ValueError("Private buyer file must contain a key for the selected Live API host")
+    return key
 
 
 def private_json(path: Path, value: Any) -> None:
@@ -186,7 +197,7 @@ def receipt_usd(key: str, delegation: str, payment_id: str) -> tuple[Decimal, st
     for attempt in range(4):
         records = get_json(f"{API}/api/v1/router/payments?delegationId={delegation}", key)
         row = next((r for r in records if r.get("id") == payment_id), None)
-        if row and row.get("feeStatus") not in ("Accrued", "Submitted"):
+        if row and row.get("feeStatus") not in (None, "Accrued", "Submitted"):
             break
         if attempt < 3:
             time.sleep(2)
@@ -200,12 +211,14 @@ def receipt_usd(key: str, delegation: str, payment_id: str) -> tuple[Decimal, st
     if decimals is None:
         raise RuntimeError(f"Payment {payment_id} has unknown asset scale")
     merchant = Decimal(str(row["amount"])) / (Decimal(10) ** int(decimals))
-    fee = Decimal(str(row.get("feeCents") or "0")) / Decimal("100")
-    fee_status = str(row.get("feeStatus"))
+    fee_status = row.get("feeStatus")
+    if fee_status is None:
+        raise RuntimeError(f"Payment {payment_id} has unknown fee status; inspect ledger")
+    fee = Decimal("0") if fee_status == "Released" else Decimal(str(row.get("feeCents") or "0")) / Decimal("100")
     if fee_status in ("Failed",):
         raise RuntimeError(f"Payment {payment_id} fee failed; inspect ledger")
     pending_fee = fee_status in ("Accrued", "Submitted")
-    if fee_status not in ("None", "Settled", "Accrued", "Submitted"):
+    if fee_status not in ("None", "Settled", "Released", "Accrued", "Submitted"):
         raise RuntimeError(f"Payment {payment_id} has unhandled fee status {fee_status}")
     if merchant <= 0 or (fee_status == "None" and fee != 0):
         raise RuntimeError(f"Payment {payment_id} has inconsistent amount/fee")
@@ -356,9 +369,9 @@ def main() -> int:
         first_delivered_at = None
         time_to_first_delivered_seconds = None
     else:
-        key = os.getenv("NVM_API_KEY")
-        if not key or not args.run_id or not args.company_url or not args.rival_query:
-            parser.error("--live requires NVM_API_KEY, --run-id, --company-url, --rival-query")
+        if not args.run_id or not args.company_url or not args.rival_query:
+            parser.error("--live requires --run-id, --company-url, --rival-query")
+        key = private_buyer_key()
         company_url = safe_url(args.company_url)
         query = args.rival_query.strip()
         if not query or len(query) > 200 or EMAIL.search(query) or TOKEN.search(query):
@@ -372,6 +385,10 @@ def main() -> int:
             parser.error("Planning reserve exceeds 25-cent delegation cap")
         cap_cents = 10 if args.smoke_service else 25
         delegation = create_10min_delegation(key, cap_cents)
+        private_state = HERE / "out" / f"private-{stable_id(args.run_id, 'run-state')}.json"
+        private_json(private_state, {"run_id_hash": stable_id(args.run_id, "run-state"),
+                                     "delegation_id": delegation,
+                                     "delegation_cap_cents": cap_cents})
         print(f"Created capped delegation: {cap_cents} cents, 600 seconds, at most 3 selected calls", file=sys.stderr)
         spend = Decimal("0")
         pending_fees = []
@@ -417,8 +434,10 @@ def main() -> int:
         sources = search_sources(search, fixture=False)
         first_delivered_at = datetime.now(timezone.utc).isoformat()
         time_to_first_delivered_seconds = round(time.monotonic() - command_started, 2)
-        private_json(HERE / "out" / f"private-{stable_id(args.run_id, 'run-state')}.json", {
+        private_json(private_state, {
             "run_id_hash": stable_id(args.run_id, "run-state"),
+            "delegation_id": delegation,
+            "delegation_cap_cents": cap_cents,
             "first_delivered_at_utc": first_delivered_at,
             "time_to_first_delivered_seconds": time_to_first_delivered_seconds,
             "first_service": "brave",

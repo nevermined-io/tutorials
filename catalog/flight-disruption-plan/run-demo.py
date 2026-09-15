@@ -27,7 +27,8 @@ CAP_CENTS = 10
 RESERVE_DOLLARS = 0.02  # conservative reservation per call, including unknown Router fee
 
 
-def request(url, *, key=None, method="GET", body=None, headers=None, timeout=120):
+def request(url, *, key=None, method="GET", body=None, headers=None, timeout=120,
+            with_headers=False):
     h = dict(headers or {})
     if key:
         h["Authorization"] = "Bearer " + key
@@ -38,14 +39,16 @@ def request(url, *, key=None, method="GET", body=None, headers=None, timeout=120
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
-            return resp.status, json.loads(raw) if raw else {}
+            result = (resp.status, json.loads(raw) if raw else {})
+            return (*result, dict(resp.headers)) if with_headers else result
     except urllib.error.HTTPError as err:
         raw = err.read()
         try:
             payload = json.loads(raw)
         except (ValueError, UnicodeDecodeError):
             payload = {"error": raw[:300].decode(errors="replace")}
-        return err.code, payload
+        result = (err.code, payload)
+        return (*result, dict(err.headers)) if with_headers else result
 
 
 def catalog(api, slug):
@@ -90,18 +93,36 @@ def paid_call(api, key, delegation, slug, path, method, payload, rows, run_id):
         if method == "GET":
             query = urllib.parse.urlencode(payload)
             url = f"{api}/api/v1/router/svc/{slug}{path}?{query}"
-            code, result = request(url, key=key, headers={
+            code, result, response_headers = request(url, key=key, headers={
                 "X-Router-Delegation-Id": delegation,
                 "X-Router-Request-Id": call_id,
-            })
+            }, with_headers=True)
         else:
             code, result = request(f"{api}/api/v1/router/route", key=key, method="POST", body={
                 "delegationId": delegation, "slug": slug, "path": path,
                 "method": method, "body": payload, "requestId": call_id,
             })
         if 200 <= code < 300:
+            if method == "GET":
+                lower_headers = {name.lower(): value for name, value in response_headers.items()}
+                payment_id = lower_headers.get("x-router-payment-id")
+                payment_status = lower_headers.get("x-router-payment-status")
+                delivered = result
+                if not payment_id or payment_status != "Settled" or not isinstance(delivered, (dict, list)) or not delivered:
+                    raise RuntimeError(f"{slug}: no delivered settled flight product; inspect ledger")
+            else:
+                payment = result.get("payment") if isinstance(result, dict) else None
+                payment_id = payment.get("paymentId") if isinstance(payment, dict) else None
+                delivered = result.get("body") if isinstance(result, dict) else None
+                if (not isinstance(result, dict) or result.get("paid") is not True or
+                    not payment_id or payment.get("status") != "Settled" or
+                    not isinstance(delivered, (dict, list)) or not delivered):
+                    raise RuntimeError(f"{slug}: no delivered settled product; inspect ledger")
             new_rows = ledger(api, key, delegation)
-            return result, new_rows, call_id
+            if not any(row.get("id") == payment_id and row.get("status") == "Settled"
+                       for row in new_rows):
+                raise RuntimeError(f"{slug}: matching Settled ledger receipt unavailable")
+            return delivered, new_rows, call_id
         if code not in {429, 502, 503, 504} or attempt == 2:
             raise RuntimeError(f"{slug}{path}: HTTP {code}; {str(result)[:240]}")
         # The same request ID is preserved across attempts; inspect ledger before retrying.
@@ -150,6 +171,8 @@ def brief(flight, weather, directions, args, timestamp, calls, cost):
     return {
         "generatedAt": timestamp,
         "kind": "flight-disruption-plan",
+        "runStatus": "PARTIAL" if any(call.get("result") == "failed" for call in calls) else
+                     ("SYNTHETIC" if any(call.get("result") == "synthetic fixture" for call in calls) else "COMPLETE"),
         "flight": args.flight.upper(),
         "airport": args.airport.upper(),
         "flightStatus": status or "unavailable",
@@ -177,7 +200,7 @@ def save(out_dir, result):
     json_path = root.with_suffix(".json")
     html_path = root.with_suffix(".html")
     json_path.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
-    rows = [("Flight", result["flight"]), ("Airport", result["airport"]),
+    rows = [("Run status", result["runStatus"]), ("Flight", result["flight"]), ("Airport", result["airport"]),
             ("Status", result["flightStatus"]), ("Delay (min)", result["delayMinutes"]),
             ("Weather", result["weather"]["description"]),
             ("Temperature (°C)", result["weather"]["temperatureC"]),
@@ -254,7 +277,12 @@ def main():
     delegation = delegation_data.get("id") or delegation_data.get("delegationId")
     if not (200 <= code < 300 and delegation):
         raise RuntimeError(f"Delegation creation failed (HTTP {code}): {str(delegation_data)[:240]}")
-    print(f"Created a ${CAP_CENTS/100:.2f}, 15-minute delegation (ID withheld).")
+    args.out.mkdir(parents=True, exist_ok=True)
+    args.out.chmod(0o700)
+    private_id = args.out / "delegation.json"
+    private_id.write_text(json.dumps({"delegationId": delegation}) + "\n")
+    private_id.chmod(0o600)
+    print(f"Created a ${CAP_CENTS/100:.2f}, 15-minute delegation (ID saved privately in {private_id}).")
     start = time.monotonic()
     run_id = uuid.uuid4().hex[:12]
     rows = ledger(api, key, delegation)
@@ -280,10 +308,10 @@ def main():
                 returned_flight = pick(record, "flight.iata", "flightIata", "flight_number")
                 if returned_flight and str(returned_flight).upper() != args.flight.upper():
                     raise RuntimeError(f"{slug} returned another flight; refusing an inaccurate status")
-            responses[slug] = data.get("body", data) if method == "POST" and isinstance(data, dict) else data
+            responses[slug] = data
             calls.append({"service": slug, "endpoint": path, "result": "ok"})
             print(f"  {slug}: successful; ledger total ${spent(rows):.4f}")
-        except (RuntimeError, urllib.error.URLError, TimeoutError) as err:
+        except (RuntimeError, ValueError, urllib.error.URLError, TimeoutError) as err:
             # Keep the published artifact free of upstream error bodies and identifiers.
             calls.append({"service": slug, "endpoint": path, "result": "failed",
                           "reason": "upstream or Router failure; inspect private terminal output"})
@@ -293,7 +321,7 @@ def main():
             except RuntimeError:
                 print("Ledger unavailable; stopping further paid calls.", file=sys.stderr)
                 break
-            if "Budget guard" in str(err) or "manual reconciliation" in str(err):
+            if slug == args.flight_service or "Budget guard" in str(err) or "manual reconciliation" in str(err):
                 break
     timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     result = brief(responses.get(args.flight_service, {}), responses.get("openweather-mpp", {}),
@@ -301,6 +329,9 @@ def main():
     result["elapsedSeconds"] = round(time.monotonic() - start, 1)
     files = save(args.out, result)
     print("Wrote redacted artifacts:", *files, sep="\n  ")
+    if result["runStatus"] == "PARTIAL":
+        print("Partial brief: one or more paid legs failed; do not count as a completed outcome.", file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Diligence-in-a-Box — a Nevermined Catalog demo.
 # One agent, one payment primitive, five diligence sources, two rails, two chains.
-# It builds a VC-grade investment memo on a startup and pays for every source itself.
+# It builds a reviewable investment research memo on a startup and pays for every source itself.
 # Real money on Live (~$0.49 for the run below).
 #
 # Prereqs: ~/.nvm-router-buyer.json = { "apiBase": "https://api.live.nevermined.app", "apiKey": "live:..." }
 #          plus jq and curl.
 # Run:     ./run-demo.sh              # profiles perplexity.ai by default
-#          DOMAIN=stripe.com ./run-demo.sh
+#          DOMAIN=stripe.com COMPANY_NAME=Stripe ./run-demo.sh
 #
 # Requires a broker-enabled Router API with Catalog slug/path support (nvm-monorepo #3304).
 # Check the selected deployment before spending: an older API cannot settle these slug calls.
 set -euo pipefail
+set +x
+umask 077
 
 DOMAIN="${DOMAIN:-perplexity.ai}"          # the startup to diligence
 COMPANY_NAME="${COMPANY_NAME:-Perplexity}"  # EDGAR full-text keyword = the company NAME, not the domain
@@ -26,7 +28,7 @@ API_BASE=$(jq -er '.apiBase // .API_BASE' "$CREDS")
 KEY=$(jq -er '.apiKey // .KEY' "$CREDS")
 [[ "$API_BASE" == https://* ]] || { echo "apiBase must use HTTPS" >&2; exit 1; }
 # NOTE: Content-Type is REQUIRED — without it curl sends form-encoded and the API 400s.
-AUTH=(-H "Authorization: Bearer $KEY" -H "Content-Type: application/json")
+auth_curl() { curl -H @<(printf 'Authorization: Bearer %s\n' "$KEY") -H 'Content-Type: application/json' "$@"; }
 
 # ── discovery: find a service's catalog slug at runtime (the whole point) ─────
 # The agent doesn't hardcode where a source lives. It searches the Catalog, gets the
@@ -39,7 +41,7 @@ catalog_slug() {  # $1=search term  $2=expected slug → prints $2 iff the catal
   # `search` is a substring match over title+description, so a bare term can match 2+ services and
   # resolve to a different one each window ('fal' also matches a weather service; 'edgar' matches two
   # EDGAR listings). Pinning the exact slug keeps a live catalog lookup — it proves the service is
-  # listed and aborts loud (via the :? guards below) if it is ever delisted or renamed — while
+  # listed and aborts with a clear error if it is ever delisted or renamed — while
   # guaranteeing a real-money run pays the intended vendor, not whatever floats to the top this hour.
   # NB: the page-size param is `offset` (items per page, default 20, cap 100) — `limit` is not in the
   # DTO and is silently stripped, leaving the default 20-row (shuffled) window. Ask for the 100 cap so
@@ -62,7 +64,7 @@ _pay() {  # $1=target-json ({slug,path} | {url})  $2=method  $3=json-body ('') �
   payload=$(jq -n --arg d "$DEL_ID" --arg m "$2" --arg r "dd-$(date +%s)-$RANDOM-$RANDOM" --argjson t "$1" \
     '{delegationId:$d,method:$m,requestId:$r}+$t')
   [ -n "${3:-}" ] && payload=$(jq --argjson b "$3" '.+{body:$b}' <<<"$payload")
-  resp=$(curl -sS --max-time 120 "${AUTH[@]}" -w $'\n%{http_code}' -X POST "$API_BASE/api/v1/router/route" -d "$payload") || resp=$'\n000'
+  resp=$(auth_curl -sS --max-time 120 -w $'\n%{http_code}' -X POST "$API_BASE/api/v1/router/route" -d "$payload") || resp=$'\n000'
   code=${resp##*$'\n'}
   [[ "$code" =~ ^2[0-9][0-9]$ ]] || { echo "  ✗ router/route → HTTP $code; check ledger before retrying" >&2; return 1; }
   jq -e '.paid == true and .body != null and (.payment.status == "Settled")' \
@@ -87,8 +89,7 @@ route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=method  $4=json-body ('')
 # a second param or escape the path). This surface returns the RAW upstream body → parse .field.
 route_slug_get() {  # $1=slug  $2=subpath (no query)  then any number of: --data-urlencode k=v
   local slug="$1" subpath="$2" resp code json; shift 2
-  resp=$(curl -s --max-time 120 -G "$@" \
-    -H "Authorization: Bearer $KEY" \
+  resp=$(auth_curl -s --max-time 120 -G "$@" \
     -H "X-Router-Delegation-Id: $DEL_ID" \
     -H "X-Router-Request-Id: dd-$(date +%s)-$RANDOM-$RANDOM" \
     -w $'\n%{http_code}' \
@@ -108,21 +109,30 @@ route_slug_get() {  # $1=slug  $2=subpath (no query)  then any number of: --data
 
 # discover each source's slug in the Catalog once, up front, and reuse across calls
 echo "▸ Discovering sources in the Nevermined Catalog…"
-AVIATO=$(catalog_slug aviato aviato)
-PREDICTLEADS=$(catalog_slug predictleads predictleads-mpp)
-ONESHOT=$(catalog_slug oneshot oneshot-deep-person-research)
-EDGAR=$(catalog_slug edgar edgar-search)
-RIVETER=$(catalog_slug riveter riveter-api)
-: "${AVIATO:?aviato not found in catalog}" "${PREDICTLEADS:?predictleads not found}" \
-  "${ONESHOT:?oneshot not found}" "${EDGAR:?edgar not found}" "${RIVETER:?riveter not found}"
-catalog_path "$EDGAR" /edgar-search/search && catalog_path "$RIVETER" /v1/scrape || {
+AVIATO=$(catalog_slug aviato aviato) || { echo "Aviato unavailable in Catalog" >&2; exit 1; }
+PREDICTLEADS=$(catalog_slug predictleads predictleads-mpp) || { echo "PredictLeads unavailable in Catalog" >&2; exit 1; }
+ONESHOT=$(catalog_slug oneshot oneshot-deep-person-research) || { echo "OneShot unavailable in Catalog" >&2; exit 1; }
+EDGAR=$(catalog_slug edgar edgar-search) || { echo "EDGAR search unavailable in Catalog" >&2; exit 1; }
+RIVETER=$(catalog_slug riveter riveter-api) || { echo "Riveter unavailable in Catalog" >&2; exit 1; }
+catalog_path "$RIVETER" /v1/scrape || {
   echo "A required POST path is missing from current Catalog detail; no delegation created" >&2; exit 1; }
 echo "  slugs: $AVIATO · $PREDICTLEADS · $ONESHOT · $EDGAR · $RIVETER"
 echo "▸ Creating a capped budget (\$1.00 / 15 min)…"
-DEL_ID=$(curl -fsS --max-time 30 "${AUTH[@]}" -X POST "$API_BASE/api/v1/delegation/create" \
+DEL_ID=$(auth_curl -fsS --max-time 30 -X POST "$API_BASE/api/v1/delegation/create" \
   -d '{"provider":"erc4337","currency":"usdc","spendingLimitCents":100,"durationSecs":900,
        "consumerPrompt":"Diligence-in-a-box demo","assuranceData":{}}' \
   | jq -er '.id // .delegationId')
+HERE=$(cd "$(dirname "$0")" && pwd); OUT="$HERE/out"; mkdir -p "$OUT"; chmod 700 "$OUT"
+jq -n --arg id "$DEL_ID" '{delegationId:$id}' > "$OUT/delegation.json"
+show_receipt() {
+  trap - EXIT
+  set +e
+  echo; echo "▸ Receipt (also printed after an interrupted paid run):"
+  auth_curl -fsS --max-time 20 "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" \
+    | jq -r '.[]? | "  \(.protocol|ascii_upcase)\t\(.network)\t$\((.amount|tonumber) / pow(10; .assetDecimals // 6))\t\(.status)\t\(.txHash // "—")"' \
+    || echo "  Ledger unavailable; use the delegation ID in private out/delegation.json." >&2
+}
+trap show_receipt EXIT
 
 # ── 1. Aviato — company overview + founders  [MPP · Tempo] ──────────────────
 # Aviato's query param is ?website= (not ?domain=); /company/founders also needs page + perPage.
@@ -143,7 +153,7 @@ FOUNDER_LI=$(jq -r '[.founders[]? | select(((.location//"")|test("San Francisco"
 echo "  founder to deep-dive: ${FOUNDER:-<none>}"
 
 # the buyer wallet is the OneShot poll header (X-Agent-ID) — read it off the first settled payment
-BUYER=$(curl -fsS --max-time 20 "${AUTH[@]}" "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" \
+BUYER=$(auth_curl -fsS --max-time 20 "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" \
   | jq -r '[.[] | select(.status == "Settled") | .buyer | select(. != null and . != "")][0] // empty')
 
 # ── 2. OneShot — founder deep-dive  [x402 · Base]  (async) ───────────────────
@@ -158,6 +168,8 @@ if [ -z "$FOUNDER" ]; then
   # Guard a PAID x402 call: a deep-dive on an empty name is money for nothing (with_entries strips the
   # blank keys, so the body would be `{}`). If Aviato yielded no founder, skip step 2 entirely.
   echo "  (skipped — Aviato returned no founder to research)"
+elif [ -z "$BUYER" ]; then
+  echo "  (skipped — no buyer wallet available to authenticate OneShot's free status poll)"
 else
   OS_INIT=$(route_slug "$ONESHOT" "" POST \
     "$(jq -n --arg n "$FOUNDER" --arg s "$FOUNDER_LI" --arg c "$COMPANY_NAME" \
@@ -165,10 +177,6 @@ else
   REQ_ID=$(jq -r '.body.request_id // .body.data.request_id // empty' <<<"$OS_INIT")
   if [ -z "$REQ_ID" ]; then
     echo "  ✗ OneShot returned no request_id (payment not settled? see the receipt)"
-  elif [ -z "$BUYER" ]; then
-    # We PAID OneShot but have no buyer wallet to authenticate the free status poll — say so loudly
-    # rather than silently forfeiting the dossier we just bought.
-    echo "  ✗ paid OneShot ($REQ_ID) but no buyer wallet for the status poll — dossier not retrieved"
   else
     for i in $(seq 1 20); do
       sleep 6
@@ -193,9 +201,10 @@ echo "  open roles: $(jq -r '(.body.data|length)? // 0' <<<"$JOBS")   news items
 # ── 4. EDGAR — any SEC filings  [MPP · Tempo] ───────────────────────────────
 # Required field is q (NOT query); pass the COMPANY NAME. A private company returns few/zero
 # direct filings — but the third-party SPV/Form-D hits are themselves a diligence signal.
-# The current Catalog detail lists /edgar-search/search as the POST path.
+# The merchant base already includes /edgar-search/search; appending that Catalog path
+# through the Router returned an unpaid upstream 404 in the sibling SEC Live run.
 echo "▸ 4/5  SEC full-text search (EDGAR)…"
-FILINGS=$(route_slug "$EDGAR" "/edgar-search/search" POST \
+FILINGS=$(route_slug "$EDGAR" "" POST \
   "$(jq -n --arg q "$COMPANY_NAME" '{q:$q}')")
 echo "  filing hits: $(jq -r '.body.data.hits.total.value? // (.body.data.hits.hits|length)? // 0' <<<"$FILINGS")"
 
@@ -207,7 +216,6 @@ WEB=$(route_slug "$RIVETER" "/v1/scrape" POST \
 echo "  scraped $(jq -r '(.body.text|length)? // 0' <<<"$WEB") chars from $DOMAIN"
 
 # Save the raw responses for private audit, then assemble a limited, redacted memo.
-HERE=$(cd "$(dirname "$0")" && pwd); OUT="$HERE/out"; mkdir -p "$OUT"
 printf '%s' "$COMPANY"  >"$OUT/company.json"
 printf '%s' "$FOUNDERS" >"$OUT/founders.json"
 printf '%s' "${DOSSIER:-{}}" >"$OUT/founder-dossier.json"
@@ -228,9 +236,4 @@ if ! jq -e '.name // .legalName // empty' <<<"$COMPANY" >/dev/null || \
   exit 1
 fi
 
-# ── the receipt: one budget, five sources, two rails, two chains ─────────────
-echo; echo "▸ Receipt:"
-curl -s "${AUTH[@]}" "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" \
-  | jq -r '.[] | "  \(.protocol|ascii_upcase)\t\(.network)\t$\(.amount|tonumber/1e6)\t\(.status)\t\(.txHash // "—")"'
-echo
 echo "✔ Done — research memo saved to ./out/memo.md for review. Check the receipt and missing fields before sharing."

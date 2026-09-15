@@ -8,6 +8,8 @@
 # Requires a broker-enabled Router API with Catalog slug/path support (nvm-monorepo #3304).
 # Check the selected deployment before spending: an older API cannot settle these slug calls.
 set -euo pipefail
+set +x  # Never trace credential loading or authenticated calls, even under bash -x.
+umask 077
 RUN_STARTED_AT=$(date +%s)
 
 # ── credentials (never put the key on the command line) ─────────────────────
@@ -17,8 +19,8 @@ command -v jq >/dev/null && command -v curl >/dev/null || { echo "jq and curl ar
 API_BASE=$(jq -er '.apiBase // .API_BASE' "$CREDS")
 KEY=$(jq -er '.apiKey // .KEY' "$CREDS")
 [[ "$API_BASE" == https://* ]] || { echo "apiBase must use HTTPS" >&2; exit 1; }
-# NOTE: Content-Type is REQUIRED — without it curl sends form-encoded and the API 400s.
-AUTH=(-H "Authorization: Bearer $KEY" -H "Content-Type: application/json")
+# Pass the credential through a private fd; curl's argv contains only /dev/fd, not the key.
+auth_curl() { curl -H @<(printf 'Authorization: Bearer %s\n' "$KEY") -H 'Content-Type: application/json' "$@"; }
 HERE=$(cd "$(dirname "$0")" && pwd)
 
 # ── discovery: find a service's catalog slug at runtime (the whole point) ─────
@@ -31,7 +33,7 @@ catalog_slug() {  # $1=search term  $2=expected slug → prints $2 iff the catal
   # Discover-and-verify. Top-1 is NOT a stable identity: the default sort reshuffles every ~6h and
   # `search` is a substring match over title+description, so a bare term can match 2+ services and
   # resolve to a different one each window ('fal' also matches a weather service). Pinning the exact
-  # slug keeps a live catalog lookup — proves the service is listed, aborts loud (via the :? guards)
+  # slug keeps a live catalog lookup — proves the service is listed, aborts with a clear message
   # if delisted/renamed — while guaranteeing a real-money run pays the intended vendor.
   # NB: the page-size param is `offset` (items per page, default 20, cap 100) — `limit` is not in the
   # DTO and is silently stripped, leaving the default 20-row (shuffled) window. Ask for the 100 cap so
@@ -53,7 +55,7 @@ _pay() {  # $1=target-json ({slug,path})  $2=json-body → prints the JSON resul
   # keep it unique-per-call and portable (macOS `date` has no %N).
   payload=$(jq -n --arg d "$DEL_ID" --arg r "song-$(date +%s)-$RANDOM-$RANDOM" --argjson t "$1" --argjson b "$2" \
     '{delegationId:$d,method:"POST",requestId:$r,body:$b}+$t')
-  resp=$(curl -sS --max-time 120 "${AUTH[@]}" -w $'\n%{http_code}' -X POST "$API_BASE/api/v1/router/route" -d "$payload") || resp=$'\n000'
+  resp=$(auth_curl -sS --max-time 120 -w $'\n%{http_code}' -X POST "$API_BASE/api/v1/router/route" -d "$payload") || resp=$'\n000'
   code=${resp##*$'\n'}
   [[ "$code" =~ ^2[0-9][0-9]$ ]] || { echo "  ✗ router/route → HTTP $code; check the ledger before retrying" >&2; return 1; }
   jq -e '.paid == true and .body != null and (.payment.status == "Settled")' \
@@ -72,21 +74,31 @@ route_slug() {  # $1=slug  $2=subpath ('' = none)  $3=json-body
 
 # discover each cataloged service's slug in the Catalog once, up front
 echo "▸ Discovering services in the Nevermined Catalog…"
-BRAVE=$(catalog_slug brave brave-search-via-mpp)
-SUNO=$(catalog_slug suno suno-mpp)
-FAL=$(catalog_slug fal fal-ai-mpp)
-TWOS=$(catalog_slug 2s 2s-io)
-: "${BRAVE:?brave not found in catalog}" "${SUNO:?suno not found}" "${FAL:?fal not found}" "${TWOS:?2s.io not found}"
+BRAVE=$(catalog_slug brave brave-search-via-mpp) || { echo "Brave unavailable in Catalog" >&2; exit 1; }
+SUNO=$(catalog_slug suno suno-mpp) || { echo "Suno unavailable in Catalog" >&2; exit 1; }
+FAL=$(catalog_slug fal fal-ai-mpp) || { echo "fal.ai unavailable in Catalog" >&2; exit 1; }
+TWOS=$(catalog_slug 2s 2s-io) || { echo "2s.io unavailable in Catalog" >&2; exit 1; }
 catalog_path "$BRAVE" /brave/news-search && catalog_path "$TWOS" /api/ai/chat && \
 catalog_path "$SUNO" /suno/generate-music && catalog_path "$SUNO" /suno/get-music-status && \
 catalog_path "$FAL" /fal-ai/flux/schnell || {
   echo "A required POST path is missing from the current Catalog detail; no delegation created" >&2; exit 1; }
 echo "  slugs: $BRAVE · $TWOS · $SUNO · $FAL"
 echo "▸ Creating a capped budget (50¢ / 10 min)…"
-DEL_ID=$(curl -fsS --max-time 30 "${AUTH[@]}" -X POST "$API_BASE/api/v1/delegation/create" \
+DEL_ID=$(auth_curl -fsS --max-time 30 -X POST "$API_BASE/api/v1/delegation/create" \
   -d '{"provider":"erc4337","currency":"usdc","spendingLimitCents":50,"durationSecs":600,
        "consumerPrompt":"Song from the headlines","assuranceData":{}}' \
   | jq -er '.id // .delegationId')
+OUT="$HERE/out"; mkdir -p "$OUT"; chmod 700 "$OUT"
+jq -n --arg id "$DEL_ID" '{delegationId:$id}' > "$OUT/delegation.json"
+show_receipt() {
+  trap - EXIT
+  set +e
+  echo; echo "▸ Receipt (also printed after an interrupted paid run):"
+  auth_curl -fsS --max-time 20 "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" \
+    | jq -r '.[]? | "  \(.protocol|ascii_upcase)\t\(.network)\t$\((.amount|tonumber) / pow(10; .assetDecimals // 6))\t\(.status)\t\(.txHash // "—")"' \
+    || echo "  Ledger unavailable; use the delegation ID in private out/delegation.json." >&2
+}
+trap show_receipt EXIT
 
 # ── 1. Brave — today's #1 tech headline  [MPP · Tempo] ──────────────────────
 echo "▸ 1/4  Finding today's top tech headline (Brave)…"
@@ -145,16 +157,10 @@ COVER=$(jq -r '.body.images[0].url // empty' <<<"$COV")
 echo "  cover: ${COVER:-<not ready>}"
 
 # ── download the artifacts ──────────────────────────────────────────────────
-OUT="$HERE/out"; mkdir -p "$OUT"
 curl -fsSL --max-time 120 "$AUDIO" -o "$OUT/song.mp3"
 curl -fsSL --max-time 120 "$COVER" -o "$OUT/album-cover.jpg"
 [ -s "$OUT/song.mp3" ] && [ -s "$OUT/album-cover.jpg" ] || { echo "  ✗ downloaded artifact is empty" >&2; exit 1; }
 echo "  saved $OUT/song.mp3 and $OUT/album-cover.jpg"
 
-# ── the receipt: one budget, four vendors, two rails, two chains ────────────
-echo; echo "▸ Receipt:"
-curl -s "${AUTH[@]}" "$API_BASE/api/v1/router/payments?delegationId=$DEL_ID" \
-  | jq -r '.[] | "  \(.protocol|ascii_upcase)\t\(.network)\t$\(.amount|tonumber/1000000)\t\(.status)\t\(.txHash)"'
-echo
 echo "  first delivered result: ${FIRST_RESULT_SECS}s after start"
 echo "✔ Done — a song and a cover from one prompt. Four vendors, two rails, two chains, zero clicks."

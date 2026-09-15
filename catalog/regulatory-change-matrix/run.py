@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import sys
+import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, TypedDict
@@ -24,6 +25,7 @@ SLUG = "govlaws-mpp"
 PLANNED_CHANGES = Decimal("0.06")
 PLANNED_RESOLVE = Decimal("0.05")
 FEE_HEADROOM = Decimal("1.20")
+MAX_BUDGET = Decimal("0.25")
 
 
 class Change(TypedDict, total=False):
@@ -53,6 +55,31 @@ def request_json(url: str, *, key: str | None = None) -> Any:
         headers["Authorization"] = f"Bearer {key}"
     with urlopen(Request(url, headers=headers), timeout=20) as response:
         return json.load(response)
+
+
+def private_buyer_key() -> str:
+    path = Path.home() / ".nvm-router-buyer.json"
+    if not path.is_file() or path.stat().st_mode & 0o077:
+        raise ValueError(f"Credential file {path} is missing or not private (chmod 600)")
+    config = json.loads(path.read_text())
+    key = config.get("apiKey") or config.get("KEY")
+    if not key or (config.get("apiBase") or config.get("API_BASE") or CATALOG).rstrip("/") != CATALOG:
+        raise ValueError("Private buyer file must contain a key for the selected Live API host")
+    return key
+
+
+def create_delegation(key: str, cap_cents: int, max_transactions: int) -> str:
+    body = {"provider": "erc4337", "currency": "usdc", "spendingLimitCents": cap_cents,
+            "durationSecs": 600, "maxTransactions": max_transactions}
+    req = Request(f"{CATALOG}/api/v1/delegation/create",
+                  data=json.dumps(body).encode(), method="POST",
+                  headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+    with urlopen(req, timeout=30) as response:
+        record = json.load(response)
+    delegation = record.get("delegationId") or record.get("id")
+    if not isinstance(delegation, str) or not delegation:
+        raise RuntimeError("Delegation creation returned no identifier")
+    return delegation
 
 
 def check_contract(days: int, citation: str | None) -> str:
@@ -129,10 +156,16 @@ def paid_get(path: str, query: dict[str, str], *, key: str, delegation: str,
         raise RuntimeError(f"Network state indeterminate for {request_id}; inspect ledger before retry") from exc
 
 
-def ledger_charge(key: str, delegation: str, payment_id: str) -> Decimal:
+def ledger_charge(key: str, delegation: str, payment_id: str) -> tuple[Decimal, str | None]:
     query = urlencode({"delegationId": delegation})
-    records = request_json(f"{CATALOG}/api/v1/router/payments?{query}", key=key)
-    record = next((r for r in records if r.get("id") == payment_id), None)
+    record = None
+    for attempt in range(4):
+        records = request_json(f"{CATALOG}/api/v1/router/payments?{query}", key=key)
+        record = next((r for r in records if r.get("id") == payment_id), None)
+        if record and record.get("feeStatus") not in (None, "Accrued", "Submitted"):
+            break
+        if attempt < 3:
+            time.sleep(2)
     if record is None:
         raise RuntimeError(f"Payment {payment_id} missing from Router ledger; stop")
     decimals = record.get("assetDecimals")
@@ -141,17 +174,17 @@ def ledger_charge(key: str, delegation: str, payment_id: str) -> Decimal:
     if record.get("status") != "Settled":
         raise RuntimeError(f"Payment {payment_id} ledger status is {record.get('status')}; stop before claiming verified result")
     fee_status = record.get("feeStatus")
-    if fee_status not in ("None", "Settled"):
+    if fee_status is None or fee_status not in ("None", "Settled", "Released", "Accrued", "Submitted"):
         raise RuntimeError(f"Payment {payment_id} fee status is {fee_status}; stop before claiming verified spend")
     merchant = Decimal(str(record["amount"])) / (Decimal(10) ** int(decimals))
-    fee = Decimal(str(record.get("feeCents") or "0")) / Decimal("100")
+    fee = Decimal("0") if fee_status == "Released" else Decimal(str(record.get("feeCents") or "0")) / Decimal("100")
     if fee_status == "None" and fee != 0:
         raise RuntimeError(f"Payment {payment_id} has fee cents but fee status None; stop")
     if merchant <= 0:
         raise RuntimeError(f"Payment {payment_id} has no recorded amount; stop")
     if record.get("assetSymbol") not in ("pathUSD", "PathUSD", "USDC", "USDC.e"):
         raise RuntimeError(f"Payment {payment_id} asset {record.get('assetSymbol')} is not USD-like; stop")
-    return merchant + fee
+    return merchant + fee, fee_status if fee_status in ("Accrued", "Submitted") else None
 
 
 def text(value: Any) -> str:
@@ -159,7 +192,8 @@ def text(value: Any) -> str:
 
 
 def assemble(changes: list[Change], resolutions: dict[str, Resolution],
-             *, synthetic: bool, contract_version: str, spend: Decimal | None) -> tuple[dict[str, Any], str]:
+             *, synthetic: bool, contract_version: str, spend: Decimal | None,
+             pending_fees: list[dict[str, str]] | None = None) -> tuple[dict[str, Any], str]:
     rows: list[dict[str, Any]] = []
     for change in changes:
         citation = change.get("citation") or ""
@@ -188,6 +222,7 @@ def assemble(changes: list[Change], resolutions: dict[str, Resolution],
         "verified_paid_run": not synthetic,
         "govlaws_contract_version": contract_version,
         "actual_spend_usd": str(spend) if spend is not None else None,
+        "buyer_fee_reconciliation_pending": pending_fees or [],
         "items": rows,
     }
     label = "SYNTHETIC FORMAT DEMO" if synthetic else "PAID RUN — VERIFY SOURCES"
@@ -223,33 +258,42 @@ def main() -> int:
     parser.add_argument("--budget-usd", type=Decimal, default=Decimal("0.25"))
     parser.add_argument("--output", type=Path, default=HERE / "output")
     args = parser.parse_args()
-    if args.max_resolves < 0 or args.budget_usd <= 0:
-        parser.error("max-resolves must be nonnegative and budget-usd positive")
+    if args.max_resolves < 0 or not (Decimal("0") < args.budget_usd <= MAX_BUDGET) or args.budget_usd * 100 != int(args.budget_usd * 100):
+        parser.error("max-resolves must be nonnegative and budget-usd must be a positive whole-cent cap of at most $0.25")
     if not args.live:
         sample = json.loads((HERE / "fixtures" / "synthetic.json").read_text())
         version = "2026-04-27 (fixture; no live contract check)"
         artifact, markdown = assemble(sample["changes"]["changes"], sample["resolutions"],
                                       synthetic=True, contract_version=version, spend=None)
     else:
-        key = os.getenv("NVM_API_KEY")
-        delegation = os.getenv("NVM_DELEGATION_ID")
-        if not key or not delegation or not args.run_id:
-            parser.error("--live requires NVM_API_KEY, NVM_DELEGATION_ID, and --run-id")
+        if not args.run_id:
+            parser.error("--live requires --run-id")
+        key = private_buyer_key()
         version = check_contract(args.days, args.citation)
         listing = check_listing()
         planned = (PLANNED_CHANGES + PLANNED_RESOLVE * args.max_resolves) * FEE_HEADROOM
         if planned > args.budget_usd:
             parser.error(f"planned ceiling ${planned} exceeds local budget ${args.budget_usd}")
+        delegation = create_delegation(key, int(args.budget_usd * 100), 1 + args.max_resolves)
+        args.output.mkdir(parents=True, exist_ok=True)
+        args.output.chmod(0o700)
+        private_id = args.output / "private-delegation.json"
+        private_id.write_text(json.dumps({"delegationId": delegation}) + "\n")
+        private_id.chmod(0o600)
         print(f"Catalog {listing['slug']} {listing['healthStatus']}; OpenAPI {version}. "
               f"Planned ceiling ${planned}; Router may quote differently in-band.", file=sys.stderr)
         spend = Decimal("0")
+        pending_fees: list[dict[str, str]] = []
         changes, payment_id = paid_get(
             "/api/mpp/changes",
             {"agency": args.agency, "citation": args.citation, "days": str(args.days)},
             key=key, delegation=delegation,
             request_id=stable_id(args.run_id, "changes"),
         )
-        spend += ledger_charge(key, delegation, payment_id)
+        charge, pending = ledger_charge(key, delegation, payment_id)
+        spend += charge
+        if pending:
+            pending_fees.append({"service": "changes", "fee_status": pending})
         if spend > args.budget_usd:
             raise RuntimeError("Observed spend exceeded local budget; stop")
         events = changes.get("changes")
@@ -268,14 +312,18 @@ def main() -> int:
                 key=key, delegation=delegation,
                 request_id=stable_id(args.run_id, f"resolve:{citation}"),
             )
-            spend += ledger_charge(key, delegation, payment_id)
+            charge, pending = ledger_charge(key, delegation, payment_id)
+            spend += charge
+            if pending:
+                pending_fees.append({"service": "resolve", "fee_status": pending})
             if spend > args.budget_usd:
                 raise RuntimeError("Observed spend exceeded local budget; stop")
             if not {"citation", "title", "text", "provenance"}.issubset(result):
                 raise ValueError(f"GovLaws resolve response missing OpenAPI-required fields for {citation}")
             resolutions[citation] = result
         artifact, markdown = assemble(events, resolutions, synthetic=False,
-                                      contract_version=version, spend=spend)
+                                      contract_version=version, spend=spend,
+                                      pending_fees=pending_fees)
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "matrix.json").write_text(json.dumps(artifact, indent=2) + "\n")
     (args.output / "matrix.md").write_text(markdown)

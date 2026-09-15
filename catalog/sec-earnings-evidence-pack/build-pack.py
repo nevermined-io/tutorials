@@ -3,6 +3,7 @@
 
 import json
 import os
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -13,7 +14,7 @@ COMPANY = os.environ.get("COMPANY", "Apple")
 SOURCES = {
     "submissions": ("edgar-sec-mpp", "/edgar/company-submissions"),
     "facts": ("edgar-sec-mpp", "/edgar/company-facts"),
-    "search": ("edgar-search", "/edgar-search/search"),
+    "search": ("edgar-search", ""),
     "earnings": ("alpha-vantage-mpp", "/alphavantage/earnings"),
     "income": ("alpha-vantage-mpp", "/alphavantage/income-statement"),
 }
@@ -24,18 +25,19 @@ def cost_summary():
         payments = json.loads((OUT / "payments.json").read_text())
         budget = json.loads((OUT / "budget-summary.json").read_text())
         timing = json.loads((OUT / "run-summary.json").read_text())
-    except (OSError, json.JSONDecodeError):
-        return {"observedMerchantUsd": None, "budgetConsumedCents": None,
-                "timeToFirstSuccessSeconds": None, "paymentCount": None}
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Payment, budget or timing record is unreadable: {exc}") from exc
     if not isinstance(payments, list) or not all(p.get("status") == "Settled" for p in payments):
         raise SystemExit("Payment ledger is incomplete or has non-settled rows")
-    total = Decimal("0")
+    merchant_total = Decimal("0")
+    buyer_fees = Decimal("0")
     for payment in payments:
         if payment.get("assetSymbol") not in ("USDC", "USDC.e") or payment.get("assetDecimals") is None:
             raise SystemExit("Cannot safely display payment amount in USD")
-        total += Decimal(str(payment["amount"])) / (Decimal(10) ** int(payment["assetDecimals"]))
-        total += Decimal(str(payment.get("feeCents") or "0")) / Decimal("100")
-    return {"observedMerchantUsd": str(total),
+        merchant_total += Decimal(str(payment["amount"])) / (Decimal(10) ** int(payment["assetDecimals"]))
+        buyer_fees += Decimal(str(payment.get("feeCents") or "0")) / Decimal("100")
+    return {"observedMerchantUsd": str(merchant_total),
+            "observedBuyerFeesUsd": str(buyer_fees),
             "budgetConsumedCents": budget.get("budgetSpentCents"),
             "timeToFirstSuccessSeconds": timing.get("timeToFirstSuccessSeconds"),
             "paymentCount": len(payments),
@@ -61,8 +63,8 @@ def body_of(envelope):
     if isinstance(body, dict) and isinstance(body.get("data"), dict):
         data = body["data"]
         if any(k in data for k in ("facts", "filings", "quarterlyEarnings", "quarterlyReports", "hits")):
-            return data, "body.data (wrapper assumption)"
-    return body, "body (direct upstream assumption)"
+            return data, "body.data (detected)"
+    return body, "body (direct upstream detected)"
 
 
 def safe(value):
@@ -93,9 +95,18 @@ def xbrl_fact(doc, tags):
         candidates = [v for v in usd if isinstance(v, dict) and v.get("form") in ("10-K", "10-Q")
                       and isinstance(v.get("val"), (int, float))]
         if candidates:
-            item = max(candidates, key=lambda v: (str(v.get("filed", "")), str(v.get("end", ""))))
-            return {"tag": tag, "value": item["val"], "unit": "USD", "end": item.get("end"),
-                    "filed": item.get("filed"), "form": item.get("form"), "accession": item.get("accn")}
+            def quarter(v):
+                try:
+                    days = (date.fromisoformat(v["end"]) - date.fromisoformat(v["start"])).days
+                    return 70 <= days <= 115
+                except (KeyError, TypeError, ValueError):
+                    return False
+            item = max(candidates, key=lambda v: (
+                str(v.get("filed", "")), str(v.get("end", "")), quarter(v)))
+            return {"tag": tag, "value": item["val"], "unit": "USD", "start": item.get("start"),
+                    "end": item.get("end"), "filed": item.get("filed"), "form": item.get("form"),
+                    "fiscalPeriod": item.get("fp"), "fiscalYear": item.get("fy"),
+                    "accession": item.get("accn")}
     return None
 
 
@@ -104,6 +115,20 @@ docs = {}
 mapping = {}
 for name, envelope in envelopes.items():
     docs[name], mapping[name] = body_of(envelope)
+    required = {"submissions": "filings", "facts": "facts", "search": "hits",
+                "earnings": "quarterlyEarnings", "income": "quarterlyReports"}[name]
+    if not isinstance(docs[name], dict) or required not in docs[name]:
+        raise SystemExit(f"{name} paid response lacks expected {required} field")
+
+routes = {}
+for name, (slug, expected_path) in SOURCES.items():
+    try:
+        sent = json.loads((OUT / f"{name}.request.json").read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Missing or invalid saved {name} request: {exc}") from exc
+    if sent.get("slug") != slug or sent.get("path", "") != expected_path:
+        raise SystemExit(f"Saved {name} route differs from verified runner route")
+    routes[name] = {"slug": sent["slug"], "path": sent.get("path", "")}
 
 submission = docs["submissions"] if isinstance(docs["submissions"], dict) else {}
 facts = docs["facts"] if isinstance(docs["facts"], dict) else {}
@@ -119,8 +144,10 @@ hits = search.get("hits") or (search_data.get("hits") if isinstance(search_data,
 if isinstance(hits, dict):
     total = hits.get("total")
     search_count = total.get("value") if isinstance(total, dict) else total
+    search_relation = total.get("relation") if isinstance(total, dict) else None
 else:
     search_count = None
+    search_relation = None
 quarterly = earnings.get("quarterlyEarnings", []) if isinstance(earnings, dict) else []
 quarterly = [x for x in quarterly if isinstance(x, dict)] if isinstance(quarterly, list) else []
 quarterly.sort(key=lambda x: str(x.get("fiscalDateEnding", "")), reverse=True)
@@ -129,6 +156,8 @@ reports = income.get("quarterlyReports", []) if isinstance(income, dict) else []
 reports = [x for x in reports if isinstance(x, dict)] if isinstance(reports, list) else []
 reports.sort(key=lambda x: str(x.get("fiscalDateEnding", "")), reverse=True)
 income_report = reports[0] if reports else None
+if not any((filing, revenue, net_income, search_count, eps, income_report)):
+    raise SystemExit("All paid responses lack usable evidence; refusing an empty pack")
 
 pack = {
     "target": {"companyKeyword": COMPANY, "symbol": SYMBOL, "cik": CIK},
@@ -139,7 +168,7 @@ pack = {
         "catalogEdgarSearch": "https://nevermined.app/catalog/edgar-search",
         "catalogAlphaVantage": "https://nevermined.app/catalog/alpha-vantage-mpp",
     },
-    "sources": {name: {"slug": slug, "path": path, "responseFile": f"{name}.router.json",
+    "sources": {name: {"slug": routes[name]["slug"], "path": routes[name]["path"], "responseFile": f"{name}.router.json",
                         "bodyMapping": mapping[name], "paymentStatus": envelopes[name].get("payment", {}).get("status")}
                 for name, (slug, path) in SOURCES.items()},
     "evidence": {
@@ -147,12 +176,14 @@ pack = {
         "revenueXbrl": revenue,
         "netIncomeXbrl": net_income,
         "edgarSearchHitCount": search_count,
+        "edgarSearchHitRelation": search_relation,
         "latestQuarterlyEps": {k: eps.get(k) for k in ("fiscalDateEnding", "reportedEPS", "estimatedEPS", "surprisePercentage")} if eps else None,
         "latestQuarterlyIncome": {k: income_report.get(k) for k in ("fiscalDateEnding", "totalRevenue", "netIncome")} if income_report else None,
     },
     "limitations": [
-        "Merchant wrapper mapping is inferred from offline schemas and must be checked against a live paid response.",
+        "The body mapping was detected in saved paid responses; other runs may use different wrappers.",
         "A full-text EDGAR hit can be a third-party mention, not a company filing.",
+        "EDGAR hit totals with relation gte are lower bounds, not exact totals.",
         "XBRL facts may refer to different periods or amendments; compare end and accession before interpreting them.",
         "Alpha Vantage fields are secondary data and may lag SEC filings.",
     ],
@@ -169,9 +200,9 @@ lines = [f"# SEC earnings evidence pack: {SYMBOL}", "",
          f"Public sources: [SEC submissions]({pack['publicSourceUrls']['secSubmissions']}), [SEC company facts]({pack['publicSourceUrls']['secCompanyFacts']}), [EDGAR search service]({pack['publicSourceUrls']['catalogEdgarSearch']}), [Alpha Vantage service]({pack['publicSourceUrls']['catalogAlphaVantage']}).", "",
          "| Evidence | Value | Paid response |", "|---|---|---|",
          row("Latest 10-K/10-Q", f"{filing['form']} filed {filing['filingDate']} accession {filing['accessionNumber']}" if filing else None, "submissions"),
-         row("Revenue XBRL", f"{revenue['value']} USD; period end {revenue.get('end')}; filed {revenue.get('filed')}" if revenue else None, "facts"),
-         row("Net income XBRL", f"{net_income['value']} USD; period end {net_income.get('end')}; filed {net_income.get('filed')}" if net_income else None, "facts"),
-         row("EDGAR keyword hits", search_count, "search"),
+         row("Revenue XBRL", f"{revenue['value']} USD; period {revenue.get('start')} to {revenue.get('end')}; filed {revenue.get('filed')}" if revenue else None, "facts"),
+         row("Net income XBRL", f"{net_income['value']} USD; period {net_income.get('start')} to {net_income.get('end')}; filed {net_income.get('filed')}" if net_income else None, "facts"),
+         row("EDGAR keyword hits", f"at least {search_count}" if search_relation == "gte" else search_count, "search"),
          row("Quarterly reported EPS", f"{eps.get('reportedEPS')} for {eps.get('fiscalDateEnding')}" if eps else None, "earnings"),
          row("Quarterly total revenue", f"{income_report.get('totalRevenue')} for {income_report.get('fiscalDateEnding')}" if income_report else None, "income"),
          "", "## Mapping and limits", ""]
