@@ -742,11 +742,11 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
           ["2s.io", "the lyrics", "$0.0025"],
           ["Suno", "the song", "$0.105"],
           ["fal.ai", "the album cover", "$0.003"],
-          ["Total", "4 vendors · 2 chains", "~$0.16"],
+          ["Total", "7 settled calls · 2 chains", "$0.1605"],
         ],
         totalRow: 4,
       },
-      warn: "Real money — the run-it-yourself script spends ~$0.16 on live blockchains, capped at 50¢ and 10 minutes so it can't overspend. That's why this tutorial is watch-only in the browser.",
+      warn: "The September 15 Live follow-up made seven Settled payments totaling $0.1605, delivered its first headline in 8 seconds, and consumed 20¢ of a 50¢ delegation cap. Its new audio and cover stay private; the playable media here is the earlier public reference run. Running the script yourself spends real money.",
       interactive: [
         { label: "Interactive showcase", href: "https://claude.ai/code/artifact/160b776a-65c5-4059-be76-e8972190df89" },
       ],
@@ -812,6 +812,129 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
       warn: "Real money — this demo ran live on public blockchains (target: Perplexity, total ~$0.49). Watch-only in the browser; run it yourself from the repo with a small capped budget.",
       interactive: [
         { label: "Explore the memo it produced", href: "https://claude.ai/code/artifact/8f5df009-8a3f-4d39-86dd-5f1c61efb22b" },
+      ],
+    },
+  },
+
+  // ────────────────────── Catalog · bounded evidence packs ────────────────────
+  {
+    slug: "sec-earnings-evidence-pack",
+    title: "SEC Earnings Evidence Pack",
+    tagline:
+      "Buy five filing and earnings responses through one capped Router delegation, then assemble a source-linked Apple evidence pack without turning the figures into an investment conclusion.",
+    protocol: "catalog",
+    language: "py",
+    tier: "recap",
+    repoPath: "catalog/sec-earnings-evidence-pack/",
+    learn: {
+      lead: "A paid data workflow is reviewable when every figure keeps its source, period, and receipt.",
+      bullets: [
+        "Discover the payable EDGAR and Alpha Vantage services and verify their POST paths before spending",
+        "Cap the run at five calls and 10¢ for ten minutes",
+        "Keep filing dates, accession numbers, XBRL periods, and source fields beside the selected values",
+        "Stop on missing delivery, settlement, or budget evidence rather than guessing a result",
+      ],
+    },
+    how: {
+      paragraphs: [
+        "The script buys SEC submissions, SEC company facts, EDGAR keyword search, Alpha Vantage earnings, and an income statement. An offline builder selects evidence from the delivered bodies and marks unavailable fields instead of inventing them.",
+        "The September 15 Apple run delivered all five paid responses. Merchant charges totaled $0.040; each sub-cent call counted as one cent against the delegation cap, so 5¢ of the 10¢ cap was consumed.",
+      ],
+      table: {
+        head: ["Source", "Evidence", "Caution"],
+        rows: [
+          ["SEC submissions", "latest 10-K/10-Q and accession", "check filing date"],
+          ["SEC company facts", "revenue and net-income XBRL", "check period and unit"],
+          ["EDGAR search", "keyword hit lower bound", "hits may be third-party mentions"],
+          ["Alpha Vantage", "quarterly EPS and income", "secondary data may lag SEC"],
+        ],
+      },
+    },
+    tech: {
+      stack: ["Nevermined Catalog", "Router", "SEC EDGAR", "Alpha Vantage", "10¢ cap"],
+      samples: [],
+      files: [
+        { path: "run-demo.sh", desc: "five-call bounded Live runner" },
+        { path: "build-pack.py", desc: "offline evidence builder from saved paid responses" },
+        { path: "sample/evidence.md", desc: "redacted representative Apple evidence pack" },
+      ],
+    },
+    run: {
+      kind: "recap",
+      receipt: {
+        head: ["Paid source", "Calls", "Observed merchant charge"],
+        rows: [
+          ["SEC submissions", "1", "$0.008"],
+          ["SEC company facts", "1", "$0.008"],
+          ["EDGAR search", "1", "$0.008"],
+          ["Alpha Vantage earnings", "1", "$0.008"],
+          ["Alpha Vantage income", "1", "$0.008"],
+          ["Total", "5 Settled", "$0.040"],
+        ],
+        totalRow: 5,
+      },
+      warn: "The September 15 Live run delivered its first result in 10 seconds and finished in 41 seconds. It spent real money; the public sample is redacted and is evidence, not investment advice. Raw Router envelopes and payment records remain private.",
+      interactive: [
+        { label: "Read the redacted evidence pack", href: "https://github.com/nevermined-io/tutorials/blob/main/catalog/sec-earnings-evidence-pack/sample/evidence.md" },
+      ],
+    },
+  },
+  {
+    slug: "competitive-product-teardown",
+    title: "Competitive Product Teardown",
+    tagline:
+      "Compare a public product page with rival search evidence, then write a sourced positioning hypothesis under a 25¢ paid-run cap.",
+    protocol: "catalog",
+    language: "py",
+    tier: "recap",
+    repoPath: "catalog/competitive-product-teardown/",
+    learn: {
+      lead: "A paid research chain can separate sourced observations from a model's unverified interpretation.",
+      bullets: [
+        "Use Brave search and Serper scrape to collect bounded public evidence",
+        "Optionally pay DeepSeek for a short draft while keeping its claim labeled unverified",
+        "Check delivered bodies, settled merchants, buyer fees, and remaining budget after every purchase",
+        "Publish a redacted Markdown and JSON comparison while private receipts stay in ignored out/",
+      ],
+    },
+    how: {
+      paragraphs: [
+        "The runner checks each Catalog slug and payable path, buys rival search and company-page extraction, then optionally asks a model to draft two sentences from short excerpts. It records source URLs and asks a human to test whether the comparison is a real differentiator.",
+        "The Firefox versus Brave follow-up completed all three calls on September 15. A later read-only ledger check reconciled the initially Submitted Brave buyer fee to Settled; total merchant-plus-fee charge was $0.069.",
+      ],
+      table: {
+        head: ["Paid service", "Purpose", "Observed charge"],
+        rows: [
+          ["Brave", "rival search", "$0.035"],
+          ["Serper", "company-page scrape", "$0.020 + $0.010 buyer fee"],
+          ["DeepSeek", "optional draft", "$0.004"],
+        ],
+      },
+    },
+    tech: {
+      stack: ["Nevermined Catalog", "Router", "Brave", "Serper", "DeepSeek", "25¢ cap"],
+      samples: [],
+      files: [
+        { path: "run.py", desc: "bounded Live runner and free synthetic fixture mode" },
+        { path: "wrapper-contract.json", desc: "verified payable paths and response wrappers" },
+        { path: "sample/teardown.md", desc: "redacted representative Firefox versus Brave comparison" },
+      ],
+    },
+    run: {
+      kind: "recap",
+      receipt: {
+        head: ["Service", "Result", "Observed charge"],
+        rows: [
+          ["Brave", "Settled search", "$0.035"],
+          ["Serper", "Settled scrape + buyer fee", "$0.030"],
+          ["DeepSeek", "Settled model draft", "$0.004"],
+          ["Total", "3 delivered calls", "$0.069"],
+        ],
+        totalRow: 3,
+      },
+      warn: "The later Live follow-up delivered its first result in 13.48 seconds and consumed 8¢ of its 25¢ cap. The linked redacted sample comes from an earlier complete run. The model draft is unverified; check the cited pages before using the comparison. Running the Live script spends real money.",
+      interactive: [
+        { label: "Read the redacted teardown", href: "https://github.com/nevermined-io/tutorials/blob/main/catalog/competitive-product-teardown/sample/teardown.md" },
       ],
     },
   },
