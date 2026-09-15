@@ -1,0 +1,64 @@
+{
+  "synthetic": false,
+  "verified_paid_run": true,
+  "audience": "product marketing and strategy builders",
+  "purpose": "one-off sourced positioning teardown",
+  "company_url": "https://www.mozilla.org/en-US/firefox/",
+  "rival_query": "Brave browser privacy features",
+  "company_excerpt": "Firefox: The fast, private browser that keeps you safe\n\nFind your way back to a better internet\n\nThe web was meant to expand your world, not limit it. Firefox helps you shape a more personal internet that puts you back in control.\n\nPRIVACY\n\n\nPrivacy as a standard\n\nBlocks trackers automatically. No setup. No guesswork.\n\nFOCUS\n\n\nFocus without distraction\n\nStay focused with tab groups, reader mode, and videos that stay in view.\n\nCHOICE\n\n\nControl and choice built in\n\nCustomize how AI shows up, or turn it off entirely.\n\nIndependence\n\n\nNot owned by shareholders\n\nWe don\u2019t sell your personal data and we never will.\n\n\nFast to switch. Easy to settle in.\n\nWhen switching to Firefox, your bookmarks, passwords, and history come with you automatically, so you can get back to browsing right away.\n\n 1. Select what you want to bring with you\n 2. Download Firefox\n 3. Click import\n\n\nFast to switch. Easy to settle in.\n\nWhen switching to Firefox, your bookmarks, passwords, and history come with you automatically, so you can get back to browsing right away.\n\n 1. Over 30,000 extensions\n 2. Thousands of light & dark mode themes\n 3. Edit PDFs directly in Firefox\n\n\nPrivacy without the work\n\n\nAll your stuff on desktop, mobile, and tablet\n\n\nBuilt to benefit billions, not billionaires\n\n\nStay focused without distractions\n\nFirefox is designed to work with your attention, not compete for it. Reader mode clears distractions from articles, picture-in-picture keeps video out of your way, and pinned tabs keep what matters close without clutter.\n\n\nYour workspace, your rules\n\n * Tab groups and Firefox View help",
+  "rival_sources": [
+    {
+      "url": "https://brave.com/privacy-features/",
+      "title": "Privacy Protection & Security Features | Brave",
+      "excerpt": "And it comes in three different layers. The first layer\u2014Brave Shields\u2014blocks trackers, cross-site cookie tracking, fingerprinting, and more. And you can see some of what got blocked."
+    },
+    {
+      "url": "https://brave.com/features/",
+      "title": "Brave Browser Features | Brave",
+      "excerpt": "Learn more about fingerprint randomization. Brave hides or blocks cookie consent notices while you browse. ... Get a firsthand look at the ads and trackers blocked by Shields. Learn more about the Privacy Hub."
+    },
+    {
+      "url": "https://brave.com/privacy-updates/",
+      "title": "Privacy updates | Brave",
+      "excerpt": "Starting in version 1.50, Brave will include a new feature called \u201cHTTPS by Default\u201d that improves Web security and privacy by increasing HTTPS use. ... New versions of Brave will hide\u2014and, where possible, completely block\u2014cookie consent ..."
+    },
+    {
+      "url": "https://fingerprint.com/blog/brave-browser-privacy-security-guide/",
+      "title": "The guide to Brave browser privacy and security features",
+      "excerpt": "Brave incorporates many of the industry's best practices for privacy and security features and adds a lot more on top of that: navigation-based tracking, farbling, and a built-in VPN."
+    },
+    {
+      "url": "https://brave.com/privacy/browser/",
+      "title": "Browser Privacy Policy | Brave",
+      "excerpt": "The Brave browser is designed to not know who you are, or what sites you visit. Brave does not collect or retain a user\u2019s browsing history. Some features require transient network identifiers (such as your IP addresses) to function."
+    }
+  ],
+  "positioning_comparison": {
+    "company_public_claim_excerpt": "Firefox: The fast, private browser that keeps you safe",
+    "rival_search_claim_excerpt": "And it comes in three different layers. The first layer\u2014Brave Shields\u2014blocks trackers, cross-site cookie tracking, fingerprinting, and more. And you can see some of what got blocked.",
+    "interpretation": "Potential positioning difference; validate against full cited pages",
+    "evidence_urls": [
+      "https://www.mozilla.org/en-US/firefox/",
+      "https://brave.com/privacy-features/"
+    ]
+  },
+  "model_hypothesis_unverified": "Firefox tentatively positions privacy as a standard that blocks trackers automatically, while Brave tentatively positions privacy as coming in three different layers. Does Firefox\u2019s \u201cPrivacy as a standard\u201d contrast with Brave\u2019s \u201cthree different layers\u201d?",
+  "actual_spend_usd": "0.069",
+  "buyer_fee_reconciliation_pending": [
+    {
+      "service": "brave",
+      "fee_status": "Submitted"
+    },
+    {
+      "service": "serper",
+      "fee_status": "Submitted"
+    },
+    {
+      "service": "deepseek",
+      "fee_status": "Submitted"
+    }
+  ],
+  "first_delivered_at_utc": "2026-09-15T12:23:06.867609+00:00",
+  "time_to_first_delivered_seconds": 14.44,
+  "review_action": "Check the cited pages and validate each positioning hypothesis"
+}

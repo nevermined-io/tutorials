@@ -1,0 +1,109 @@
+{
+  "target": {
+    "companyKeyword": "Apple",
+    "symbol": "AAPL",
+    "cik": "320193"
+  },
+  "cost": {
+    "observedMerchantUsd": "0.040",
+    "observedBuyerFeesUsd": "0",
+    "budgetConsumedCents": "5",
+    "timeToFirstSuccessSeconds": 10,
+    "paymentCount": 5,
+    "note": "Sub-cent purchases may each consume a whole cent of delegation cap."
+  },
+  "publicSourceUrls": {
+    "secSubmissions": "https://data.sec.gov/submissions/CIK0000320193.json",
+    "secCompanyFacts": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+    "catalogEdgarSearch": "https://nevermined.app/catalog/edgar-search",
+    "catalogAlphaVantage": "https://nevermined.app/catalog/alpha-vantage-mpp"
+  },
+  "sources": {
+    "submissions": {
+      "slug": "edgar-sec-mpp",
+      "path": "/edgar/company-submissions",
+      "responseFile": "submissions.router.json",
+      "bodyMapping": "body.data (detected)",
+      "paymentStatus": "Settled"
+    },
+    "facts": {
+      "slug": "edgar-sec-mpp",
+      "path": "/edgar/company-facts",
+      "responseFile": "facts.router.json",
+      "bodyMapping": "body.data (detected)",
+      "paymentStatus": "Settled"
+    },
+    "search": {
+      "slug": "edgar-search",
+      "path": "",
+      "responseFile": "search.router.json",
+      "bodyMapping": "body.data (detected)",
+      "paymentStatus": "Settled"
+    },
+    "earnings": {
+      "slug": "alpha-vantage-mpp",
+      "path": "/alphavantage/earnings",
+      "responseFile": "earnings.router.json",
+      "bodyMapping": "body.data (detected)",
+      "paymentStatus": "Settled"
+    },
+    "income": {
+      "slug": "alpha-vantage-mpp",
+      "path": "/alphavantage/income-statement",
+      "responseFile": "income.router.json",
+      "bodyMapping": "body.data (detected)",
+      "paymentStatus": "Settled"
+    }
+  },
+  "evidence": {
+    "latest10KOr10Q": {
+      "form": "10-Q",
+      "filingDate": "2026-07-31",
+      "accessionNumber": "0000320193-26-000020"
+    },
+    "revenueXbrl": {
+      "tag": "RevenueFromContractWithCustomerExcludingAssessedTax",
+      "value": 109417000000,
+      "unit": "USD",
+      "start": "2026-03-29",
+      "end": "2026-06-27",
+      "filed": "2026-07-31",
+      "form": "10-Q",
+      "fiscalPeriod": "Q3",
+      "fiscalYear": 2026,
+      "accession": "0000320193-26-000020"
+    },
+    "netIncomeXbrl": {
+      "tag": "NetIncomeLoss",
+      "value": 29789000000,
+      "unit": "USD",
+      "start": "2026-03-29",
+      "end": "2026-06-27",
+      "filed": "2026-07-31",
+      "form": "10-Q",
+      "fiscalPeriod": "Q3",
+      "fiscalYear": 2026,
+      "accession": "0000320193-26-000020"
+    },
+    "edgarSearchHitCount": 10000,
+    "edgarSearchHitRelation": "gte",
+    "latestQuarterlyEps": {
+      "fiscalDateEnding": "2026-06-30",
+      "reportedEPS": "2.02",
+      "estimatedEPS": "1.88",
+      "surprisePercentage": "7.4468"
+    },
+    "latestQuarterlyIncome": {
+      "fiscalDateEnding": "2026-06-30",
+      "totalRevenue": "109417000000",
+      "netIncome": "29789000000"
+    }
+  },
+  "limitations": [
+    "The body mapping was detected in saved paid responses; other runs may use different wrappers.",
+    "A full-text EDGAR hit can be a third-party mention, not a company filing.",
+    "EDGAR hit totals with relation gte are lower bounds, not exact totals.",
+    "XBRL facts may refer to different periods or amendments; compare end and accession before interpreting them.",
+    "Alpha Vantage fields are secondary data and may lag SEC filings."
+  ]
+}

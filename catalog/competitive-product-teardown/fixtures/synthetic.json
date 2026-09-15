@@ -1,0 +1,29 @@
+{
+  "synthetic": true,
+  "company_url": "https://example.invalid/acmework",
+  "rival_query": "OrbitDesk team workspace positioning",
+  "search": {
+    "success": true,
+    "data": {
+      "web": {
+        "results": [
+        {
+          "title": "OrbitDesk product overview",
+          "url": "https://example.invalid/orbitdesk",
+          "description": "Synthetic rival example: shared documents and task boards."
+        },
+        {
+          "title": "OrbitDesk plans",
+          "url": "https://example.invalid/orbitdesk/plans",
+          "description": "Synthetic rival example: seat-based subscription plans."
+        }
+        ]
+      }
+    }
+  },
+  "scrape": {
+    "url": "https://example.invalid/acmework",
+    "text": "AcmeWork combines team tasks and notes in one place. Offline fixture text only. Shared boards, document pages, and exportable project reports.",
+    "metadata": {"title": "AcmeWork synthetic product page"}
+  }
+}

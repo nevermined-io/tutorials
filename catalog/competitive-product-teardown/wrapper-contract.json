@@ -1,0 +1,32 @@
+{
+  "brave": {
+    "confirmed_by_paid_smoke_test": true,
+    "confirmation_date": "2026-09-15",
+    "slug": "brave-search-via-mpp",
+    "path": "/brave/web-search",
+    "method": "POST",
+    "request_shape": {"q": "string", "count": "integer"},
+    "response_shape": {"success": "boolean", "data": {"web": {"results": [{"title": "string", "url": "string", "description": "string"}]}}},
+    "basis": "bounded paid Router /route smoke: body.data.web.results delivered, merchant Settled, $0.035"
+  },
+  "serper": {
+    "confirmed_by_paid_smoke_test": true,
+    "confirmation_date": "2026-09-15",
+    "slug": "serper-scrape",
+    "path": "/",
+    "method": "POST",
+    "request_shape": {"url": "string"},
+    "response_shape": {"text": "string", "metadata": "object", "credits": "unknown"},
+    "basis": "bounded paid Router /route smoke: body.text delivered, merchant Settled, $0.020 plus 1-cent buyer fee"
+  },
+  "deepseek": {
+    "confirmed_by_paid_smoke_test": true,
+    "confirmation_date": "2026-09-15",
+    "slug": "deepseek",
+    "path": "/deepseek/chat",
+    "method": "POST",
+    "request_shape": {"model": "deepseek-v4-flash", "messages": [{"role": "string", "content": "string"}], "max_tokens": "integer", "stream": false},
+    "response_shape": {"success": "boolean", "data": {"choices": [{"message": {"content": "string"}}]}},
+    "basis": "Locus payable skill plus bounded paid Router /route smoke: body.data.choices delivered, merchant Settled, $0.004"
+  }
+}

@@ -17,6 +17,8 @@ That's this demo.
 
 > From our run on 2026-09-02 — headline: *"Whatever the AI Future Is, We're in It Right Now"* (The Atlantic). Total cost: **about 16 cents**. Human clicks: **zero**.
 
+> Two bounded Live repeats on **2026-09-15** delivered audio and cover in the ignored `out/` folder. The first settled nine payments for **$0.1705**; the second, after receipt and timing fixes, settled seven for **$0.1605** and delivered its first headline in **8 seconds**. The second run consumed **20¢** of its 50¢ delegation cap because per-call cap accounting rounds up sub-cent charges. Different Suno status-check counts explain the spend difference. See [`BUILD_LOG.md`](./BUILD_LOG.md).
+
 ---
 
 ## Why this is interesting
@@ -40,7 +42,7 @@ You give the agent **one prompt**. Behind the scenes it does four things, in ord
 | 3 | Turns the lyrics into a full, sung song | an AI music service |
 | 4 | Paints a matching album cover | an AI image service |
 
-Each service is one it found in the **Nevermined Catalog** — a directory of pay-per-use services built for AI agents. It pays through the **Nevermined Router**, so the agent never has to learn how each provider wants to be paid; the Router sorts that out and settles the payment.
+Each service is listed in the **Nevermined Catalog** — a directory of pay-per-use services built for AI agents. The script verifies each catalog slug before paying through the **Nevermined Router**. The Router resolves the merchant host and settles the payment.
 
 Across the four services, the agent paid using **two different payment methods** over **two different blockchains** — and it never once asked a human to pay.
 
@@ -54,13 +56,13 @@ It's not told which services to use or how to pay them. It works that out itself
 
 ## The receipt (proof it really paid)
 
-Every purchase is a real payment, recorded on a public blockchain, all under the single budget you set:
+The table below describes the **2026-09-02 example run**. The two September 15 repeats needed five and three paid status checks, costing $0.1705 and $0.1605 respectively. Each ran under its own capped delegation.
 
 | Service | Step | Cost |
 |---------|------|------|
 | Brave | today's headline | $0.035 |
 | 2s.io | the lyrics | $0.0025 |
-| Suno | the song | $0.105 (+ small status checks) |
+| Suno | the song | $0.105 (+ paid status checks, currently listed at $0.005 each) |
 | fal.ai | the album cover | $0.003 |
 | **Total** | | **~$0.16** |
 
@@ -68,7 +70,7 @@ Four vendors, two payment rails, two blockchains, sixteen cents — zero clicks.
 
 ## Try it yourself
 
-**You'll need:** a Nevermined account API key, and a little real balance (this runs on live blockchains — about **$0.16** per run, so keep the budget small).
+**You'll need:** `jq`, `curl`, a Nevermined account API key, a broker-enabled API that accepts Catalog `slug`/`path` routing, and real balance. The observed runs cost about **$0.16** (September 2), **$0.1705** and **$0.1605** (September 15); status polling, provider prices, and incomplete responses can change the spend and outcome.
 
 1. Save your key in a file the script can read:
    ```bash
@@ -81,9 +83,9 @@ Four vendors, two payment rails, two blockchains, sixteen cents — zero clicks.
    ```bash
    ./run-demo.sh
    ```
-   The script sets up a small capped budget, then runs the four steps above, printing what it buys and downloading the finished `song.mp3` and `album-cover.jpg`.
+   The script verifies the four Catalog slugs, creates a capped budget, and runs the four steps. A successful repeat downloads new artifacts to `out/song.mp3` and `out/album-cover.jpg`; the checked-in examples above remain intact. If lyrics, audio, cover, or a settled Router body is missing, it exits without claiming a completed song.
 
-> ⚠️ **Real money.** Each run spends ~$0.16 on live blockchains. The script caps the budget at 50¢ and 10 minutes so it can never overspend.
+> ⚠️ **Real money.** The script caps delegation spending at 50¢ for 10 minutes. It can make up to 12 paid Suno status checks, so a run can cost more than either observed run. A returned `taskId` does not guarantee a downloadable song; check both files in `out/` and the payment receipt.
 
 ## The prompt file
 
