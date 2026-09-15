@@ -71,9 +71,10 @@ Each tutorial declares a **tier**:
   200 + settlement` — with a real per-session credit balance that decrements per call and
   responses that react to what you type. It talks to a **local sandbox agent**
   (`lib/demo-agent.mjs`), so it spends no real money and needs no credentials or backend.
-- **`recap`** — the two paid `catalog/` demos spend real crypto autonomously across chains, so they are
-  **watch-only**: embedded video, playable outputs, the on-chain receipt, and a "run it locally"
-  note.
+- **`recap`** — paid `catalog/` demos are review-only in the browser. A recording and
+  playable outputs appear where public media exists; otherwise the page shows the
+  observed receipt and links to a redacted sample. Run the source tutorial locally
+  with your own capped buyer delegation to make fresh paid calls.
 - **`discover`** — the catalog *discovery* demo (`discover-the-catalog`) is read-only and free, so its
   `See it run` panel is **functional in the browser**: it queries the real, public catalog live (REST,
   the Catalog MCP, and the ARD registry) through the `/api/catalog` same-origin proxy — no credentials,

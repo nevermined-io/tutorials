@@ -81,7 +81,8 @@ export interface LiveRun {
   note: string;
 }
 
-/** Section 4 (recap) — watch it run; no live backend (real money / autonomy). */
+/** Section 4 (recap) — review the paid run via public media when available,
+ * otherwise via the receipt and redacted sample; no live backend. */
 export interface RecapRun {
   kind: "recap";
   video?: {

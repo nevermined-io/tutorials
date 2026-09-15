@@ -17,7 +17,7 @@ tutorials/
 ├── langchain-deep-agent-py/      # Same pattern on the Deep Agents harness; paid tool in a subagent
 ├── langchain-langsmith-deployment-py/  # Route-level ASGI PaymentMiddleware (Python)
 ├── langchain-chat-ui-nvm/  # Next.js browser chat UI with the x402 card-delegation popup
-├── catalog/                # Video showcase demos (song-from-the-headlines, diligence-in-a-box)
+├── catalog/                # Discovery, paid outcome tutorials, redacted samples, and showcase media
 └── mcp-examples/           # Model Context Protocol (MCP) examples
     ├── weather-mcp/        # TypeScript MCP server (has CLAUDE.md)
     └── weather-mcp-py/     # Python MCP server
