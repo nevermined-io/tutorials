@@ -10,6 +10,10 @@ A collection of practical tutorials demonstrating how to integrate **Nevermined 
 
 💻 **Frontend repository**: [https://github.com/nevermined-io/demo-ui-monorepo/](https://github.com/nevermined-io/demo-ui-monorepo/)
 
+## Catalog outcome tutorials
+
+The [tutorials Showcase](https://tutorials.nevermined.app/) presents the Catalog discovery and paid-run recaps. The source tutorials and redacted representative results are in [catalog/](catalog/README.md), including the [SEC earnings evidence pack](catalog/sec-earnings-evidence-pack/README.md) and [competitive product teardown](catalog/competitive-product-teardown/README.md). Run a paid tutorial locally with your own key and a capped delegation; raw Router envelopes and payment records stay in ignored `out/` folders.
+
 ## What is Nevermined Payments?
 
 Nevermined Payments is a platform that enables developers to monetize AI agents and services through blockchain-based credit systems with Stripe checkout integration. It provides:

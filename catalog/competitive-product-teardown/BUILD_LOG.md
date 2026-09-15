@@ -16,7 +16,7 @@ A fresh 25¢ / 10-minute delegation repeated all three steps with the shorter pr
 
 The runner generated [redacted Markdown](sample/teardown.md) and [JSON](sample/teardown.json) from the paid responses. Both name the public Firefox source, cite five Brave search results, include bounded excerpts and a review action, mark model text as a hypothesis, and distinguish the $0.069 charge from the 8¢ cap consumption. The builder stripped HTML tags/entities from Brave snippets before writing these representative files. The sample contains no buyer key, email address, payment ID, or raw HTML tags; all six cited HTTPS URLs returned unauthenticated HTTP 200 on 2026-09-15. A later read-only Router audit found all three buyer-fee statuses `Settled`; the sample retains the immediate `Submitted` state to show what the runner saw before reconciliation. Private raw Router responses remain ignored in `out/` and are never part of the sample.
 
-The sample folder and code are prepared locally; their GitHub URLs must be checked after publication before the Catalog outcome links are released. Prices, ranking, page copy, model output, buyer fees, and timing can change on another run.
+The redacted sample folder and code were published on the tutorials repository's `main` branch in PR #77; their public GitHub URLs returned unauthenticated HTTP 200 after merge. Prices, ranking, page copy, model output, buyer fees, and timing can change on another run.
 
 ## 2026-09-15 local follow-up and fee reconciliation
 

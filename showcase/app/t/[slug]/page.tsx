@@ -32,6 +32,14 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
   if (!t) notFound();
 
   const isRecap = t.tier === "recap";
+  const evidenceOnly = t.run.kind === "recap" && !t.run.video;
+  const tierLabel = evidenceOnly
+    ? "recap · review the run"
+    : isRecap
+      ? "recap · watch it run"
+      : t.tier === "discover"
+        ? "discover · free & live"
+        : "live · you pay per call";
   // discover tutorials keep the demo (§4) and the video in a separate §5
   const discoverVideo = t.run.kind === "discover" ? t.run.video : undefined;
 
@@ -55,13 +63,7 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
             </span>
           ))}
           <span className={`tier ${t.tier}`}>
-            {t.tier === "recap"
-              ? t.run.kind === "recap" && !t.run.video
-                ? "recap · review the run"
-                : "recap · watch it run"
-              : t.tier === "discover"
-                ? "discover · free & live"
-                : "live · you pay per call"}
+            {tierLabel}
           </span>
         </div>
         <h1>{t.title}</h1>
@@ -186,7 +188,7 @@ export default async function TutorialPage({ params }: { params: Promise<{ slug:
         <section className="block wide" id="run">
           <div className="h2">
             <span className="num">4</span>{" "}
-            {t.run.kind === "recap" && !t.run.video ? "Review the run" : "See it run"}
+            {evidenceOnly ? "Review the run" : "See it run"}
           </div>
           {t.run.kind === "live" ? (
             <LiveRunPanel slug={t.slug} run={t.run} title={t.title} />

@@ -1,4 +1,5 @@
 import type { Tutorial, Protocol } from "@/lib/types";
+import { repoFileUrl } from "@/lib/repo";
 
 // Every entry is sourced from the tutorial's own README in this repo.
 // Order here is the gallery order.
@@ -741,10 +742,11 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
           ["Brave", "today's headline", "$0.035"],
           ["2s.io", "the lyrics", "$0.0025"],
           ["Suno", "the song", "$0.105"],
+          ["Suno status checks", "3 × $0.005 polling", "$0.015"],
           ["fal.ai", "the album cover", "$0.003"],
           ["Total", "7 settled calls · 2 chains", "$0.1605"],
         ],
-        totalRow: 4,
+        totalRow: 5,
       },
       warn: "The September 15 Live follow-up made seven Settled payments totaling $0.1605, delivered its first headline in 8 seconds, and consumed 20¢ of a 50¢ delegation cap. Its new audio and cover stay private; the playable media here is the earlier public reference run. Running the script yourself spends real money.",
       interactive: [
@@ -851,8 +853,14 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
       },
     },
     tech: {
-      stack: ["Nevermined Catalog", "Router", "SEC EDGAR", "Alpha Vantage", "10¢ cap"],
-      samples: [],
+      stack: ["Nevermined Catalog", "Router", "bash runner", "Python builder", "SEC EDGAR", "Alpha Vantage", "10¢ cap"],
+      samples: [
+        {
+          caption: "bounded Apple Live run — requires your own funded buyer key",
+          lang: "bash",
+          code: "CIK=320193 SYMBOL=AAPL COMPANY=Apple ./run-demo.sh",
+        },
+      ],
       files: [
         { path: "run-demo.sh", desc: "five-call bounded Live runner" },
         { path: "build-pack.py", desc: "offline evidence builder from saved paid responses" },
@@ -875,7 +883,7 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
       },
       warn: "The September 15 Live run delivered its first result in 10 seconds and finished in 41 seconds. It spent real money; the public sample is redacted and is evidence, not investment advice. Raw Router envelopes and payment records remain private.",
       interactive: [
-        { label: "Read the redacted evidence pack", href: "https://github.com/nevermined-io/tutorials/blob/main/catalog/sec-earnings-evidence-pack/sample/evidence.md" },
+        { label: "Read the redacted evidence pack", href: repoFileUrl("catalog/sec-earnings-evidence-pack/", "sample/evidence.md") },
       ],
     },
   },
@@ -913,7 +921,13 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
     },
     tech: {
       stack: ["Nevermined Catalog", "Router", "Brave", "Serper", "DeepSeek", "25¢ cap"],
-      samples: [],
+      samples: [
+        {
+          caption: "free synthetic preview — no buyer key or payment",
+          lang: "bash",
+          code: "python3 run.py && cat out/teardown.md",
+        },
+      ],
       files: [
         { path: "run.py", desc: "bounded Live runner and free synthetic fixture mode" },
         { path: "wrapper-contract.json", desc: "verified payable paths and response wrappers" },
@@ -932,9 +946,9 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
         ],
         totalRow: 3,
       },
-      warn: "The later Live follow-up delivered its first result in 13.48 seconds and consumed 8¢ of its 25¢ cap. The linked redacted sample comes from an earlier complete run. The model draft is unverified; check the cited pages before using the comparison. Running the Live script spends real money.",
+      warn: "The later Live follow-up delivered its first result in 13.48 seconds. The earlier representative run consumed 8¢ of its 25¢ cap, and its redacted sample is linked here. The model draft is unverified; check the cited pages before using the comparison. Running the Live script spends real money.",
       interactive: [
-        { label: "Read the redacted teardown", href: "https://github.com/nevermined-io/tutorials/blob/main/catalog/competitive-product-teardown/sample/teardown.md" },
+        { label: "Read the redacted teardown", href: repoFileUrl("catalog/competitive-product-teardown/", "sample/teardown.md") },
       ],
     },
   },
