@@ -1,0 +1,223 @@
+<title>Brake On The Code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rye&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,400&family=Spectral:ital,wght@0,400;0,600;1,400&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  :root{
+    --ground:#160f0a; --ground2:#1d140d; --panel:#241a11; --panel2:#2c2015;
+    --line:#3d2c1d; --line2:#503a26;
+    --bone:#efe4d2; --muted:#ab947b; --faint:#7d6a56;
+    --rust:#cf5d22; --ember:#e79a4a; --blood:#8f3315; --teal:#5f9a92;
+    --good:#8a9a4e;
+    --sleeve-max:1080px; --fs-body:1.06rem;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ground); color:var(--bone);
+    font-family:"Spectral",Georgia,serif; font-size:var(--fs-body); line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(207,93,34,.10), transparent 60%),
+      radial-gradient(90% 60% at 90% 110%, rgba(95,154,146,.08), transparent 60%);
+  }
+  .wrap{max-width:var(--sleeve-max); margin:0 auto; padding-inline:20px; padding-block:0}
+  a{color:var(--ember); text-decoration:none; border-bottom:1px solid rgba(231,154,74,.32)}
+  a:hover{color:var(--bone); border-bottom-color:var(--bone)}
+  :focus-visible{outline:2px solid var(--ember); outline-offset:3px; border-radius:3px}
+  img{max-width:100%; display:block}
+  h1,h2,h3{text-wrap:balance; margin:0}
+  .eyebrow{font-family:"Space Mono",monospace; text-transform:uppercase; letter-spacing:.22em; font-size:.72rem; color:var(--rust); font-weight:700}
+
+  /* HERO */
+  .hero{padding-top:calc(46px + env(safe-area-inset-top,0px)); padding-bottom:52px}
+  .sleeve{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:40px; align-items:center}
+  .art{position:relative}
+  .art .glow{position:absolute; inset:-8% -8% -14% -8%; background:radial-gradient(closest-side, rgba(207,93,34,.42), transparent 72%); filter:blur(26px); z-index:0; animation:flick 6.5s ease-in-out infinite}
+  @keyframes flick{0%,100%{opacity:.5}50%{opacity:.92}}
+  .art figure{position:relative; z-index:1; margin:0; border:1px solid var(--line2); box-shadow:0 26px 60px -24px rgba(0,0,0,.85), 0 2px 0 rgba(239,228,210,.05) inset}
+  .art img{aspect-ratio:1/1; object-fit:cover}
+  .art figcaption{font-family:"Space Mono",monospace; font-size:.68rem; color:var(--faint); padding:8px 10px; background:var(--ground2); border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:10px; text-transform:uppercase; letter-spacing:.1em}
+  .titleblock .kicker{margin-bottom:14px}
+  h1{font-family:"Rye",cursive; font-weight:400; line-height:.98; font-size:clamp(2.7rem,7.5vw,5rem); color:var(--bone); text-shadow:0 2px 0 var(--blood), 0 3px 22px rgba(0,0,0,.6)}
+  .subtitle{font-family:"Fraunces",serif; font-style:italic; font-size:clamp(1.05rem,2.6vw,1.32rem); color:var(--muted); margin-top:16px; max-width:36ch}
+  .byline{font-family:"Space Mono",monospace; font-size:.72rem; color:var(--faint); margin-top:14px; letter-spacing:.04em}
+  .byline b{color:var(--teal)}
+
+  /* player */
+  .player{margin-top:24px; background:var(--panel); border:1px solid var(--line2); padding:18px 18px 16px; box-shadow:0 14px 34px -22px rgba(0,0,0,.8)}
+  .nowplaying{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px}
+  .nowplaying .t{font-family:"Space Mono",monospace; font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+  .nowplaying .len{font-family:"Space Mono",monospace; font-size:.72rem; color:var(--ember)}
+  audio{width:100%; height:40px; filter:sepia(.35) saturate(1.25) hue-rotate(-8deg)}
+  .playnote{font-family:"Space Mono",monospace; font-size:.62rem; color:var(--faint); margin-top:10px; text-transform:uppercase; letter-spacing:.08em}
+
+  /* SECTIONS */
+  section{padding-block:44px; border-top:1px solid var(--line)}
+  .sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:24px; flex-wrap:wrap}
+  .sec-head h2{font-family:"Fraunces",serif; font-weight:900; font-size:clamp(1.5rem,4vw,2.1rem); letter-spacing:-.01em}
+  .sec-head .n{font-family:"Space Mono",monospace; color:var(--rust); font-size:.9rem; font-weight:700}
+  .lede{color:var(--muted); max-width:66ch; margin:0 0 8px}
+
+  /* headlines */
+  .heads{display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line)}
+  .head{background:var(--ground2); padding:18px 18px 16px; display:flex; flex-direction:column; gap:9px}
+  .head .src{font-family:"Space Mono",monospace; font-size:.68rem; text-transform:uppercase; letter-spacing:.12em; color:var(--rust); display:flex; justify-content:space-between; gap:8px}
+  .head .src .age{color:var(--faint)}
+  .head h3{font-family:"Fraunces",serif; font-weight:600; font-size:1.06rem; line-height:1.25}
+  .head p{margin:0; font-size:.9rem; color:var(--muted); line-height:1.5}
+  .head a.more{margin-top:auto; font-family:"Space Mono",monospace; font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; border:0}
+
+  /* lyrics */
+  .lyrics{columns:2; column-gap:56px; max-width:860px}
+  @media(max-width:640px){.lyrics{columns:1}}
+  .stanza{break-inside:avoid; margin:0 0 22px; padding-left:18px; border-left:2px solid var(--line2)}
+  .stanza.chorus{border-left-color:var(--rust); background:linear-gradient(90deg, rgba(207,93,34,.06), transparent 80%)}
+  .stanza.bridge{border-left-color:var(--teal)}
+  .stanza .tag{font-family:"Space Mono",monospace; font-size:.64rem; letter-spacing:.2em; text-transform:uppercase; color:var(--rust); display:block; margin-bottom:7px}
+  .stanza.bridge .tag{color:var(--teal)}
+  .stanza p{font-family:"Fraunces",serif; font-size:1.1rem; line-height:1.65; margin:0; color:var(--bone)}
+  .stanza.chorus p{font-style:italic; color:var(--ember)}
+
+  /* pipeline / how it was made */
+  .pipe{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:26px}
+  .step{background:var(--ground2); padding:16px 16px 15px; display:flex; flex-direction:column; gap:6px}
+  .step .k{font-family:"Space Mono",monospace; font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+  .step .svc{font-family:"Space Mono",monospace; font-size:.82rem; color:var(--ember); font-weight:700; word-break:break-word}
+  .step .did{font-size:.9rem; color:var(--muted); line-height:1.45}
+  .step .price{font-family:"Space Mono",monospace; font-size:.72rem; color:var(--bone); margin-top:auto}
+
+  /* receipt */
+  .receipt{background:var(--panel); border:1px solid var(--line2)}
+  .receipt .rtop{padding:20px 22px; border-bottom:1px dashed var(--line2); display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap}
+  .receipt .rtop .lbl{font-family:"Space Mono",monospace; text-transform:uppercase; letter-spacing:.14em; font-size:.7rem; color:var(--faint)}
+  .receipt .rtop .big{font-family:"Rye",cursive; font-size:2rem; color:var(--ember); line-height:1}
+  .tablewrap{overflow-x:auto}
+  .ledger{width:100%; border-collapse:collapse; font-family:"Space Mono",monospace; font-size:.82rem}
+  .ledger th,.ledger td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+  .ledger th{color:var(--faint); text-transform:uppercase; letter-spacing:.1em; font-size:.66rem; font-weight:700}
+  .ledger td .svc{color:var(--bone)}
+  .ledger td .do{color:var(--muted); font-family:"Spectral",serif; font-size:.92rem}
+  .ledger td.cost{color:var(--ember); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
+  .ledger td .tx{color:var(--faint); font-size:.66rem; display:block; margin-top:3px; word-break:break-all}
+  .ledger tr.warn td .do{color:var(--muted)}
+  .ledger tr.warn td.cost{color:var(--faint)}
+  .ledger tfoot td{border-bottom:0; border-top:2px solid var(--line2); font-weight:700; color:var(--bone)}
+  .ledger tfoot td.cost{color:var(--ember)}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; padding:16px 22px 20px}
+  .chip{font-family:"Space Mono",monospace; font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); border:1px solid var(--line2); padding:5px 10px}
+  .chip b{color:var(--ember); font-weight:700}
+
+  footer{padding-block:40px 60px; border-top:1px solid var(--line); color:var(--faint); font-family:"Space Mono",monospace; font-size:.74rem; line-height:1.9}
+  footer .credits{display:flex; gap:8px 22px; flex-wrap:wrap; margin-bottom:18px}
+  footer .fine{max-width:72ch; text-transform:none; font-family:"Spectral",serif; font-size:.92rem; color:var(--faint)}
+
+  @media(max-width:760px){ .sleeve{grid-template-columns:1fr; gap:30px} .art{max-width:420px; margin-inline:auto} }
+  @media(prefers-reduced-motion:reduce){.art .glow{animation:none}}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="sleeve">
+      <div class="art">
+        <div class="glow" aria-hidden="true"></div>
+        <figure>
+          <img src="album-cover.jpg" alt="Silhouetted cowboy playing guitar beside giant robot at sunset">
+          <figcaption><span>Cover · fal.ai FLUX.1 [dev]</span><span>1024 × 1024</span></figcaption>
+        </figure>
+      </div>
+      <div class="titleblock">
+        <div class="kicker eyebrow">Delta Blues · Composed &amp; paid for by an agent · Sept 2026</div>
+        <h1>Brake On<br>The Code</h1>
+        <p class="subtitle">A field-recording lament for the week the machine kings all reached for the brake.</p>
+        <p class="byline">Words by <b>Suno AI</b> · voice &amp; music <b>Suno V4.5</b> · cover <b>FLUX.1</b> · headlines <b>Brave</b> · caption <b>2s.io / Claude Haiku</b> · discovery &amp; payment <b>Nevermined</b></p>
+        <div class="player">
+          <div class="nowplaying"><span class="t">Take 1 · full band</span><span class="len">5:05</span></div>
+          <audio controls preload="metadata" src="song.mp3"></audio>
+          <p class="playnote">Take 1 of 2 · full-quality master · song-take2.mp3 sits alongside this file</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="story">
+    <div class="sec-head"><span class="n">I.</span><h2>The dispatch it was built from</h2></div>
+    <p class="lede">One weekend in September 2026, the biggest AI labs — who agree on almost nothing — set aside their feuds and jointly called to <em>slow down</em>. "Pacing the Frontier," they named it: safety over speed. Admirers called it wisdom; skeptics called it a moat; Beijing called it a Cold War tactic. An agent pulled these real headlines from Brave Search, then a language model turned them into a songwriting brief.</p>
+    <div class="heads"><article class="head"><div class="src"><span>The Guardian</span><span class="age">1 day ago</span></div><h3>AI safety requires more than just slowing our pace | Stuart Russell</h3><p>Safety requirements are non-negotiable. They depend on meeting concrete goals, not just adjusting a timeline</p><a class="more" href="https://theguardian.com/commentisfree/2026/sep/15/ai-safety-requirements" target="_blank" rel="noopener">read →</a></article>
+<article class="head"><div class="src"><span>Ars Technica</span><span class="age">2 days ago</span></div><h3>AI leaders want to hit the brakes after years of reckless speed</h3><p>Safety is the watchword, but there could be ulterior benefits for the industry.</p><a class="more" href="https://arstechnica.com/ai/2026/09/ai-leaders-want-to-hit-the-brakes-after-years-of-reckless-speed" target="_blank" rel="noopener">read →</a></article>
+<article class="head"><div class="src"><span>The Conversation</span><span class="age">2 days ago</span></div><h3>Big AI wants to slow down AI research. Is it a safety pause or a strategic retreat?</h3><p>AI companies are calling for a coordinated pause to progress – but making it work, and keeping AI safe, won’t be easy.</p><a class="more" href="https://theconversation.com/big-ai-wants-to-slow-down-ai-research-is-it-a-safety-pause-or-a-strategic-retreat-291867" target="_blank" rel="noopener">read →</a></article>
+<article class="head"><div class="src"><span>The Guardian</span><span class="age">2 days ago</span></div><h3>AI CEOs say they need to slow the pace of development. But will they? | AI (artificial intelligence)</h3><p>After apocalyptic warnings about the the threats posed by AI, leaders like Sam Altman and Elon Musk backed Anthropic CEO Dario Amodei’s calls to ‘slow the pace’</p><a class="more" href="https://theguardian.com/technology/2026/sep/14/ai-ceo-safety-slowdown" target="_blank" rel="noopener">read →</a></article>
+<article class="head"><div class="src"><span>TechRadar</span><span class="age">2 days ago</span></div><h3>Pacing The Frontier: Why experts question the validity ofan AI slowdown</h3><p>As AI bosses call for a slowdown on AI development, experts are questioning whether Pacing The Frontier can be applied globally.</p><a class="more" href="https://techradar.com/pro/security/why-are-us-ai-giants-calling-for-pacing-the-frontier-and-why-is-china-calling-it-a-cold-war-tactic-we-ask-the-experts" target="_blank" rel="noopener">read →</a></article>
+<article class="head"><div class="src"><span>CNBC</span><span class="age">2 days ago</span></div><h3>OpenAI boss Sam Altman spells out how and why the AI industry wants to slow down: &#x27;We could lose control&#x27;</h3><p>OpenAI&#x27;s chief has made comments detailing how AI safety frameworks and a slowdown could work, as the industry unites behind concerns.</p><a class="more" href="https://cnbc.com/2026/09/14/sam-altman-ai-slowdown-anthropic-amodei-musk.html" target="_blank" rel="noopener">read →</a></article></div>
+  </section>
+
+  <section id="lyrics">
+    <div class="sec-head"><span class="n">II.</span><h2>The words — written by Suno</h2></div>
+    <p class="lede">No human wrote these. A 200-character factual brief about the drama went to Suno's lyric model; it returned the verses, the chorus, and the bridge below — Delta cadence and all.</p>
+    <div class="lyrics"><div class="stanza"><span class="tag">Verse 1</span><p>I heard them machine kings call, said, “boys, put the fire down”<br>I heard them machine kings call, said, “boys, put the fire down”<br>In twenty twenty-six, they scared of what they found</p></div>
+<div class="stanza"><p>They been stackin’ up those towers, high as a judgment cloud<br>They been stackin’ up those towers, high as a judgment cloud<br>Now the big names talkin’ safety, talkin’ low and loud</p></div>
+<div class="stanza chorus"><span class="tag">Chorus</span><p>Brake on the code now<br>Brake on the code now<br>The machine kings hit the brakes</p></div>
+<div class="stanza"><span class="tag">Verse 2</span><p>One lab say “hold your horses,” one lab say “lock that gate”<br>One lab say “hold your horses,” one lab say “lock that gate”<br>Same cold room, same hard faces, same old fear of late</p></div>
+<div class="stanza"><p>Paper full of warnings, thumbprints on the line<br>Paper full of warnings, thumbprints on the line<br>And the whole wide world keep listenin’ for a sign</p></div>
+<div class="stanza chorus"><span class="tag">Chorus</span><p>Brake on the code now<br>Brake on the code now<br>The machine kings hit the brakes</p></div>
+<div class="stanza"><span class="tag">Verse 3</span><p>That train was rollin’ blind, through the fog and the ache<br>That train was rollin’ blind, through the fog and the ache<br>Now they lean out the window, hear the iron shake</p></div>
+<div class="stanza"><p>Ain’t no glory in a sprint when the cliff comes near<br>Ain’t no glory in a sprint when the cliff comes near<br>Best slow that river down, boys, I can smell the fear</p></div>
+<div class="stanza bridge"><span class="tag">Bridge</span><p>Mm-hmm, the chalk dust fallin’<br>Mm-hmm, the room gone still<br>When the smart ones get frightened<br>You know the night can kill</p></div>
+<div class="stanza chorus"><span class="tag">Chorus</span><p>Brake on the code now<br>Brake on the code now<br>The machine kings hit the brakes</p></div>
+<div class="stanza"><span class="tag">Verse 4</span><p>So I sit on this porch, watch that moon turn thin<br>I sit on this porch, watch that moon turn thin<br>If they really mean them words, maybe we live again</p></div>
+<div class="stanza"><p>But if them doors swing open when the warning bells fade<br>But if them doors swing open when the warning bells fade<br>Then the same old Delta sorrow gonna keep its shade</p></div></div>
+  </section>
+
+  <section id="made">
+    <div class="sec-head"><span class="n">III.</span><h2>How the agent made it</h2></div>
+    <p class="lede">Six autonomous calls across four services — discovered in the <a href="https://nevermined.app/catalog/" target="_blank" rel="noopener">Nevermined Catalog</a> and paid per-call through the <strong>Router</strong> against one server-enforced $1.00 delegation. The agent held only an API key and a budget; it never touched a vendor account or a private key.</p>
+    <div class="pipe">
+      <div class="step"><span class="k">1 · Headlines</span><span class="svc">brave-search-via-mpp</span><span class="did">News search for the AI-slowdown story.</span><span class="price">MPP · Tempo · $0.035</span></div>
+      <div class="step"><span class="k">2 · Words</span><span class="svc">suno-mpp · generate-lyrics</span><span class="did">Wrote the delta-blues lyrics from a factual brief.</span><span class="price">MPP · Tempo · $0.030</span></div>
+      <div class="step"><span class="k">3 · Song</span><span class="svc">suno-mpp · generate-music</span><span class="did">Recorded two takes (V4.5) of the words.</span><span class="price">MPP · Tempo · $0.125</span></div>
+      <div class="step"><span class="k">4 · Cover</span><span class="svc">fal-ai-mpp · FLUX.1 [dev]</span><span class="did">Painted the album cover, 1024².</span><span class="price">MPP · Tempo · $0.025</span></div>
+      <div class="step"><span class="k">5 · Caption</span><span class="svc">2s-io · describe-image</span><span class="did">Read the cover back for alt-text (Claude Haiku).</span><span class="price">x402 · Base · $0.045</span></div>
+    </div>
+    <p class="lede" style="font-size:.92rem"><strong>What the caption model saw:</strong> <em>“A silhouetted figure in a cowboy hat sits on a wooden porch playing an acoustic guitar against a golden sunset sky. Behind him looms a massive, blurred robot figure with antenna-like protrusions, standing among power lines in a desolate landscape. The surreal composition blends classic Americana imagery with science fiction, creating a haunting scene of human artistry confronting technological dominance.”</em></p>
+
+    <div class="receipt">
+      <div class="rtop">
+        <div><div class="lbl">Drawn from delegation</div><div class="big">$0.36</div></div>
+        <div><div class="lbl">Budget cap</div><div class="big">$1.00</div></div>
+        <div><div class="lbl">Left over</div><div class="big">$0.64</div></div>
+      </div>
+      <div class="tablewrap">
+      <table class="ledger">
+        <thead><tr><th>Step</th><th>Service · slug</th><th>Rail</th><th class="cost">Merchant</th></tr></thead>
+        <tbody>
+          <tr><td>Headlines</td><td><span class="svc">brave-search-via-mpp</span><br><span class="do">News search: the AI-slowdown story</span><span class="tx">tx 0xd4b21e0814b2…045b · Tempo · Settled</span></td><td>MPP</td><td class="cost">$0.035</td></tr>
+          <tr class="warn"><td>Brief</td><td><span class="svc">2s-io · /api/ai/chat</span><br><span class="do">Tried to auto-write the brief — backend 502, retried, then pivoted</span><span class="tx">x402 · Base · Issued, not settled</span></td><td>x402</td><td class="cost">$0.015</td></tr>
+          <tr><td>Words</td><td><span class="svc">suno-mpp · generate-lyrics + status</span><br><span class="do">Suno wrote the lyrics</span><span class="tx">tx 0x94535961c84b…001d · Tempo · Settled</span></td><td>MPP</td><td class="cost">$0.030</td></tr>
+          <tr><td>Song</td><td><span class="svc">suno-mpp · generate-music + status ×4</span><br><span class="do">Two takes, mastered (V4.5)</span><span class="tx">tx 0x5663642a5b6b…e5f5 · Tempo · Settled</span></td><td>MPP</td><td class="cost">$0.125</td></tr>
+          <tr><td>Cover</td><td><span class="svc">fal-ai-mpp · FLUX.1 [dev]</span><br><span class="do">Album cover, 1024² text-to-image</span><span class="tx">tx 0x188eb7d32a5c…54f5 · Tempo · Settled</span></td><td>MPP</td><td class="cost">$0.025</td></tr>
+          <tr><td>Caption</td><td><span class="svc">2s-io · describe-image</span><br><span class="do">Alt-text &amp; description of the cover</span><span class="tx">tx 0x0c6a2d077b0d…ae4e · Base · Settled</span></td><td>x402</td><td class="cost">$0.045</td></tr>
+        </tbody>
+        <tfoot><tr><td colspan="3">Merchant settled ＋ failed retries ＋ routing → $0.36 drawn of $1.00</td><td class="cost">$0.275</td></tr></tfoot>
+      </table>
+      </div>
+      <div class="chips">
+        <span class="chip">Delegation · <b>erc4337</b></span>
+        <span class="chip">Cap · <b>$1.00 / 7 days</b></span>
+        <span class="chip">4 services · <b>2 rails</b></span>
+        <span class="chip">Rails · <b>MPP/Tempo · x402/Base</b></span>
+        <span class="chip">Nothing written by the operator · <b>fully delegated</b></span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="credits">
+      <span>WORDS + SONG · Suno V4.5</span>
+      <span>COVER · fal.ai FLUX.1 [dev]</span>
+      <span>HEADLINES · Brave Search</span>
+      <span>CAPTION · 2s.io (Claude Haiku)</span>
+      <span>DISCOVERY + PAYMENTS · Nevermined Catalog + Router</span>
+    </div>
+    <p class="fine">Every creative element here was produced by an AI service and paid for autonomously; the operator wrote no lyrics, only a factual brief and the production prompts. Lyrics reference real, dated news headlines (linked above); names of public figures appear only as they did in those headlines. A small novelty record made to demonstrate an agent discovering and paying for tools on its own — nothing here is an official statement by any company or person named.</p>
+  </footer>
+</div>
