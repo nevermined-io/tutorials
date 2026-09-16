@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brake On The Code</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -115,6 +120,8 @@
   @media(max-width:760px){ .sleeve{grid-template-columns:1fr; gap:30px} .art{max-width:420px; margin-inline:auto} }
   @media(prefers-reduced-motion:reduce){.art .glow{animation:none}}
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header class="hero">
@@ -197,12 +204,12 @@
           <tr><td>Cover</td><td><span class="svc">fal-ai-mpp · FLUX.1 [dev]</span><br><span class="do">Album cover, 1024² text-to-image</span><span class="tx">tx 0x188eb7d32a5c…54f5 · Tempo · Settled</span></td><td>MPP</td><td class="cost">$0.025</td></tr>
           <tr><td>Caption</td><td><span class="svc">2s-io · describe-image</span><br><span class="do">Alt-text &amp; description of the cover</span><span class="tx">tx 0x0c6a2d077b0d…ae4e · Base · Settled</span></td><td>x402</td><td class="cost">$0.045</td></tr>
         </tbody>
-        <tfoot><tr><td colspan="3">Merchant settled ＋ failed retries ＋ routing → $0.36 drawn of $1.00</td><td class="cost">$0.275</td></tr></tfoot>
+        <tfoot><tr><td colspan="3">Merchant settled ＋ the failed retry (routing brings the drawn total to $0.36 of $1.00)</td><td class="cost">$0.275</td></tr></tfoot>
       </table>
       </div>
       <div class="chips">
         <span class="chip">Delegation · <b>erc4337</b></span>
-        <span class="chip">Cap · <b>$1.00 / 7 days</b></span>
+        <span class="chip">Cap · <b>$1.00 / 7 days (historical run)</b></span>
         <span class="chip">4 services · <b>2 rails</b></span>
         <span class="chip">Rails · <b>MPP/Tempo · x402/Base</b></span>
         <span class="chip">Nothing written by the operator · <b>fully delegated</b></span>
@@ -221,3 +228,5 @@
     <p class="fine">Every creative element here was produced by an AI service and paid for autonomously; the operator wrote no lyrics, only a factual brief and the production prompts. Lyrics reference real, dated news headlines (linked above); names of public figures appear only as they did in those headlines. A small novelty record made to demonstrate an agent discovering and paying for tools on its own — nothing here is an official statement by any company or person named.</p>
   </footer>
 </div>
+</body>
+</html>

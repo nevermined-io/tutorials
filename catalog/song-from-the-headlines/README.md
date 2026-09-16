@@ -55,7 +55,7 @@ It's not told which services to use or how to pay them. It works that out itself
 
 ## The receipt (proof it really paid)
 
-This is the actual **2026-09-16 run**, against Production Live, under one server-enforced **$1.00** delegation. On-chain transaction hashes are public; the delegation ID, wallet, and credentials are not recorded here.
+This is the actual **2026-09-16 run**, against Production Live, under one server-enforced **$1.00** delegation. The transaction hashes below are public on-chain records — like any blockchain payment, they identify the settling wallet and its balances, which is inherent to publishing them. The delegation ID and the API credentials are **not** committed anywhere in this tutorial.
 
 | Step | Service · Catalog slug | What it did | Rail / chain | Settled |
 |------|------------------------|-------------|--------------|--------:|

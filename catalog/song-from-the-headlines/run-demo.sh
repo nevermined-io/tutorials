@@ -78,20 +78,25 @@ echo "▸ Discovering services in the Nevermined Catalog…"
 BRAVE=$(catalog_slug brave brave-search-via-mpp) || { echo "Brave unavailable in Catalog" >&2; exit 1; }
 SUNO=$(catalog_slug suno suno-mpp)               || { echo "Suno unavailable in Catalog" >&2; exit 1; }
 FAL=$(catalog_slug fal fal-ai-mpp)               || { echo "fal.ai unavailable in Catalog" >&2; exit 1; }
-TWOS=$(catalog_slug 2s 2s-io)                    || { echo "2s.io unavailable in Catalog" >&2; exit 1; }
-# Verify every POST path we intend to pay for BEFORE creating the delegation. A wrong/renamed path
-# aborts here for free (no money spent) instead of burning a paid 400 to discover the schema.
+# 2s.io is the caption service only — decorative, best-effort (step 5), on the other rail. Resolve it
+# best-effort (empty on failure) so a delist/rename of a NON-deliverable never costs the reader the
+# song and cover. Its FRICTION.md entry (this PR) records its /api/ai/* backend 5xx-ing, so this is
+# not hypothetical. Brave/Suno/fal stay fatal below — those are the actual deliverable.
+TWOS=$(catalog_slug 2s 2s-io) || TWOS=""
+[ -n "$TWOS" ] && catalog_path "$TWOS" /api/ai/describe-image || TWOS=""
+# Verify every DELIVERABLE POST path we intend to pay for BEFORE creating the delegation. A
+# wrong/renamed path aborts here for free (no money spent) instead of burning a paid 400.
 catalog_path "$BRAVE" /brave/news-search        && \
 catalog_path "$SUNO"  /suno/generate-lyrics      && catalog_path "$SUNO" /suno/get-lyrics-status && \
 catalog_path "$SUNO"  /suno/generate-music       && catalog_path "$SUNO" /suno/get-music-status  && \
-catalog_path "$FAL"   /fal-ai/flux/dev           && catalog_path "$TWOS" /api/ai/describe-image  || {
+catalog_path "$FAL"   /fal-ai/flux/dev           || {
   echo "A required POST path is missing from the current Catalog detail; no delegation created" >&2; exit 1; }
-echo "  slugs: $BRAVE · $SUNO · $FAL · $TWOS"
+echo "  slugs: $BRAVE · $SUNO · $FAL${TWOS:+ · $TWOS}"
 
 # ── capped budget ────────────────────────────────────────────────────────────
 # $1.00 hard cap — the real protection. The window is short on purpose: the async Suno polls finish
 # in a couple of minutes, and a demo script should never leave a week-long spend authorization open.
-# ponytail: 15-min window is plenty for this pipeline; the cap, not the clock, is what bounds spend.
+# The cap, not the clock, is what bounds spend.
 echo "▸ Creating a capped budget (\$1.00 / 15 min)…"
 DEL_ID=$(auth_curl -fsS --max-time 30 -X POST "$API_BASE/api/v1/delegation/create" \
   -d '{"provider":"erc4337","currency":"usdc","spendingLimitCents":100,"durationSecs":900,
@@ -130,7 +135,7 @@ echo "  brief (${#BRIEF} chars): $BRIEF"
 # ── 2. Suno — WRITE THE LYRICS from the brief  [MPP · Tempo] (async) ──────────
 # Suno is async: generate-* returns a taskId; poll get-*-status (FRESH request-id each poll) until it
 # resolves. callBackUrl is REQUIRED on every generate call even when you intend to poll — pass a
-# placeholder. Model must be in the allowed set (V3_5/V4/V4_5/V5/…); "V3_5" is fine here for lyrics.
+# placeholder. (generate-lyrics takes no model; the model choice lives on generate-music at step 3.)
 echo "▸ 2/5  Suno writes the words (generate-lyrics)…"
 LJOB=$(route_slug_post "$SUNO" /suno/generate-lyrics \
   "$(jq -n --arg p "$BRIEF" '{prompt:$p, callBackUrl:"https://example.com/callback"}')")
@@ -141,9 +146,11 @@ for i in $(seq 1 8); do
   sleep 8
   LST=$(route_slug_post "$SUNO" /suno/get-lyrics-status "$(jq -n --arg t "$LTASK" '{taskId:$t}')") || {
     echo "  ✗ Suno lyrics-status payment failed; inspect the ledger before retrying" >&2; exit 1; }
-  # The finished lyric text is nested (data.response.data[].text on sunoapi.org). Pull the longest
-  # non-empty string field that looks like lyrics, regardless of exact nesting.
-  LYRICS=$(jq -r '[.. | (.text? // .lyrics? // .prompt?) // empty] | map(select(type=="string" and (length>40))) | .[0] // empty' <<<"$LST" 2>/dev/null) || LYRICS=""
+  # The finished lyric text is nested (data.response.data[].text on sunoapi.org). Pull the LONGEST
+  # non-empty string field that looks like lyrics, regardless of exact nesting — max_by(length), not
+  # first-in-document-order: a status body can echo the submitted brief (≤200 chars, >40) before the
+  # finished text appears, and taking the first would hand the brief — not Suno's lyrics — to step 3.
+  LYRICS=$(jq -r '[.. | (.text? // .lyrics? // .prompt?) // empty] | map(select(type=="string" and (length>40))) | max_by(length) // empty' <<<"$LST" 2>/dev/null) || LYRICS=""
   [ -n "$LYRICS" ] && break
   echo "  …still writing ($i)"
 done
@@ -184,10 +191,14 @@ echo "  cover: $COVER"
 # ── 5. 2s.io — read the cover back for a caption  [x402 · Base]  (best-effort) ─
 # The only step on the other rail (x402 on Base). It's decorative alt-text, not a deliverable, so a
 # failure here (2s.io's /api/ai/* backend 5xx'd during the recorded run) never fails the song+cover.
+# route_slug_post's stderr (the HTTP code) is left visible on purpose — in a tutorial about a legible
+# paid pipeline, the one call that is expected to flake should still say WHY, not just "<unavailable>".
 echo "▸ 5/5  Captioning the cover (2s.io describe-image, Claude Haiku)…"
 CAPTION=""
-if CAP=$(route_slug_post "$TWOS" /api/ai/describe-image "$(jq -n --arg u "$COVER" '{image_url:$u}')" 2>/dev/null); then
+if [ -n "$TWOS" ] && CAP=$(route_slug_post "$TWOS" /api/ai/describe-image "$(jq -n --arg u "$COVER" '{image_url:$u}')"); then
   CAPTION=$(jq -r '[.. | (.altText? // .alt_text? // .description? // .caption?) // empty] | map(select(type=="string" and (length>0))) | .[0] // empty' <<<"$CAP" 2>/dev/null) || CAPTION=""
+elif [ -z "$TWOS" ]; then
+  echo "  (skipped — 2s.io not available in the Catalog; the song and cover are unaffected)"
 fi
 echo "  caption: ${CAPTION:-<unavailable — cover still delivered>}"
 
