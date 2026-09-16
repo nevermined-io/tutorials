@@ -1,4 +1,5 @@
-Find today's #1 tech headline, write 90s-pop-anthem lyrics about it, generate a full song
-from those lyrics, and generate matching album cover art. Give me the audio link and the
-cover. Discover every service in the Nevermined Catalog and pay for each through the Router
-— never ask me to pay.
+Find a current headline about the AI-safety "slow down" story, write a ≤200-character factual
+brief about it, and have an AI service turn that brief into a 1930s delta-blues song — words
+and all — plus a matching album cover and a caption for the cover. Give me the audio link and
+the cover. Discover every service in the Nevermined Catalog and pay for each through the Router
+— never ask me to pay, and don't write a single lyric yourself.
