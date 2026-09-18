@@ -1,0 +1,197 @@
+WEBVTT
+
+1
+00:00:00.350 --> 00:00:07.369
+Ship it while I'm in the shower. An AI agent bought its own website. Domain, hosting, repo, even this video's voice.
+
+2
+00:00:07.419 --> 00:00:10.478
+Paid per call, with real money, over two protocols,
+
+3
+00:00:10.528 --> 00:00:13.220
+on two chains, through the Nevermined Router.
+
+4
+00:00:14.220 --> 00:00:16.110
+Chapter one. A human sets the budget.
+
+5
+00:00:17.120 --> 00:00:21.750
+Log in once. Email and a one-time code. No passwords, no cards on file.
+
+6
+00:00:24.620 --> 00:00:29.557
+The wallet holds USDC on Base and USDC.e on Tempo. Two chains,
+
+7
+00:00:29.607 --> 00:00:35.750
+funded in advance. That is the last time a human touches money in this video.
+
+8
+00:00:36.750 --> 00:00:40.370
+Payment methods. Cards, wallets, and the spending delegations on each.
+
+9
+00:00:41.380 --> 00:00:46.388
+A crypto delegation. Forty dollars, twenty four hours. That is the whole guardrail.
+
+10
+00:00:46.438 --> 00:00:51.080
+Not a confirmation dialog. A cap the server enforces on every single payment.
+
+11
+00:00:52.080 --> 00:00:52.490
+Create.
+
+12
+00:00:55.580 --> 00:01:00.200
+And the API key the agent will carry was issued here. That is all the human does.
+
+13
+00:01:01.310 --> 00:01:03.650
+Chapter two. The agent goes shopping.
+
+14
+00:01:04.600 --> 00:01:08.850
+Claude Code. One plugin. nevermined-router. That is the whole integration.
+
+15
+00:01:14.600 --> 00:01:16.516
+One instruction. Read the brief,
+
+16
+00:01:16.566 --> 00:01:20.140
+you may spend up to forty dollars, and do not ask me first.
+
+17
+00:01:25.270 --> 00:01:28.365
+We ask the agent to account for itself. What did it buy,
+
+18
+00:01:28.415 --> 00:01:31.510
+on which protocol, on which chain, and what did it cost.
+
+19
+00:01:32.500 --> 00:01:34.593
+It reads its own log and the Router ledger.
+
+20
+00:01:34.643 --> 00:01:37.734
+Everything it did is on record: a twenty dollar hosting top-up,
+
+21
+00:01:37.784 --> 00:01:38.880
+the domain, the deploy.
+
+22
+00:01:39.870 --> 00:01:45.991
+Two protocols, two chains. The hosting credit went over x402 on Base. The screenshot,
+
+23
+00:01:46.041 --> 00:01:50.202
+and later this video's voice and music, over MPP on Tempo.
+
+24
+00:01:50.252 --> 00:01:53.760
+The agent never held an account with any of them.
+
+25
+00:01:54.770 --> 00:01:58.690
+Then it waits for the domain's DNS. Twenty minutes, compressed.
+
+26
+00:02:03.940 --> 00:02:07.836
+It buys a screenshot of itself. ScreenshotOne, six cents,
+
+27
+00:02:07.886 --> 00:02:11.990
+settled on Tempo. That image becomes the page's own preview.
+
+28
+00:02:13.940 --> 00:02:16.498
+Before spending again it reads the Router ledger,
+
+29
+00:02:16.548 --> 00:02:20.810
+so it never buys the same thing twice. Every purchase carries an idempotency key.
+
+30
+00:02:23.940 --> 00:02:26.398
+It builds the receipt straight from the ledger.
+
+31
+00:02:26.448 --> 00:02:28.640
+Every line is a real transaction on chain.
+
+32
+00:02:32.710 --> 00:02:35.532
+It renders its own page at desktop and phone widths,
+
+33
+00:02:35.582 --> 00:02:38.570
+finds two layout bugs, and fixes them before deploying.
+
+34
+00:02:44.380 --> 00:02:47.320
+It creates a public GitHub repo and pushes the source.
+
+35
+00:02:55.380 --> 00:02:58.230
+Done. Inside the forty dollar cap. Nothing refused,
+
+36
+00:02:58.280 --> 00:03:00.390
+nothing widened, no human clicked buy.
+
+37
+00:03:03.480 --> 00:03:05.790
+Chapter three. The receipt is the website.
+
+38
+00:03:06.740 --> 00:03:10.180
+shippeditself.com. The site the agent shipped, on the domain it bought.
+
+39
+00:03:13.240 --> 00:03:17.278
+What it did, and how it works. The catalog quotes prices on the wire,
+
+40
+00:03:17.328 --> 00:03:20.181
+the merchant answers 402, and the Router pays it,
+
+41
+00:03:20.231 --> 00:03:22.670
+inside the cap. Two protocols, two chains.
+
+42
+00:03:23.670 --> 00:03:30.548
+The receipt. Every line names the vendor, the protocol, the chain, the amount, the fee, and links the transaction.
+
+43
+00:03:30.598 --> 00:03:32.310
+x402 and MPP. Base and Tempo.
+
+44
+00:03:32.360 --> 00:03:36.565
+It even includes the narration you are hearing and the music under it,
+
+45
+00:03:36.615 --> 00:03:37.780
+bought the same way.
+
+46
+00:03:38.770 --> 00:03:41.002
+And back in the app, the delegation. One budget.
+
+47
+00:03:41.052 --> 00:03:44.330
+Everything in this video was paid from it, and it never had to say no.
+
+48
+00:03:45.440 --> 00:03:49.857
+The tutorial repo has the brief, the agent's rules, the friction log,
+
+49
+00:03:49.907 --> 00:03:55.100
+and the receipt. Install the plugin, set a budget, and ship yours. nevermined.ai.
