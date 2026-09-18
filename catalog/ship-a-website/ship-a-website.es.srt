@@ -23,181 +23,173 @@ Inicia sesión una vez. Correo y un código de un solo uso.
 Sin contraseñas, sin tarjetas guardadas.
 
 7
-00:00:24,620 --> 00:00:29,339
-La cartera tiene USDC en Base y USDC.e en Tempo. Dos cadenas,
-
-8
-00:00:29,389 --> 00:00:35,750
-financiadas de antemano. Es la última vez que un humano toca dinero en este vídeo.
-
-9
-00:00:36,750 --> 00:00:40,370
+00:00:27,120 --> 00:00:30,740
 Métodos de pago. Tarjetas, carteras y las delegaciones de gasto de cada una.
 
-10
-00:00:41,380 --> 00:00:46,234
+8
+00:00:31,750 --> 00:00:36,604
 Una delegación cripto. Cuarenta dólares, veinticuatro horas. Esa es toda la barrera.
 
-11
-00:00:46,284 --> 00:00:51,080
+9
+00:00:36,654 --> 00:00:41,450
 No es un diálogo de confirmación: es un límite que el servidor aplica en cada pago.
 
-12
-00:00:52,080 --> 00:00:52,490
+10
+00:00:42,450 --> 00:00:42,860
 Crear.
 
-13
-00:00:55,580 --> 00:00:58,354
+11
+00:00:47,950 --> 00:00:50,724
 Y la clave API que llevará el agente se emitió aquí.
 
-14
-00:00:58,404 --> 00:01:00,200
+12
+00:00:50,774 --> 00:00:52,570
 Eso es todo lo que hace el humano.
 
-15
-00:01:01,310 --> 00:01:03,650
+13
+00:00:56,550 --> 00:00:58,890
 Capítulo dos. El agente va de compras.
 
-16
-00:01:04,600 --> 00:01:08,850
+14
+00:00:59,840 --> 00:01:04,090
 Claude Code. Un plugin: nevermined-router. Esa es toda la integración.
 
-17
-00:01:14,600 --> 00:01:16,473
+15
+00:01:09,840 --> 00:01:11,713
 Una instrucción. Lee el encargo,
 
-18
-00:01:16,523 --> 00:01:20,140
+16
+00:01:11,763 --> 00:01:15,380
 puedes gastar hasta cuarenta dólares y no me preguntes antes.
 
-19
-00:01:25,270 --> 00:01:28,460
+17
+00:01:20,510 --> 00:01:23,700
 Le pedimos al agente que rinda cuentas. Qué compró,
 
-20
-00:01:28,510 --> 00:01:31,510
+18
+00:01:23,750 --> 00:01:26,750
 con qué protocolo, en qué cadena y cuánto costó.
 
-21
-00:01:32,500 --> 00:01:34,651
+19
+00:01:27,740 --> 00:01:29,891
 Lee su propio registro y el libro mayor del Router.
 
-22
-00:01:34,701 --> 00:01:37,758
+20
+00:01:29,941 --> 00:01:32,998
 Todo lo que hizo está anotado: una recarga de hosting de veinte dólares,
 
-23
-00:01:37,808 --> 00:01:38,880
+21
+00:01:33,048 --> 00:01:34,120
 el dominio, el despliegue.
 
-24
-00:01:39,870 --> 00:01:45,887
+22
+00:01:35,110 --> 00:01:41,127
 Dos protocolos, dos cadenas. El crédito de hosting fue por x402 en Base. La captura,
 
-25
-00:01:45,937 --> 00:01:50,293
+23
+00:01:41,177 --> 00:01:45,533
 y después la voz y la música de este vídeo, por MPP en Tempo.
 
-26
-00:01:50,343 --> 00:01:53,760
+24
+00:01:45,583 --> 00:01:49,000
 El agente nunca tuvo cuenta en ninguno de ellos.
 
-27
-00:01:54,770 --> 00:01:58,690
+25
+00:01:50,010 --> 00:01:53,930
 Luego espera al DNS del dominio. Veinte minutos, comprimidos.
 
-28
-00:02:03,940 --> 00:02:07,470
+26
+00:01:59,180 --> 00:02:02,710
 Compra una captura de sí mismo. ScreenshotOne, seis centavos,
 
-29
-00:02:07,520 --> 00:02:11,990
+27
+00:02:02,760 --> 00:02:07,230
 liquidados en Tempo. Esa imagen se convierte en la vista previa de la página.
 
-30
-00:02:13,940 --> 00:02:16,638
+28
+00:02:09,180 --> 00:02:11,878
 Antes de volver a gastar, lee el libro mayor del Router,
 
-31
-00:02:16,688 --> 00:02:18,651
+29
+00:02:11,928 --> 00:02:13,891
 para no comprar nunca dos veces lo mismo.
 
-32
-00:02:18,701 --> 00:02:20,810
+30
+00:02:13,941 --> 00:02:16,050
 Cada compra lleva una clave de idempotencia.
 
-33
-00:02:23,940 --> 00:02:26,481
+31
+00:02:19,180 --> 00:02:21,721
 Construye el recibo directamente desde el libro mayor.
 
-34
-00:02:26,531 --> 00:02:28,640
+32
+00:02:21,771 --> 00:02:23,880
 Cada línea es una transacción real en cadena.
 
-35
-00:02:32,710 --> 00:02:35,495
+33
+00:02:27,950 --> 00:02:30,735
 Renderiza su propia página en anchos de escritorio y móvil,
 
-36
-00:02:35,545 --> 00:02:38,570
+34
+00:02:30,785 --> 00:02:33,810
 encuentra dos fallos de diseño y los corrige antes de desplegar.
 
-37
-00:02:44,380 --> 00:02:47,320
+35
+00:02:39,620 --> 00:02:42,560
 Crea un repositorio público en GitHub y sube el código.
 
-38
-00:02:55,380 --> 00:02:57,519
+36
+00:02:50,620 --> 00:02:52,759
 Hecho. Dentro del límite de cuarenta dólares.
 
-39
-00:02:57,569 --> 00:03:00,390
+37
+00:02:52,809 --> 00:02:55,630
 Nada rechazado, nada ampliado, ningún humano pulsó comprar.
 
-40
-00:03:03,480 --> 00:03:05,790
+38
+00:02:58,720 --> 00:03:01,030
 Capítulo tres. El recibo es el sitio web.
 
-41
-00:03:06,740 --> 00:03:10,180
+39
+00:03:01,980 --> 00:03:05,420
 shippeditself.com. El sitio que lanzó el agente, en el dominio que compró.
 
-42
-00:03:13,240 --> 00:03:17,629
+40
+00:03:08,480 --> 00:03:12,869
 Qué hizo y cómo funciona. El catálogo publica los precios en el propio protocolo,
 
-43
-00:03:17,679 --> 00:03:20,095
+41
+00:03:12,919 --> 00:03:15,335
 el comercio responde 402 y el Router lo paga,
 
-44
-00:03:20,145 --> 00:03:22,670
+42
+00:03:15,385 --> 00:03:17,910
 dentro del límite. Dos protocolos, dos cadenas.
 
-45
-00:03:23,670 --> 00:03:30,610
+43
+00:03:18,910 --> 00:03:25,850
 El recibo. Cada línea indica el proveedor, el protocolo, la cadena, el importe, la comisión y enlaza la transacción.
 
-46
-00:03:30,660 --> 00:03:36,093
+44
+00:03:25,900 --> 00:03:31,333
 x402 y MPP. Base y Tempo. Incluye hasta la narración que estás oyendo y la música de fondo,
 
-47
-00:03:36,143 --> 00:03:37,780
+45
+00:03:31,383 --> 00:03:33,020
 compradas de la misma forma.
 
-48
-00:03:38,770 --> 00:03:41,365
+46
+00:03:34,010 --> 00:03:36,605
 Y de vuelta en la app, la delegación. Un solo presupuesto.
 
-49
-00:03:41,415 --> 00:03:44,330
+47
+00:03:36,655 --> 00:03:39,570
 Todo en este vídeo se pagó con él, y nunca tuvo que decir que no.
 
-50
-00:03:45,440 --> 00:03:50,913
+48
+00:03:40,680 --> 00:03:46,153
 El tutorial tiene el encargo, las reglas del agente, el registro de fricciones y el recibo.
 
-51
-00:03:50,963 --> 00:03:55,100
+49
+00:03:46,203 --> 00:03:50,340
 Instala el plugin, fija un presupuesto y lanza el tuyo. nevermined.ai
