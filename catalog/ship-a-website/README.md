@@ -6,7 +6,7 @@ The site it shipped is **[shippeditself.com](https://shippeditself.com)**. The s
 
 ![The hero screenshot the agent bought of its own site](./hero.png)
 
-🎬 **Watch it happen:** [`ship-a-website.mp4`](./ship-a-website.mp4) (EN/ES subtitles alongside) — the human setup, the agent at work, and the receipt on the live site.
+🎬 **Watch it happen:** [on YouTube](https://youtu.be/Wg-7go30WRs) (EN/ES captions), or [`ship-a-website.mp4`](./ship-a-website.mp4) in this folder — the human setup, the agent at work, and the receipt on the live site.
 🧾 **The receipt:** [`receipt/receipt.json`](./receipt/receipt.json) — 41 settled payments, every one linked to its on-chain transaction.
 📓 **The agent's own log:** [`BUILD_LOG.md`](./BUILD_LOG.md) · what broke and what surprised us: [`FRICTION.md`](./FRICTION.md)
 
