@@ -21,7 +21,7 @@ Most "AI agent does X" demos stop where money starts: a person signs up at each 
 Three things are worth noticing:
 
 - **The cap is the whole guardrail.** The human created a delegation of $40 for 24 hours and walked away. The server checks the cap on every payment; a call that would exceed it is refused before any money moves. No confirmation dialogs, no allowlist, no per-vendor setup.
-- **Two protocols, two chains, one budget.** The host takes [x402](https://nevermined.ai/docs/products/router/rails-x402) (USDC on Base). The other three vendors take [MPP](https://nevermined.ai/docs/products/router/rails-mpp) (USDC.e on Tempo). The agent never chose a rail — it called each service by its Catalog slug and the Router paid whatever the merchant's `402` asked for.
+- **Two protocols, two chains, one budget.** The host takes [x402](https://nevermined.ai/docs/products/router/rails-x402) (USDC on Base). The other three vendors take [MPP](https://nevermined.ai/docs/products/router/rails-mpp) (USDC.e on Tempo). The agent never chose a rail — it sent every call through the Router (three vendors by their Catalog slug, the host by its x402 endpoint) and the Router paid whatever each merchant's `402` asked for.
 - **The receipt is the website.** Every line names the vendor, the protocol, the chain, the amount, the Router's fee, and links the settlement transaction. The narration and music of the walkthrough video were bought the same way and sit on the same receipt.
 
 ## What happens, step by step
@@ -31,7 +31,7 @@ One prompt ([`demo-prompt.txt`](./demo-prompt.txt)) plus the brief ([`BRIEF.md`]
 | Step | What the agent does | Service (Catalog slug) | Rail / chain | Settled |
 |------|---------------------|------------------------|--------------|---------|
 | 1 | Reads its delegation (cap, expiry, wallet) and the brief | — | — | — |
-| 2 | Signs up at the host with its wallet address (free) and tops up $20 of hosting credit | Locus (`build-with-locus`) | x402 · Base | $20.00 + $0.40 fee |
+| 2 | Signs up at the host with its wallet address (free) and tops up $20 of hosting credit | Locus (`build-with-locus`)¹ | x402 · Base | $20.00 + $0.40 fee |
 | 3 | Registers **shippeditself.com** ($16.00 of that credit) and creates a project, environment and container service | Locus | paid from the credit | — |
 | 4 | Writes the site, deploys it by `git push`, waits for the certificate and DNS | Locus | — | — |
 | 5 | Buys a screenshot of the live site for its own preview image | ScreenshotOne (`screenshotone`) | MPP · Tempo | $0.06 |
@@ -40,6 +40,8 @@ One prompt ([`demo-prompt.txt`](./demo-prompt.txt)) plus the brief ([`BRIEF.md`]
 | 8 | Later, for the video: 36 narration lines and one music bed, added to the same receipt | Deepgram (`deepgram-via-mpp`), Suno (`suno-mpp`) | MPP · Tempo | $0.83 + $0.12 |
 
 One optional call — anchoring the receipt's hash on-chain — failed upstream after a valid payment credential; the Router released its reservation and the agent dropped it, as the brief instructs. It is in the log, not on the page.
+
+¹ Locus was listed in the Catalog at run time and was unlisted on 2026-09-17 in a catalog cleanup. The top-up goes to its x402 endpoint by URL, which the Router pays whether or not the host is cataloged, so the run reproduces unchanged.
 
 ## The one prompt
 
