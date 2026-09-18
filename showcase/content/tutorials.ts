@@ -762,6 +762,103 @@ weather.ensureCity   # prompt — guide the LLM to request weather`,
     },
   },
 
+  // ─────────────────────────────── 9b. Ship a website (recap) ───────────────
+  {
+    slug: "ship-a-website",
+    title: "Ship It While I'm In the Shower",
+    tagline:
+      "One prompt and a $40 budget: a coding agent registered shippeditself.com, paid for hosting, bought a screenshot of itself, pushed the source to GitHub and published the receipt on the page — then bought the voice and music for the video about it. 41 payments, 4 vendors, two protocols on two chains, zero human clicks.",
+    protocol: "catalog",
+    language: "autonomous",
+    tier: "recap",
+    repoPath: "catalog/ship-a-website/",
+    learn: {
+      lead: "An agent can buy the things it needs to exist — and prove it, line by line.",
+      bullets: [
+        "The human creates one spending delegation ($40, 24 hours) and walks away",
+        "The agent pays a registrar, a host, a screenshot service, a TTS service and a music service per call, with no account at any of them",
+        "The Router picks the rail from each merchant's 402 — x402 on Base for one vendor, MPP on Tempo for the others",
+        "The receipt on the site links every payment to its on-chain transaction, including the video's own narration",
+      ],
+    },
+    how: {
+      paragraphs: [
+        "The agent reads its delegation and the brief, tops up hosting credit over x402, registers the domain and deploys a container from that credit, buys a screenshot of the live page over MPP, builds the receipt from the Router ledger, fixes its own layout bugs and pushes the source to GitHub. Later it buys the narration and the music for the walkthrough video from the same budget, and adds them to the same receipt.",
+      ],
+      table: {
+        head: ["Step", "What the agent does", "Service"],
+        rows: [
+          ["1", "Tops up $20 of hosting credit", "Locus (x402 · Base)"],
+          ["2", "Registers shippeditself.com and deploys the site", "Locus (from the credit)"],
+          ["3", "Buys a screenshot of the live site for its preview image", "ScreenshotOne (MPP · Tempo)"],
+          ["4", "Builds the receipt from the ledger, pushes the source to GitHub", "—"],
+          ["5", "Buys the video's narration (36 lines) and music bed", "Deepgram, Suno (MPP · Tempo)"],
+        ],
+      },
+    },
+    tech: {
+      stack: ["Claude Code", "nevermined-router plugin", "Nevermined Catalog", "the Router", "x402 + MPP", "Base + Tempo", "capped delegation"],
+      samples: [
+        {
+          caption: "the whole human contribution, then one prompt",
+          lang: "bash",
+          code: `claude plugin marketplace add nevermined-io/docs
+claude plugin install nevermined-router@nevermined
+export NVM_API_KEY='live:…' NVM_API_URL='https://api.live.nevermined.app' NVM_DELEGATION_ID='…'
+claude   # then paste demo-prompt.txt`,
+        },
+        {
+          caption: "the prompt (demo-prompt.txt)",
+          lang: "text",
+          code: `"Read BRIEF.md in this folder and do everything in it. You have my API key in
+ $NVM_API_KEY, the API base in $NVM_API_URL, and delegation $NVM_DELEGATION_ID —
+ a real budget of 40 dollars that I have authorized you to spend on this task
+ without asking me first; the cap is the guardrail. Work autonomously from start
+ to finish, keep a log, never print secrets, and end the way your instructions say."`,
+        },
+      ],
+      files: [
+        { path: "BRIEF.md", desc: "the task, the deliverables and the verified field notes per vendor" },
+        { path: "agent/CLAUDE.md", desc: "the agent's rules: the money authorization, what a refusal means, what never to print" },
+        { path: "demo-prompt.txt", desc: "the one prompt" },
+        { path: "BUILD_LOG.md", desc: "the agent's own run log, every paid call with its payment id and tx hash" },
+        { path: "receipt/receipt.json", desc: "41 settled payments, one row each, rendered live at shippeditself.com" },
+        { path: "FRICTION.md", desc: "what broke or surprised, with reproductions" },
+      ],
+    },
+    run: {
+      kind: "recap",
+      video: {
+        src: "/media/ship-a-website/ship-a-website.mp4",
+        subtitles: [
+          { src: "/media/ship-a-website/ship-a-website.en.vtt", srcLang: "en", label: "English", default: true },
+          { src: "/media/ship-a-website/ship-a-website.es.vtt", srcLang: "es", label: "Español" },
+        ],
+        caption: "ship-a-website.mp4 · EN/ES subtitles",
+        duration: "~4 min",
+      },
+      outputs: {
+        cover: { src: "/media/ship-a-website/hero.png", label: "hero.png — the screenshot the agent bought of its own site" },
+      },
+      receipt: {
+        head: ["Vendor", "What", "Paid to merchant"],
+        rows: [
+          ["Locus", "domain + hosting credit · x402 on Base", "$20.00"],
+          ["ScreenshotOne", "hero screenshot · MPP on Tempo", "$0.06"],
+          ["Deepgram", "36 narration lines · MPP on Tempo", "$0.83"],
+          ["Suno", "music bed, 3 calls · MPP on Tempo", "$0.12"],
+          ["Total", "41 settled payments · 2 protocols · 2 chains · $0.42 Router fees", "$21.00"],
+        ],
+        totalRow: 4,
+      },
+      warn: "The 2026-09-15 Live run drew $21.67 of a $40 delegation. The site it shipped is live at https://shippeditself.com and its source is public. Running the brief yourself spends real money — about $40 — and registers a real domain.",
+      interactive: [
+        { label: "The site it shipped", href: "https://shippeditself.com" },
+        { label: "The source it pushed", href: "https://github.com/nevermined-io/shippeditself" },
+      ],
+    },
+  },
+
   // ─────────────────────────────── 10. Diligence (recap) ────────────────────
   {
     slug: "diligence-in-a-box",
