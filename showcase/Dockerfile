@@ -25,6 +25,7 @@ COPY showcase/ ./
 COPY catalog/discover-the-catalog/discover-the-catalog.mp4 ./public/media/discover-the-catalog/
 COPY catalog/song-from-the-headlines/song-from-the-headlines.mp4 ./public/media/song-from-the-headlines/
 COPY catalog/diligence-in-a-box/diligence-in-a-box.mp4 ./public/media/diligence-in-a-box/
+COPY catalog/ship-a-website/ship-a-website.mp4 ./public/media/ship-a-website/
 RUN npm run build
 
 # ---- runner ----

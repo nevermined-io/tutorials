@@ -1,0 +1,197 @@
+WEBVTT
+
+1
+00:00:00.350 --> 00:00:07.533
+Lánzalo mientras me ducho. Un agente de IA compró su propio sitio web. Dominio, hosting, repositorio, incluso la voz de este vídeo.
+
+2
+00:00:07.583 --> 00:00:09.521
+Pagado por llamada, con dinero real,
+
+3
+00:00:09.571 --> 00:00:13.220
+en dos protocolos y dos cadenas, a través del Router de Nevermined.
+
+4
+00:00:14.220 --> 00:00:16.110
+Capítulo uno. Un humano fija el presupuesto.
+
+5
+00:00:17.120 --> 00:00:19.820
+Inicia sesión una vez. Correo y un código de un solo uso.
+
+6
+00:00:19.870 --> 00:00:21.750
+Sin contraseñas, sin tarjetas guardadas.
+
+7
+00:00:27.120 --> 00:00:30.740
+Métodos de pago. Tarjetas, carteras y las delegaciones de gasto de cada una.
+
+8
+00:00:31.750 --> 00:00:36.604
+Una delegación cripto. Cuarenta dólares, veinticuatro horas. Esa es toda la barrera.
+
+9
+00:00:36.654 --> 00:00:41.450
+No es un diálogo de confirmación: es un límite que el servidor aplica en cada pago.
+
+10
+00:00:42.450 --> 00:00:42.860
+Crear.
+
+11
+00:00:47.950 --> 00:00:50.724
+Y la clave API que llevará el agente se emitió aquí.
+
+12
+00:00:50.774 --> 00:00:52.570
+Eso es todo lo que hace el humano.
+
+13
+00:00:56.550 --> 00:00:58.890
+Capítulo dos. El agente va de compras.
+
+14
+00:00:59.840 --> 00:01:04.090
+Claude Code. Un plugin: nevermined-router. Esa es toda la integración.
+
+15
+00:01:09.840 --> 00:01:11.713
+Una instrucción. Lee el encargo,
+
+16
+00:01:11.763 --> 00:01:15.380
+puedes gastar hasta cuarenta dólares y no me preguntes antes.
+
+17
+00:01:20.170 --> 00:01:25.493
+El registro hasta ahora. Recargó crédito de hosting, veinte dólares, por x402 en Base.
+
+18
+00:01:25.543 --> 00:01:27.054
+Compró shippeditself.com.
+
+19
+00:01:27.104 --> 00:01:31.240
+Levantó un contenedor y desplegó una primera versión de este sitio.
+
+20
+00:01:32.240 --> 00:01:35.430
+Le pedimos al agente que rinda cuentas. Qué compró,
+
+21
+00:01:35.480 --> 00:01:38.480
+con qué protocolo, en qué cadena y cuánto costó.
+
+22
+00:01:39.470 --> 00:01:45.487
+Dos protocolos, dos cadenas. El crédito de hosting fue por x402 en Base. La captura,
+
+23
+00:01:45.537 --> 00:01:49.893
+y después la voz y la música de este vídeo, por MPP en Tempo.
+
+24
+00:01:49.943 --> 00:01:53.360
+El agente nunca tuvo cuenta en ninguno de ellos.
+
+25
+00:01:54.370 --> 00:01:58.290
+Luego espera al DNS del dominio. Veinte minutos, comprimidos.
+
+26
+00:02:03.540 --> 00:02:07.070
+Compra una captura de sí mismo. ScreenshotOne, seis centavos,
+
+27
+00:02:07.120 --> 00:02:11.590
+liquidados en Tempo. Esa imagen se convierte en la vista previa de la página.
+
+28
+00:02:13.540 --> 00:02:16.238
+Antes de volver a gastar, lee el libro mayor del Router,
+
+29
+00:02:16.288 --> 00:02:18.251
+para no comprar nunca dos veces lo mismo.
+
+30
+00:02:18.301 --> 00:02:20.410
+Cada compra lleva una clave de idempotencia.
+
+31
+00:02:23.540 --> 00:02:26.081
+Construye el recibo directamente desde el libro mayor.
+
+32
+00:02:26.131 --> 00:02:28.240
+Cada línea es una transacción real en cadena.
+
+33
+00:02:32.310 --> 00:02:35.095
+Renderiza su propia página en anchos de escritorio y móvil,
+
+34
+00:02:35.145 --> 00:02:38.170
+encuentra dos fallos de diseño y los corrige antes de desplegar.
+
+35
+00:02:43.980 --> 00:02:46.920
+Crea un repositorio público en GitHub y sube el código.
+
+36
+00:02:54.980 --> 00:02:57.119
+Hecho. Dentro del límite de cuarenta dólares.
+
+37
+00:02:57.169 --> 00:02:59.990
+Nada rechazado, nada ampliado, ningún humano pulsó comprar.
+
+38
+00:03:03.080 --> 00:03:05.390
+Capítulo tres. El recibo es el sitio web.
+
+39
+00:03:06.340 --> 00:03:09.780
+shippeditself.com. El sitio que lanzó el agente, en el dominio que compró.
+
+40
+00:03:12.840 --> 00:03:17.229
+Qué hizo y cómo funciona. El catálogo publica los precios en el propio protocolo,
+
+41
+00:03:17.279 --> 00:03:19.695
+el comercio responde 402 y el Router lo paga,
+
+42
+00:03:19.745 --> 00:03:22.270
+dentro del límite. Dos protocolos, dos cadenas.
+
+43
+00:03:23.270 --> 00:03:30.210
+El recibo. Cada línea indica el proveedor, el protocolo, la cadena, el importe, la comisión y enlaza la transacción.
+
+44
+00:03:30.260 --> 00:03:35.693
+x402 y MPP. Base y Tempo. Incluye hasta la narración que estás oyendo y la música de fondo,
+
+45
+00:03:35.743 --> 00:03:37.380
+compradas de la misma forma.
+
+46
+00:03:38.370 --> 00:03:40.965
+Y de vuelta en la app, la delegación. Un solo presupuesto.
+
+47
+00:03:41.015 --> 00:03:43.930
+Todo en este vídeo se pagó con él, y nunca tuvo que decir que no.
+
+48
+00:03:45.040 --> 00:03:50.513
+El tutorial tiene el encargo, las reglas del agente, el registro de fricciones y el recibo.
+
+49
+00:03:50.563 --> 00:03:54.700
+Instala el plugin, fija un presupuesto y lanza el tuyo. nevermined.ai
