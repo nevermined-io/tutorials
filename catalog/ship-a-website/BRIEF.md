@@ -106,7 +106,7 @@ response is nulled** to protect the merchant host; that is why the free Locus ma
 - **Locus fallback** (`build-with-locus`): Locus can buy the domain itself and auto-wire DNS + SSL.
   `GET https://mpp.buildwithlocus.com/v1/domains/check-availability?domain=<name>` (free, JWT) → price
   (`.com` ≈ $16, `.xyz` ≈ $19, `.ai` far more). `POST /v1/domains/purchase` (JWT, direct) with
-  `{"projectId", "domain", "contact": {firstName, lastName, email, phone: "+49.15902681632" style,
+  `{"projectId", "domain", "contact": {firstName, lastName, email, phone: "+49.15551234567" style,
   addressLine1, city, state, countryCode, zipCode}, "autoRenew": false, "privacyProtection": true}` → `202`,
   then poll `GET /v1/domains/{domainId}/registration-status` every 20 s until `registered` (1–15 min), then
   `POST /v1/domains/{domainId}/attach {"serviceId"}`. Domain purchases are charged to the **Locus credit

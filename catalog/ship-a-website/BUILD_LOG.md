@@ -1,6 +1,6 @@
 # Build log — Ship It While I'm In the Shower
 
-The agent's own `RUN.md`, verbatim except for a handful of wording edits noted in the tutorial README. Delegation and payment ids, transaction hashes and vendor ids are public by design; nothing under `private/` appears here.
+The agent's own `RUN.md`, verbatim except for five wording edits listed under *Provenance* in the tutorial README. Delegation and payment ids, transaction hashes and vendor ids are public by design; nothing under `private/` appears here.
 
 Run started: 2026-09-15
 

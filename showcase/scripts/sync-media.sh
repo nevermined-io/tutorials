@@ -31,4 +31,5 @@ fi
 copy catalog discover-the-catalog
 copy catalog song-from-the-headlines
 copy catalog diligence-in-a-box
+copy catalog ship-a-website
 echo "done."

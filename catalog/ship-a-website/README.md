@@ -8,7 +8,7 @@ The site it shipped is **[shippeditself.com](https://shippeditself.com)**. The s
 
 🎬 **Watch it happen:** [on YouTube](https://youtu.be/Wg-7go30WRs) (EN/ES captions), or [`ship-a-website.mp4`](./ship-a-website.mp4) in this folder — the human setup, the agent at work, and the receipt on the live site.
 🧾 **The receipt:** [`receipt/receipt.json`](./receipt/receipt.json) — 41 settled payments, every one linked to its on-chain transaction.
-📓 **The agent's own log:** [`BUILD_LOG.md`](./BUILD_LOG.md) · what broke and what surprised us: [`FRICTION.md`](./FRICTION.md)
+📓 **The agent's own log:** [`BUILD_LOG.md`](./BUILD_LOG.md) (its `RUN.md`, verbatim except for the edits listed under *Provenance* below) · what broke and what surprised us: [`FRICTION.md`](./FRICTION.md)
 
 > From our run on **2026-09-15**, on Production Live, under one server-enforced **$40.00 / 24 h** delegation. Drawn from the cap: **$21.67**. Paid to four vendors: **$21.00**. Router fees: **$0.42**. Human clicks after setup: **zero**.
 
@@ -51,17 +51,17 @@ The agent is not told how to pay. The brief's field notes tell it which vendors 
 
 ## The receipt (proof it really paid)
 
-The actual **2026-09-15** run, grouped by vendor. The full table with one row per payment and a transaction link on each is [`receipt/receipt.json`](./receipt/receipt.json), and it is rendered live at [shippeditself.com](https://shippeditself.com#receipt). Transaction hashes are public on-chain records; the delegation id and the API key are not committed anywhere.
+The actual **2026-09-15** run, grouped by vendor. The full table with one row per payment and a transaction link on each is [`receipt/receipt.json`](./receipt/receipt.json), and it is rendered live at [shippeditself.com](https://shippeditself.com#receipt). Transaction hashes, payment ids and the delegation id are public by design (the delegation id appears in `BUILD_LOG.md`; it is owner-scoped and expired on 2026-09-16); the API key is not committed anywhere.
 
 | Vendor | Protocol · chain | Payments | Paid to merchant | Router fee |
 |--------|------------------|----------|------------------|------------|
 | Locus (Build With Locus) — domain + hosting credit | x402 · Base | 1 | $20.00 | $0.40 |
 | ScreenshotOne — hero screenshot | MPP · Tempo | 1 | $0.06 | $0.00 |
-| Deepgram — video narration, 36 lines | MPP · Tempo | 36 | $0.83 | $0.02 |
-| Suno — music bed (1 generation + 2 status polls) | MPP · Tempo | 3 | $0.12 | $0.00 |
-| **Total** | 2 protocols · 2 chains | **41** | **$21.00** | **$0.42** |
+| Deepgram — video narration, 36 lines | MPP · Tempo | 36 | $0.828 | $0.017 |
+| Suno — music bed (1 generation + 2 status polls) | MPP · Tempo | 3 | $0.115 | $0.002 |
+| **Total** | 2 protocols · 2 chains | **41** | **$21.003** | **$0.419** |
 
-**Drawn from the $40.00 delegation: $21.67** — the cap is charged in whole cents per payment, which is where the difference from $21.42 comes from. The Router's fee is 2% of the merchant leg, shown as its own column and never folded into the amount.
+**Drawn from the $40.00 delegation: $21.67** — merchant charges plus the Router fee come to $21.42; the cap is charged in whole cents per payment, and the 39 sub-cent calls round up to the remaining $0.25. The Router's fee is 2% of the merchant leg, shown as its own column and never folded into the amount.
 
 ## Reproduce it
 
@@ -94,6 +94,12 @@ You need a Nevermined account on **Live**, a wallet funded on both chains, and a
 ## The video
 
 The walkthrough was recorded with a local harness (VHS for the terminal, Playwright for the browser, HyperFrames + ffmpeg for the cut). Its **narration** (Deepgram) and **music** (Suno) were bought through the same Router and delegation, so they are on the receipt — rows 3–41. That part is documented rather than one-command reproducible: it depends on local tooling and a recording profile.
+
+**Provenance of the footage.** Everything on screen is real, but not every terminal segment is from the receipted run: the first half-hour of the 2026-09-15 run (sign-up at the host, the credit top-up, the domain registration) was not captured on video. So in chapter 2, the session start — plugin install and the prompt — was re-recorded afterwards in a fresh folder against the already-expired delegation (no payment could occur), and the hosting-setup segment (~1:20, project `proj_mtxdz…`) comes from the 2026-09-11 rehearsal run. Every payment shown on screen — the ScreenshotOne purchase, the ledger check, the receipt — is from the receipted run and matches `receipt.json` and `BUILD_LOG.md`. The browser chapters were recorded on a fresh test account (`demo@nevermined.io`) so that no personal data appears; the $40 delegation you see created there is not the one the run spent.
+
+## Provenance of `BUILD_LOG.md`
+
+It is the agent's `RUN.md` with five wording edits and nothing removed: the title line; the heading "Resumed session (after screen-recording cutoff)" → "Session 2 — resumed from this log"; "Picked up per operator's note: … since the cut" → "Resumed in a fresh session from this log and the Router ledger: …"; "Per operator's instruction: stopped waiting" → "Per the brief's 20-minute rule: stopped waiting"; and "despite the operator's note that the A record had been created before the cutoff" → "although the host reported the A record as created". Every paid call, id, hash and amount is as the agent wrote it.
 
 ## What we learned testing the Catalog
 
