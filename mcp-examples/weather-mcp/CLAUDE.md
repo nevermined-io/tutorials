@@ -190,7 +190,7 @@ Credits can be:
 
 ### Testing Without Auth
 
-The MCP Inspector (`yarn inspector`) doesn't send auth headers. For testing with authentication, create a client script using `payments.agents.getAgentAccessToken()`.
+The MCP Inspector (`yarn inspector`) doesn't send auth headers. For testing with authentication, create a client script that mints an x402 access token with `payments.x402.getX402AccessToken(planId, agentId, { delegationConfig: { delegationId } })` — create the delegation first via `payments.delegation.createDelegation(...)`. See [`FLEET-SMOKE-TEST.md`](./FLEET-SMOKE-TEST.md) for a full runnable flow.
 
 ## Dependencies
 

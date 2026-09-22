@@ -192,12 +192,23 @@ import { Payments } from "@nevermined-io/payments";
 
 const payments = Payments.getInstance({
   nvmApiKey: process.env.NVM_API_KEY!,
-  environment: "sandbox",
 });
 
-// agentId is optional under the plan-centric model — the plan id is all you need
-const { accessToken } = await payments.agents.getAgentAccessToken(
-  process.env.NVM_PLAN_ID!
+// 1) Create a delegation (a spending mandate). `erc4337` = crypto, headless, no card.
+//    For card payments, create the delegation via the Nevermined embed flow and reuse its `delegationId`.
+const { delegationId } = await payments.delegation.createDelegation({
+  provider: "erc4337",
+  spendingLimitCents: 10000,
+  durationSecs: 604800,
+  currency: "usdc",
+});
+
+// 2) Mint the x402 access token against the plan.
+//    agentId is optional under the plan-centric model — the plan id is all you need.
+const { accessToken } = await payments.x402.getX402AccessToken(
+  process.env.NVM_PLAN_ID!,
+  undefined,
+  { delegationConfig: { delegationId } }
 );
 ```
 
