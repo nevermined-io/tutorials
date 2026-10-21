@@ -10,13 +10,13 @@
 # Service / ArgoCD Deployment.
 
 # ---- dependencies ----
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY showcase/package.json showcase/package-lock.json ./
 RUN npm ci
 
 # ---- build ----
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY showcase/ ./
@@ -29,7 +29,7 @@ COPY catalog/ship-a-website/ship-a-website.mp4 ./public/media/ship-a-website/
 RUN npm run build
 
 # ---- runner ----
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000

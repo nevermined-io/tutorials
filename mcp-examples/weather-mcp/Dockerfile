@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:24-alpine
 LABEL maintainer="Nevermined <root@nevermined.io>"
 
 RUN apk add --no-cache libc6-compat autoconf automake alpine-sdk xdg-utils gettext yarn
